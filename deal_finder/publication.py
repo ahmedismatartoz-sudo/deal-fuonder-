@@ -19,10 +19,13 @@ class PublicationAgent:
             raw_row = queue.db.execute('SELECT r.payload FROM jobs j JOIN raw_records r ON r.id=j.raw_id WHERE j.id=?', (job_id,)).fetchone()
             raw = queue.db.json_decode(raw_row[0])
             listing = raw.get('listing', {}) if isinstance(raw, dict) else {}
+            if not isinstance(listing, dict):
+                listing = {}
             key = tuple(v if isinstance(v, str) else None for v in (listing.get('source'), listing.get('source_id')))
-            if key in seen:
-                continue
-            seen.add(key)
+            if all(key):
+                if key in seen:
+                    continue
+                seen.add(key)
             run = result['run']
             components = run['outputs'].get('components', {}) if run else {}
             supervisor = components.get('supervisor', {}).get('data', {})

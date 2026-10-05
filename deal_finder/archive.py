@@ -127,6 +127,8 @@ class Archive:
         mode, scope = page['mode'], page['scope']
         if mode not in ('initial', 'incremental') or not isinstance(scope, dict):
             raise ValueError('Collection requires initial/incremental mode and explicit scope')
+        if scope.get('country') != 'IT':
+            raise ValueError('Collection scope must explicitly specify country=IT')
         records = page['records']
         if not isinstance(records, list) or len(records) > 5000:
             raise ValueError('At most 5000 records per page')

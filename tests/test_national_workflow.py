@@ -58,11 +58,11 @@ class NationalWorkflowTests(unittest.TestCase):
     def test_publication_preview_never_releases_unapproved_or_invalid_work(self):
         queue, archive = Queue(':memory:'), Archive(':memory:')
         try:
-            queue.submit('preview',[envelope(), {'listing':{'source_id':['invalid']}}])
-            queue.work_one(); queue.work_one()
+            queue.submit('preview',[envelope(), {'listing':{'source_id':['invalid']}}, {'listing':[]}])
+            queue.work_one(); queue.work_one(); queue.work_one()
             result = PublicationAgent().preview(queue, archive, 'preview', as_of=NOW+timedelta(seconds=10))
             self.assertEqual(result['items'], [])
-            self.assertEqual(len(result['rejected']), 2)
+            self.assertEqual(len(result['rejected']), 3)
             self.assertFalse(result['automatic_publication_enabled'])
         finally:
             queue.close(); archive.close()

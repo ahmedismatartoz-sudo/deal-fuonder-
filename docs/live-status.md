@@ -1,45 +1,48 @@
-# Stato verificato del database — 5 ottobre 2026
+# Stato verificato — 5 ottobre 2026
 
-Progetto: `deal-finder`, riferimento `jfqjtgasmnbiliijdjwo`, regione `eu-central-1`.
-Organizzazione scelta dall'utente. Costo comunicato dal connettore per la creazione:
-0 al mese; non è una stima dei costi futuri di hosting, traffico o crescita dei dati.
+Progetto Supabase `deal-finder`, riferimento `jfqjtgasmnbiliijdjwo`,
+regione eu-central-1, organizzazione scelta dall'utente. Costo comunicato dal
+connettore alla creazione: 0/mese; non è una previsione dei costi futuri.
 
-## Eseguito
+## Database live
 
-- Progetto attivo e query PostgreSQL eseguita con successo.
-- Migrazioni del pacchetto `001_postgres.sql` e `002_private_access.sql` applicate.
-- Hash memorizzati in `deal_finder.schema_migrations`, uguali ai file del repository.
-- Otto tabelle, tutte con RLS abilitata; schema non accessibile ad `anon` e
-  `authenticated`, che non hanno permessi SELECT sulle tabelle.
-- Ruolo backend senza login, superuser o bypass RLS; nessuna password nel repository.
-- Prova transazionale nel database reale: inserimento di lotto/record/lavoro,
-  passaggio running/done e registrazione di un risultato **sintetico di storage**.
-  Il ruolo backend non può eliminare lo storico o scrivere nelle migrazioni.
-  Tutti i dati della prova sono stati annullati con ROLLBACK; zero lotti persistenti.
-  La capacità di SET ROLE per l'amministratore è stata concessa solo all'interno
-  della transazione di prova e annullata insieme ad essa.
-- Advisor di sicurezza: nessun rilievo. Advisor prestazioni: cinque indici non
-  ancora utilizzati, atteso su database senza annunci; conservarli e misurare
-  l'utilizzo dopo il caricamento.
+- Migrazioni 001_postgres.sql, 002_private_access.sql e 003_national_archive.sql
+  applicate; checksum registrati nello schema privato deal_finder.
+- Undici tabelle, tutte con RLS. Anon e authenticated non possono leggere l'archivio.
+- Ruolo deal_finder_backend senza login, superuser o bypass RLS; nessun segreto nel codice.
+- L'archivio aggiunto contiene collection_pages, listing_events e collection_quarantine.
+  Il backend può inserire/leggere, non aggiornare/eliminare lo storico.
+- Verifica SQL transazionale sul progetto reale: inserimento/lettura di pagina,
+  evento e quarantena sintetici con il ruolo backend; controllo dei divieti
+  di UPDATE/DELETE; ROLLBACK di tutti i dati e del permesso temporaneo SET ROLE.
+  Zero pagine/eventi/quarantene persistenti dopo la prova.
+- Advisor sicurezza dopo la migrazione 003: nessun rilievo.
+- Hash 003: `4f5e79d4de674ae8a6f1f34358dd37ce5aa56552d1dc23293eebb4431f9121d7`.
+  I due hash precedenti restano invariati.
 
-## Separazione delle verifiche
+La prova SQL conferma schema e permessi, non l'esecuzione continuativa degli
+agenti Python su Supabase. La CI PostgreSQL usa esclusivamente un database
+usa-e-getta locale; nessun test distruttivo viene eseguito sul progetto live.
+La suite verificata comprende 84 test, API/SQLite/PostgreSQL e packaging migrazioni.
 
-La prova SQL conferma schema, permessi e scritture, non l'esecuzione dei nove
-agenti Python contro Supabase. La pipeline Python è verificata con test locali
-e con la CI PostgreSQL su database usa-e-getta. Nessun test distruttivo va eseguito
-sul progetto live. Nessuna previsione è calibrata su compravendite reali.
+## Componenti effettivamente disponibili
 
-## Passaggio necessario per l'avvio continuativo
+Archivio, raccolta export iniziale/incrementale con checkpoint, catalogo geografico,
+promozione alla coda, screening prezzi provinciale/nazionale, ispezioni/preventivi
+attestati, scenari con costi, supervisione e anteprima di pubblicazione.
+Il flusso espone sette componenti principali e controlli interni separati.
 
-1. Scegliere un hosting per due processi/container: API e worker Python.
-2. Provisionare il login backend e salvare le stringhe database e il token API
-   nei segreti dell'hosting; usare un login proprietario separato per le migrazioni.
-3. Sul servizio configurato eseguire `check-db`, avviare l'API con HTTPS e
-   `python -m deal_finder.worker run --poll-seconds 2` come worker supervisionato.
-4. Verificare importazione via API, analisi del worker e lettura degli esiti
-   sullo stesso database con un lotto sintetico dedicato allo sviluppo.
-5. Importare annunci verificati e raccogliere esiti reali per calibrare le stime.
+## Avvio ancora da configurare
 
-GitHub conserva il codice; Supabase conserva il database. Al momento non è
-attivo un hosting continuativo per l'API o il worker. Non sono stati acquisiti
-annunci reali, pubblicate previsioni di vendita o collegati scraper.
+1. Su Render o sull'hosting scelto configurare API e worker con lo stesso database.
+2. Provisionare login backend e segreti database/token; proprietario separato
+   per le migrazioni. Il ruolo NOLOGIN esistente contiene solo i permessi.
+3. Eseguire check-db; avviare API con HTTPS e worker supervisionato.
+4. Collegare adapter reali per le fonti e verificare la prima raccolta di annunci.
+5. Raccogliere transazioni e date documentate, calibrare prezzo/liquidità/costi,
+   poi abilitare i gates e lo scheduler mattutino con feed persistente.
+
+L'attivazione dell'account Render non conferma servizi avviati. Non risultano
+hosting continuativi, scraper collegati, annunci reali acquisiti o modelli calibrati.
+Le fotografie sono conservate come URL; i file non sono ancora copiati in storage.
+Pubblicazione automatica e raccomandazioni d'acquisto restano disabilitate.

@@ -103,6 +103,8 @@ class ArchiveTests(unittest.TestCase):
                event('image', payload={'image_urls':['file:///secret']})]
         self.assertEqual(self.ingest(page(bad))['quarantined'], 4)
         self.assertEqual(self.archive.search()['items'], [])
+        with self.assertRaises(ValueError):
+            self.ingest(page([], run='foreign-scope', scope={'country':'FR'}))
 
     def test_run_checkpoint_cursor_and_completion(self):
         self.ingest(page([event()], next_cursor='second', complete=False))

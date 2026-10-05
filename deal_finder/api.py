@@ -169,6 +169,8 @@ def collection_status(source: str, run_id: str):
         return archive.run_status(source, run_id)
     except KeyError as error:
         raise HTTPException(status_code=404, detail='Collection run not found') from error
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     finally:
         archive.close()
 
