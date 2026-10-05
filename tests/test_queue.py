@@ -11,6 +11,33 @@ from deal_finder.agents import analyze
 from deal_finder.models import Listing
 
 class QueueTests(unittest.TestCase):
+    def test_parts_research_envelope_is_preserved_and_not_quarantined(self):
+        raw=envelope();raw['parts_research']={'vehicle':{'vehicle_id':'vehicle-99'},'parts':[]}
+        receipt=self.queue.submit('parts-handoff',[raw])
+        self.assertEqual(receipt['quarantined_at_intake'],0)
+        stored=self.queue.db.execute('SELECT payload FROM raw_records WHERE batch_id=?',('parts-handoff',)).fetchone()[0]
+        self.assertEqual(self.queue.db.json_decode(stored)['parts_research'],raw['parts_research'])
+    def test_attempt_limit_is_a_positive_integer(self):
+        for value in (True,'3',0):
+            with self.assertRaises(ValueError): self.queue.claim(max_attempts=value)
+
+    def test_photo_conflicts_are_persisted_without_mutating_source_identity(self):
+        raw=envelope();raw['listing']['image_urls']=['https://example.com/front.jpg']
+        records=[raw]+[dict(listing=row(i),identity_evidence=proof(f'vehicle-{i}')) for i in range(8)]
+        receipt=self.queue.submit('photo-persisted',records)
+        self.assertEqual(receipt['quarantined_at_intake'],0)
+        conflict=dict(status='needs_review', conflicting_fields=[dict(field='model',values=['panda','500'])])
+        with patch.dict('os.environ',DEAL_FINDER_PHOTO_IDENTITY_ENABLED='1'):
+            with patch('deal_finder.agents.workflow.identify_photos',return_value=conflict):
+                result=self.queue.work_one()
+        self.assertEqual(result['state'],'done')
+        output=self.queue.result(result['job_id'])['run']['outputs']
+        self.assertEqual(output['photo_identity']['conflicting_fields'][0]['field'],'model')
+        self.assertEqual(output['handoff']['route'],'enrichment')
+        self.assertFalse(output['components']['supervisor']['data']['checks']['photo_identity_consistent'])
+        self.assertEqual(output['quality']['data']['listing']['model'],'panda')
+        self.assertFalse(output['components']['publication']['data']['publishable'])
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.path=str(Path(self.temp.name)/'queue.db')

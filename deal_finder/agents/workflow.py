@@ -5,6 +5,8 @@ from .specialists import analyze as controls, selection_decision
 from .contracts import Result
 from .market_experts import review, registry as expert_registry
 from .handoff import parts_handoff, card, FILTER_FIELDS
+from .photo_identity import execute as identify_photos
+import os
 
 
 COMPONENTS = (
@@ -21,7 +23,7 @@ COMPONENTS = (
 def registry():
     return [dict(name=name, version=PIPELINE_VERSION, requires=list(requires),
                  mode='collection' if name == 'collection' else 'analysis', purpose=purpose,
-                 subagents=expert_registry() if name == 'market_selection' else [])
+                 subagents=expert_registry()+[dict(name='photo_web_identity', version=PIPELINE_VERSION, purpose='Combine photos, ad and web references; expose uncertain variants')] if name == 'market_selection' else [])
             for name, requires, purpose in COMPONENTS]
 
 
@@ -32,9 +34,22 @@ def analyze(raw, candidates, as_of, **kwargs):
     market = out['market']
     decision = selection_decision(target, Result('market', market['status'], market['data'], market['reasons']))
     selected = decision['candidate']
+    if selected and os.getenv('DEAL_FINDER_PHOTO_IDENTITY_ENABLED') == '1':
+        out['photo_identity'] = identify_photos(raw, as_of)
+    else:
+        out['photo_identity'] = dict(status='waiting' if selected else 'blocked',
+                                    reason='Photo/web identification requires selected candidate and configured adapter',
+                                    identity_attestation=False, exact_part_fitment_confirmed=False)
+    photo_conflicts = out['photo_identity'].get('conflicting_fields', [])
+    if photo_conflicts:
+        selected = False
+        decision = dict(decision, candidate=False, route='enrichment', reason='Photo and listing identity conflict')
+        validation = out['validation']['data']
+        validation.update(analysis_state='needs_evidence', scenario_ready=False)
+        validation['missing_or_blocked']['photo_identity'] = ['Resolve photo/listing specification conflicts']
     repaired = selected and out['identity']['status'] == 'completed' and out['condition']['status'] == 'completed' and out['repair']['status'] == 'completed'
     checks = dict(valid_listing=target is not None, identity_verified=out['identity']['status'] == 'completed',
-                  selected_by_price=selected, repairs_documented=repaired,
+                  selected_by_price=selected, photo_identity_consistent=not bool(photo_conflicts), repairs_documented=repaired,
                   all_costs_documented=out['opportunity']['status'] == 'completed',
                   calibrated_resale_model=False, calibrated_sale_time_model=False,
                   acquisition_terms_verified=False, current_source_availability_verified=False)
@@ -44,7 +59,8 @@ def analyze(raw, candidates, as_of, **kwargs):
         'market_selection': dict(status='completed' if market['status'] == 'completed' else 'blocked',
                                  data=dict(**decision, benchmark=market['data'])),
         'repairs': dict(status='completed' if repaired else 'blocked', data=out['repair']['data'],
-                        reasons=out['condition']['reasons'] + out['repair']['reasons']),
+                        reasons=out['condition']['reasons'] + out['repair']['reasons'] +
+                        (['Resolve photo/listing identity conflict before repairs'] if photo_conflicts else [])),
         'resale': dict(status='blocked', data=dict(recommended_price_eur=None, prediction_interval_eur=None,
                        model_version=None), reasons=['Transaction-based resale model is not calibrated.']),
         'opportunity': dict(status='blocked', data=dict(scenario=out['opportunity']['data'],

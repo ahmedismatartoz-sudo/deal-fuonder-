@@ -104,3 +104,17 @@ class RepairResearchTests(unittest.TestCase):
         self.assertEqual(len(plan['queries']), 4)
         self.assertIn('generation', plan['missing_vehicle_fields'])
         self.assertIn('FT1244804', plan['exact_code_query'])
+
+
+class RepairBoundaryTests(unittest.TestCase):
+    def test_malformed_offer_rejected_without_losing_fallback(self):
+        value=estimate_parts(request([None,'bad',offer()]),as_of=NOW)
+        self.assertEqual(len(value['items'][0]['rejected_offers']),2)
+        self.assertGreater(value['parts_high_cents'],0)
+    def test_zero_fallback_is_not_an_unknown_cost(self):
+        value=request([]);value['parts'][0]['fallback'].update(low_cents=0,high_cents=0)
+        with self.assertRaises(ValueError): estimate_parts(value,as_of=NOW)
+    def test_bare_and_www_autodoc_aliases_are_one_seller(self):
+        value=estimate_parts(request([offer(),offer(url='https://autoparti.it/brembo/1657442',seller_group='alias',part_number='09.9145.14 ')]),as_of=NOW)
+        self.assertEqual(value['items'][0]['independent_sellers'],1)
+        self.assertEqual(len(value['items'][0]['rejected_offers']),1)

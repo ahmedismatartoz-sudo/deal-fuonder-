@@ -48,7 +48,8 @@ def card(target, decision, market, parts):
         data = parts['data']
         totals = dict(low=data['parts_low_cents'], high=data['parts_high_cents'])
         value.update(parts_low_cents=totals['low'], parts_high_cents=totals['high'],
-                     hours=[dict(repair_id=x['id'], **x['hours']) for x in data['items']])
+                     hours=[dict(repair_id=x['id'], low_minutes=x['hours']['low_minutes'],
+                                 high_minutes=x['hours']['high_minutes'], basis=x['hours']['basis']) for x in data['items']])
         interval = market.get('observed_range_eur')
         if interval:
             value.update(potential_gross_low_cents=interval['p25']*100-target.price_eur*100-totals['high'],
@@ -63,6 +64,15 @@ def filter_cards(cards, **filters):
                                    'max_mileage_km', 'min_potential_gross_low_cents'}
     if set(filters)-allowed:
         raise ValueError('Unsupported opportunity filter')
+    for key,value in filters.items():
+        if key.startswith(('min_', 'max_')) and type(value) is not int:
+            raise ValueError('Numeric filter requires integer')
+    for field in ('price_eur','mileage_km'):
+        low, high = filters.get('min_'+field),filters.get('max_'+field)
+        if (low is not None and low<0) or (high is not None and high<0):
+            raise ValueError('Price and mileage bounds cannot be negative')
+        if low is not None and high is not None and low>high:
+            raise ValueError('Filter lower bound exceeds upper bound')
     selected = []
     for item in cards:
         if item is None:

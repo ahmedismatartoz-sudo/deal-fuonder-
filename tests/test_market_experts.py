@@ -75,3 +75,15 @@ class ExpertTests(unittest.TestCase):
         self.assertFalse(card['hours_additive'])
         self.assertEqual(card['potential_gross_low_cents'], (10100-8000)*100-18000)
         self.assertFalse(card['publishable'])
+
+    def test_invalid_filter_validated_even_with_no_cards(self):
+        for filters in (dict(min_price_eur=True),dict(min_price_eur=-1),
+                        dict(min_mileage_km=100,max_mileage_km=50)):
+            with self.assertRaises(ValueError): filter_cards([],**filters)
+    def test_hours_cannot_override_repair_identifier(self):
+        from deal_finder.agents.handoff import card
+        target=Listing.parse(row(99))
+        parts=dict(status='provisional',data=dict(parts_low_cents=1000,parts_high_cents=2000,
+                   items=[dict(id='brakes',hours=dict(repair_id='forged',low_minutes=30,high_minutes=60,basis='assumption'))]))
+        result=card(target,dict(route='verification'),{},parts)
+        self.assertEqual(result['hours'][0]['repair_id'],'brakes')

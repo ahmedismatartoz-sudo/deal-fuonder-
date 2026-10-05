@@ -48,9 +48,11 @@ def collection_guard(archive):
                 raise CollectionBusy('AutoScout24 collector already running')
         yield
     finally:
-        if acquired:
-            archive.db.execute('SELECT pg_advisory_unlock(hashtextextended(?, 0))', (key,))
-        _collection_lock.release()
+        try:
+            if acquired:
+                archive.db.execute('SELECT pg_advisory_unlock(hashtextextended(?, 0))', (key,))
+        finally:
+            _collection_lock.release()
 
 
 def public_url(value, *, kind='search'):

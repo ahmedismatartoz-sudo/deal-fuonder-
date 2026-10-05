@@ -72,6 +72,10 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province', condi
         result['warnings'].append('Confirmed total purchase price required.')
     if any(not x.vehicle_id for x, _ in selected):
         result['warnings'].append('Cross-marketplace duplicates may remain without verified vehicle IDs.')
+    target_age = (now-datetime.fromisoformat(target.observed_at)).total_seconds()/86400
+    if not target.active or not 0 <= target_age <= 30:
+        result['warnings'].append('Target must be active and observed within the analysis window.')
+        return result
     if len(selected) < minimum:
         result['warnings'].append(f'At least {minimum} comparable listings required.')
         return result

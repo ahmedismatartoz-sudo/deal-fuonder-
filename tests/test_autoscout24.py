@@ -349,3 +349,14 @@ class AutoScoutApiTests(unittest.TestCase):
                 patch('deal_finder.market.Market.scan') as scan:
             with self.assertRaises(RuntimeError): main()
             scan.assert_not_called()
+
+
+class CollectionGuardRecoveryTests(unittest.TestCase):
+    def test_database_unlock_failure_does_not_leak_thread_mutex(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        db=Mock();db.dialect='postgres'
+        db.execute.side_effect=[Mock(fetchone=lambda:[True]),RuntimeError('Synthetic disconnected DB')]
+        with self.assertRaises(RuntimeError):
+            with collection_guard(SimpleNamespace(db=db)): pass
+        with collection_guard(SimpleNamespace(db=SimpleNamespace(dialect='sqlite'))): pass

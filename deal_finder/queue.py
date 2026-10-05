@@ -82,7 +82,7 @@ class Queue(Store):
                 try:
                     if not isinstance(raw, dict):
                         raise ValueError('Record must be an object with a listing field')
-                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence'}
+                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence', 'parts_research'}
                     if set(raw) - allowed:
                         raise ValueError('Unknown envelope fields: ' + ', '.join(sorted(set(raw)-allowed)))
                     listing = Listing.parse(raw['listing'])
@@ -116,7 +116,7 @@ class Queue(Store):
         return dict(record_count=found[0], quarantined_at_intake=invalid, jobs=states)
 
     def claim(self, *, lease_seconds=300, max_attempts=3, at=None):
-        if type(lease_seconds) is not int or lease_seconds < 1 or max_attempts < 1:
+        if type(lease_seconds) is not int or lease_seconds < 1 or type(max_attempts) is not int or max_attempts < 1:
             raise ValueError('Invalid lease or attempt limit')
         moment = at or datetime.now(timezone.utc)
         if moment.tzinfo is None:
