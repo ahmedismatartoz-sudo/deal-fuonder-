@@ -32,10 +32,17 @@ class Listing:
 
     @classmethod
     def parse(cls, row):
+        if not isinstance(row, dict):
+            raise ValueError('Listing must be an object')
         data = dict(row)
-        for key in ('source', 'source_id', 'make', 'model', 'generation', 'trim',
+        for key in ('source', 'make', 'model', 'generation', 'trim',
                     'fuel', 'transmission', 'province', 'seller_type', 'condition'):
             data[key] = normalize(data[key])
+            if key in ('make', 'model', 'generation', 'trim', 'fuel', 'transmission') and data[key] in ('unknown', 'n/a', 'na', 'sconosciuto', '-'):
+                raise ValueError(f'{key} cannot be an unknown placeholder')
+        if not isinstance(data.get('source_id'), str) or not data['source_id'].strip():
+            raise ValueError('source_id must be a nonempty case-sensitive string')
+        data['source_id'] = data['source_id'].strip()
         for key in ('year', 'mileage_km', 'price_eur'):
             value = data[key]
             if isinstance(value, bool) or not str(value).isdigit():
@@ -46,6 +53,8 @@ class Listing:
             raise ValueError('Invalid year')
         if not 0 <= data['mileage_km'] <= 2_000_000 or not 0 < data['price_eur'] <= 10_000_000:
             raise ValueError('Invalid mileage or EUR price')
+        if not isinstance(data.get('url'), str):
+            raise ValueError('URL must be a string')
         parsed = urlparse(data['url'])
         if parsed.scheme not in ('http', 'https') or not parsed.netloc:
             raise ValueError('Invalid source URL')
@@ -64,7 +73,9 @@ class Listing:
             raise ValueError('active must be boolean')
         data['active'] = active
         if data.get('vehicle_id'):
-            data['vehicle_id'] = normalize(data['vehicle_id'])
+            if not isinstance(data['vehicle_id'], str):
+                raise ValueError('vehicle_id must be a string')
+            data['vehicle_id'] = data['vehicle_id'].strip()
         else:
             data['vehicle_id'] = None
         return cls(**data)

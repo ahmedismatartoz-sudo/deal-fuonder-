@@ -44,3 +44,42 @@ il risultato segnala il rischio di duplicati. Non ci sono ancora scraper o dati 
 
 Prossimo passo: collegare PostgreSQL, importare annunci verificati e raccogliere
 vendite effettive per misurare e calibrare gli errori. Vedere docs/architecture.md.
+
+## Agenti e coda persistente (v0.2)
+
+Nove agenti eseguibili: intake, qualità, identità, mercato, condizioni,
+ripristino, opportunità, validazione e misurazione delle previsioni.
+Contratti dettagliati, limiti e criteri di precisione in [docs/agents.md](docs/agents.md).
+
+```sh
+python -m deal_finder.worker agents
+python -m deal_finder.worker --db demo.db submit examples/synthetic_batch.json
+python -m deal_finder.worker --db demo.db drain --limit 100
+python -m deal_finder.worker --db demo.db batch synthetic-demo-v1
+python -m deal_finder.worker --db demo.db result 9
+```
+
+L'esempio è interamente sintetico e non identifica opportunità reali. Le date
+sono fisse per riproducibilità; scadranno e il sistema bloccherà le analisi stale.
+Per i tuoi dati inviare un lotto con batch_id univoco a POST /batches. Un worker
+locale avviato con drain esegue i lavori. GET /batches/{id}/jobs mostra gli esiti;
+POST /batches/{id}/replay li rianalizza; POST /evaluations misura gli errori su
+vendite documentate. Nulla si avvia automaticamente o raccoglie dati dai marketplace.
+
+I record invalidi vengono conservati in quarantena e non impediscono l'analisi
+degli altri record del lotto. Il vecchio POST /imports mantiene il suo contratto
+atomico. Il Market Agent richiede attestazioni di identità anche per i comparabili.
+L'endpoint sperimentale POST /valuations della v0.1 resta un benchmark diretto
+senza questi controlli aggiuntivi: utilizzare la pipeline per gli esiti organizzati.
+
+Per testare anche l'API: `pip install -e ".[test]"`. I test di API sono obbligatori
+nella CI; senza FastAPI/httpx sono saltati nell'ambiente locale.
+
+Per restare in ascolto e organizzare automaticamente i nuovi lotti:
+
+```sh
+python -m deal_finder.worker --db deal-finder.db run --poll-seconds 2
+```
+
+Avviare API e worker con lo stesso percorso di database. Il comando run rimane
+attivo finché viene interrotto; non è ancora installato come servizio cloud.
