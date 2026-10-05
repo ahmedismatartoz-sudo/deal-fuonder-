@@ -190,6 +190,17 @@ def collection_sources():
     return {'sources': sources()}
 
 
+@app.get('/collection/quality')
+def collection_quality(source: str | None = None):
+    archive = Archive(database_target())
+    try:
+        return archive.quality(source)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+
 class AutoScout24Request(BaseModel):
     run_id: str
     mode: str = 'incremental'
@@ -258,6 +269,19 @@ def catalogue_history(source: str, source_id: str, offset: int = 0, limit: int =
         return {'items': archive.history(source, source_id, offset=offset, limit=limit)}
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+
+@app.get('/catalogue/{source}/{source_id}')
+def catalogue_record(source: str, source_id: str):
+    """Complete original record, even when price/specification gates exclude it."""
+    archive = Archive(database_target())
+    try:
+        rows = archive.history(source, source_id, limit=1)
+        if not rows:
+            raise HTTPException(status_code=404, detail='Listing not found')
+        return rows[0]
     finally:
         archive.close()
 

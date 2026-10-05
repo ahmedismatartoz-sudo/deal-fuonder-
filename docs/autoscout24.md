@@ -1,5 +1,36 @@
 # Scraper AutoScout24 integrato
 
+## Worker autonomo Milano
+
+Il worker Render `python -m deal_finder.worker run --poll-seconds 2` può raccogliere
+senza chat o computer dell'utente accesi. Impostare sul worker e sul daily-cycle:
+
+```json
+{"run_id":"milano-base-20261005-v2","profile":"milano-100km"}
+```
+
+nell'env `DEAL_FINDER_AUTOSCOUT24_BOOTSTRAP`. Il profilo contiene 1.404 ricerche:
+26 marche, immatricolazioni 2000–2026, prezzo 1.000–50.000 euro, Milano CAP 20121,
+raggio 100 km; prima tutti gli scope privati, poi gli scope senza filtro venditore.
+Gli ID duplicati vengono saltati. L'obiettivo operativo è 20.000 annunci unici,
+non una promessa che esistano in questo territorio: la raccolta prosegue fino
+all'esaurimento degli scope configurati. Non copre marche/anni esterni al profilo.
+
+Il worker salva una pagina per iterazione e riprende dal checkpoint PostgreSQL
+dopo un riavvio. Un lock condiviso impedisce collector simultanei. Il daily-cycle
+attende la fine della base; lasciare vuoto `DEAL_FINDER_AUTOSCOUT24_CONFIG` sul
+daily-cycle per ereditare il profilo. Alla fine indicizza la base e poi raccoglie
+quotidianamente gli ID nuovi. Le fonti bloccate o gli scope oltre la paginazione
+accessibile fermano la raccolta con motivo nei log; richiedono intervento e riavvio.
+
+Gli eventi v2 conservano integralmente il dettaglio originale e il risultato
+originale della ricerca, titolo H1 quando disponibile, descrizione HTML e testo,
+tutti gli URL delle foto e gli altri campi esposti. Le foto sono link alla fonte,
+non copie dei file. I campi assenti restano assenti, con `missing_fields` espliciti.
+GET `/collection/quality?source=autoscout24` misura i campi presenti sull'ultima
+osservazione di ogni ID; GET `/catalogue/autoscout24/ID` restituisce anche schede
+incomplete o con prezzo non utilizzabile. Entrambi richiedono l'autenticazione API.
+
 Lo scraper usa direttamente l'HTML pubblico italiano, senza Apify e senza tariffa
 per annuncio. Non è un'API ufficiale. Server, traffico e manutenzione possono
 avere un costo. Il collector non cerca di aggirare login, CAPTCHA, divieti

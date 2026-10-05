@@ -7,6 +7,8 @@ import json
 import re
 import time
 import hashlib
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
@@ -19,12 +21,36 @@ from .archive import canonical
 from .collectors import CollectionAgent, Page
 
 ORIGIN = 'https://www.autoscout24.it'
-VERSION = 'autoscout24-public-html-v1'
+VERSION = 'autoscout24-public-html-v2'
 USER_AGENT = 'DealFinder/0.3 (+public vehicle market research)'
+_collection_lock = threading.Lock()
 
 
 class CollectionBlocked(RuntimeError):
     """Blocked/unsupported response: leave the collection checkpoint untouched."""
+
+
+class CollectionBusy(CollectionBlocked):
+    """Another process is collecting; retry later without contacting the source."""
+
+
+@contextmanager
+def collection_guard(archive):
+    if not _collection_lock.acquire(blocking=False):
+        raise CollectionBusy('AutoScout24 collector already running')
+    acquired = False
+    key = 'deal-finder:autoscout24-public'
+    try:
+        if archive.db.dialect == 'postgres':
+            acquired = archive.db.execute(
+                'SELECT pg_try_advisory_lock(hashtextextended(?, 0))', (key,)).fetchone()[0]
+            if not acquired:
+                raise CollectionBusy('AutoScout24 collector already running')
+        yield
+    finally:
+        if acquired:
+            archive.db.execute('SELECT pg_advisory_unlock(hashtextextended(?, 0))', (key,))
+        _collection_lock.release()
 
 
 def public_url(value, *, kind='search'):
@@ -146,6 +172,33 @@ class Text(HTMLParser):
             self.parts.append('\n')
 
 
+class Headings(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.inside = False
+        self.parts = []
+        self.titles = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'h1':
+            self.inside, self.parts = True, []
+
+    def handle_data(self, data):
+        if self.inside:
+            self.parts.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == 'h1' and self.inside:
+            self.titles.append(' '.join(' '.join(self.parts).split()))
+            self.inside = False
+
+
+def page_title(html):
+    headings = Headings()
+    headings.feed(html)
+    return headings.titles[0] if len(headings.titles) == 1 else None
+
+
 def plain_text(value):
     if not isinstance(value, str):
         return ''
@@ -166,7 +219,8 @@ def whole_number(value, maximum):
     return None
 
 
-def record_event(item, *, url, observed_at, search_url=None, detailed=False):
+def record_event(item, *, url, observed_at, search_url=None, detailed=False,
+                 original_search=None, original_title=None):
     """Keep originals and provenance. Missing/ambiguous specifications stay missing."""
     if not isinstance(item, dict):
         return {'payload': {'original': item}}
@@ -181,6 +235,8 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False):
                'field_provenance': {}, 'detail_fetched': detailed}
     if search_url:
         payload['search_url'] = search_url
+    if original_search is not None:
+        payload['original_search'] = original_search
     def put(key, value, path):
         if value is not None and value != '':
             payload[key] = value
@@ -240,10 +296,16 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False):
         put('condition', 'undamaged', 'vehicle.rawData.condition.damage.isCurrentlyDamaged')
     # accidentFree / hadAccident are history, not current mechanical condition.
     title = ' '.join(str(vehicle[k]) for k in ('make', 'model', 'modelVersionInput') if vehicle.get(k))
-    put('title', title, 'vehicle.make/model/modelVersionInput')
+    put('title', original_title or title,
+        'detail.html.h1' if original_title else 'vehicle.make/model/modelVersionInput')
     put('description', text, 'description')
-    put('image_urls', item.get('images', [])[:100], 'images')
+    put('description_html', item.get('description'), 'description')
+    put('image_urls', item.get('images', []), 'images')
     put('created_at', item.get('createdTimestampWithOffset'), 'createdTimestampWithOffset')
+    payload['missing_fields'] = [key for key in (
+        'title', 'description', 'image_urls', 'make', 'model', 'version_text',
+        'generation', 'trim', 'fuel', 'transmission', 'year', 'mileage_km',
+        'price_eur', 'province', 'seller_type') if payload.get(key) in (None, '', [])]
     if detailed and item.get('status') != 'Active':
         raise CollectionBlocked('Unsupported listing availability; cannot assume it is active or sold')
     return {'source_id': source_id, 'url': url, 'active': True,
@@ -332,14 +394,18 @@ class AutoScout24Connector:
             observed = datetime.now(timezone.utc).isoformat()
             detailed = self.config['fetch_details']
             original = item
+            original_title = None
             if detailed:
-                detail = page_props(self.client.get(listing_url, kind='listing')).get('listingDetails')
+                detail_html = self.client.get(listing_url, kind='listing')
+                detail = page_props(detail_html).get('listingDetails')
                 if not isinstance(detail, dict) or detail.get('id') != item['id']:
                     raise CollectionBlocked('AutoScout24 detail ID does not match search result')
                 original = detail
+                original_title = page_title(detail_html)
             try:
                 event = record_event(original, url=listing_url, observed_at=observed,
-                                     search_url=search, detailed=detailed)
+                                     search_url=search, detailed=detailed,
+                                     original_search=item, original_title=original_title)
             except (ValueError, TypeError, AttributeError):
                 records.append({'payload': {'original': original, 'adapter_issue': 'Malformed listing fields'}})
                 continue
@@ -365,8 +431,12 @@ def collect(config, archive, *, run_id, mode='incremental', max_pages=100, clien
     scope = {'country': 'IT', 'adapter': VERSION, 'configuration': connector.config,
              'purpose': 'initial_base' if mode == 'initial' else 'new_listings',
              'snapshot_consistent': False}
-    return CollectionAgent().execute(connector, archive, run_id='native-' + run_id,
-                                     mode=mode, scope=scope, max_pages=max_pages)
+    with collection_guard(archive):
+        # Separate processes must also leave an interval before their first request.
+        if client is None:
+            time.sleep(connector.config['delay_seconds'])
+        return CollectionAgent().execute(connector, archive, run_id='native-' + run_id,
+                                         mode=mode, scope=scope, max_pages=max_pages)
 
 
 def cycle_run_id(config, mode, cycle_id=None):

@@ -10,7 +10,8 @@ from urllib.error import HTTPError
 
 from deal_finder.archive import Archive
 from deal_finder.autoscout24 import (CollectionBlocked, PublicClient, collect,
-    cycle_run_id, page_props, public_url, record_event, validate_config)
+    CollectionBusy, collection_guard, cycle_run_id, page_props, page_title,
+    public_url, record_event, validate_config)
 
 NOW = datetime.now(timezone.utc).isoformat()
 BASE = 'https://www.autoscout24.it'
@@ -89,6 +90,54 @@ class AutoScoutTests(unittest.TestCase):
         self.assertEqual(payload['trim'], 'Easy')
         self.assertNotIn('province', payload)
         self.assertNotIn('vehicle_id', payload)
+
+    def test_all_images_original_html_and_search_fields_survive_collection(self):
+        original = detail()
+        original['images'] = [f'https://example.com/{i}.jpg' for i in range(150)]
+        original['description'] = '<p>Testo originale &amp; dettagli</p><br>Ultima riga'
+        original['extra_field_from_source'] = {'not_normalized': [1, 2, 3]}
+        client = FakeClient([[item()]])
+        search = client.get
+        client.get = lambda url, kind='search': ('<h1><span>Fiat</span><span>Panda</span></h1>' + html({'listingDetails': original})) if kind == 'listing' else search(url)
+        collect(config(), self.archive, run_id='full-data', mode='initial', client=client)
+        record = self.archive.history('autoscout24', 'car1')[0]['payload']
+        self.assertEqual(record['original'], original)
+        self.assertEqual(record['original_search'], item())
+        self.assertEqual(record['description_html'], original['description'])
+        self.assertIn('Ultima riga', record['description'])
+        self.assertEqual(record['title'], 'Fiat Panda')
+        self.assertEqual(record['field_provenance']['title'], 'detail.html.h1')
+        self.assertEqual(len(record['image_urls']), 150)
+        self.assertEqual(self.archive.quality()['photo_links'], 150)
+        self.assertEqual(self.archive.quality()['present']['generation'], 1)
+        self.assertIsNone(page_title('<h1>Uno</h1><h1>Due</h1>'))
+
+    def test_incomplete_records_remain_accessible_and_quality_uses_latest_only(self):
+        value = detail()
+        value['description'] = None
+        value['images'] = []
+        value['vehicle']['rawData']['classification']['modelGeneration'] = None
+        value['vehicle']['mileageInKmRaw'] = 0
+        event = record_event(value, url=BASE + value['url'], observed_at=NOW, detailed=True)
+        self.assertIn('generation', event['payload']['missing_fields'])
+        self.assertNotIn('mileage_km', event['payload']['missing_fields'])
+        client = FakeClient([[item()]])
+        search = client.get
+        client.get = lambda url, kind='search': html({'listingDetails': value}) if kind == 'listing' else search(url)
+        collect(config(), self.archive, run_id='missing', mode='initial', client=client)
+        collect(config(), self.archive, run_id='refreshed', mode='initial', client=FakeClient([[item()]]))
+        report = self.archive.quality('autoscout24')
+        self.assertEqual(report['listings'], 1)
+        self.assertEqual(report['missing']['description'], 0)
+        self.assertEqual(report['listings_with_photos'], 1)
+
+    def test_concurrent_collection_is_rejected_before_network_and_lock_releases(self):
+        client = FakeClient([[item()]])
+        with collection_guard(self.archive):
+            with self.assertRaises(CollectionBusy):
+                collect(config(), self.archive, run_id='busy', client=client)
+        self.assertEqual(client.calls, [])
+        self.assertTrue(collect(config(), self.archive, run_id='busy', client=client)['complete'])
 
     def test_unavailable_specs_accident_history_and_version_are_not_guessed(self):
         value = detail()
@@ -253,6 +302,14 @@ class AutoScoutApiTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.json()['complete'])
                 self.assertEqual(client.get('/catalogue', headers=headers).json()['items'][0]['source'], 'autoscout24')
+                raw = client.get('/catalogue/autoscout24/car1', headers=headers)
+                self.assertEqual(raw.status_code, 200)
+                self.assertIn('original', raw.json()['payload'])
+                quality = client.get('/collection/quality?source=autoscout24', headers=headers).json()
+                self.assertEqual(quality['listings'], 1)
+                self.assertEqual(quality['photo_storage'], 'source_urls')
+                self.assertEqual(client.get('/collection/quality').status_code, 401)
+                self.assertEqual(client.get('/catalogue/autoscout24/missing', headers=headers).status_code, 404)
                 self.assertEqual(client.post('/collection/autoscout24', json=dict(request, max_pages=6), headers=headers).status_code, 422)
 
     def test_provider_failure_returns_503_and_keeps_checkpoint(self):

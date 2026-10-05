@@ -3,6 +3,7 @@ import argparse
 import json
 import time
 import os
+import signal
 from .queue import Queue
 from .agents import registry
 from .database import database_target
@@ -126,6 +127,20 @@ def main():
                     else:
                         config = json.loads(os.getenv('DEAL_FINDER_COLLECTION_CONFIG', '{}'))
                     native_config = config.get('autoscout24') or json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+                    from .bootstrap import bootstrap_config, bootstrap_status
+                    bootstrap_spec = bootstrap_config()
+                    if bootstrap_spec and not native_config:
+                        native_config = bootstrap_spec['config']
+                    if args.mode == 'incremental' and bootstrap_spec:
+                        initial = bootstrap_status(market.archive, bootstrap_spec)
+                        if not initial['complete']:
+                            print(json.dumps({'waiting_for_initial_base': True,
+                                              'run_id': bootstrap_spec['run_id'],
+                                              'pages': initial['pages'], 'accepted': initial['accepted']}))
+                            return
+                        from .autoscout24 import validate_config
+                        if validate_config(native_config) != bootstrap_spec['config']:
+                            raise ValueError('Daily searches must match the configured initial base')
                     if set(config) - {'tasks', 'autoscout24'}:
                         raise ValueError('Unknown collection cycle configuration')
                     collections = []
@@ -180,8 +195,22 @@ def main():
             if not 0.5 <= args.poll_seconds <= 30 or args.max_jobs < 0:
                 parser.error('poll-seconds must be 0.5–30 and max-jobs nonnegative')
             processed = 0
+            from .bootstrap import Bootstrap, bootstrap_config
+            spec = bootstrap_config()
+            bootstrap = Bootstrap(args.db, spec) if spec else None
+            stopping = False
+            def stop(signum, frame):
+                nonlocal stopping
+                stopping = True
+            old_handler = signal.signal(signal.SIGTERM, stop)
             try:
-                while args.max_jobs == 0 or processed < args.max_jobs:
+                while not stopping and (args.max_jobs == 0 or processed < args.max_jobs):
+                    if bootstrap:
+                        progress = bootstrap.step()
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if stopping:
+                            break
                     result = queue.work_one()
                     if result is None:
                         time.sleep(args.poll_seconds)
@@ -190,6 +219,8 @@ def main():
                     processed += 1
             except KeyboardInterrupt:
                 pass
+            finally:
+                signal.signal(signal.SIGTERM, old_handler)
             output = {'processed': processed}
         elif args.command == 'batch':
             output = queue.batch(args.batch_id)
