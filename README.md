@@ -29,15 +29,15 @@ Vedere [docs/agents.md](docs/agents.md) e [docs/architecture.md](docs/architectu
 
 **Disponibile:** archivio nazionale di originali anche incompleti, testo completo
 e URL delle fotografie; eventi immutabili, rimozioni esplicite, quarantena;
-raccolta iniziale/incrementale con pagine idempotenti e checkpoint; adapter export;
+raccolta iniziale/incrementale con pagine idempotenti e checkpoint; adapter export e Apify;
 filtri città/provincia/raggio/prezzo; promozione esplicita degli annunci completi
-alla coda; benchmark dei prezzi richiesti; preventivi/ispezioni attestati;
+alla coda e selezione automatica sull'intera base; benchmark dei prezzi richiesti; preventivi/ispezioni attestati;
 scenari con tutte le categorie di costo; supervisore e anteprima di pubblicazione.
 
-**Da collegare:** adapter live Facebook/Subito/AutoScout24/Automobile.it,
+**Da collegare:** task Apify e mappature su export reali Facebook/Subito/AutoScout24/Automobile.it,
 archiviazione dei file fotografici, geocodifica documentata, base ricambi/manodopera,
 modelli di prezzo di vendita e liquidità calibrati su esiti reali, scheduler
-mattutino e servizi Render continuativi. Nessuna copertura totale dei marketplace
+mattutino e servizi Render continuativi (template e ciclo giornaliero predisposti). Nessuna copertura totale dei marketplace
 è dichiarata. La raccolta terminata riguarda solo lo scope/export ricevuto.
 
 ## Raccolta iniziale e aggiornamenti
@@ -54,6 +54,12 @@ Gli esempi sono sintetici. Il file export contiene source, run_id, mode
 (initial/incremental), scope e pages (array di pagine di eventi). Il checkpoint
 permette di riprendere lo stesso export; non cambiare file durante una raccolta.
 
+Per collegamento Apify, base iniziale, aggiornamenti dei soli nuovi annunci,
+refresh mirati e ciclo Render vedere [docs/collection-cycle.md](docs/collection-cycle.md).
+`collect-file --scan` collega un export completato all'analisi della base.
+`daily-cycle --mode initial` esegue il bootstrap; `daily-cycle` esclude i task
+iniziali e importa i run quotidiani/refresh, poi seleziona e accoda le candidature.
+
 API protette dal token configurato:
 - POST /collection/pages, GET /collection/runs/{source}/{run_id}, GET /collection/sources.
 - GET /catalogue: min_price/max_price, city/province, latitude/longitude/radius_km,
@@ -63,6 +69,7 @@ API protette dal token configurato:
 - POST /batches; GET /batches/{id}/jobs e /jobs/{id}; POST /batches/{id}/replay.
 - POST /publication/preview con batch_id: anteprima e motivi di esclusione.
 - POST /evaluations: metriche su previsioni congelate e compravendite documentate.
+- GET /market/status, POST /market/scan e GET /market/candidates: base prezzi e candidati da verificare.
 
 Il worker `run --poll-seconds 2` rimane in ascolto dei lotti; non avvia
 raccolte online o pianificazioni giornaliere. Un lavoro done può avere analisi
@@ -70,7 +77,9 @@ bloccate per evidenze mancanti: consultare components.supervisor.
 
 ## Precisione e blocchi
 
-Comparabili con identità attestata, stessi marca/modello/generazione/allestimento,
+Lotti manuali: comparabili con identità attestata. Archivio: screening separato
+su prezzi richiesti della stessa fonte, senza fingere identità verificate.
+Stessi marca/modello/generazione/allestimento,
 carburante/cambio/venditore, anno ±1 e km ±20.000; minimo 8, campione effettivo
 e dispersione controllati. Prima la provincia, poi eventuale confronto nazionale
 esplicitamente segnalato. Nessuna correzione geografica inventata.

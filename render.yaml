@@ -1,0 +1,51 @@
+# Deployment template. Apply migrations with an owner account before starting.
+# No scraper task or service is provisioned by committing this file.
+services:
+  - type: web
+    name: deal-finder-api
+    runtime: docker
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: DEAL_FINDER_MODE
+        value: production
+      - key: DEAL_FINDER_DATABASE_URL
+        sync: false
+      - key: DEAL_FINDER_API_TOKEN
+        sync: false
+  - type: worker
+    name: deal-finder-worker
+    runtime: docker
+    region: frankfurt
+    dockerCommand: python -m deal_finder.worker run --poll-seconds 2
+    envVars:
+      - key: DEAL_FINDER_MODE
+        value: production
+      - key: DEAL_FINDER_DATABASE_URL
+        sync: false
+  - type: cron
+    name: deal-finder-daily
+    runtime: docker
+    region: frankfurt
+    schedule: "0 4 * * *"
+    dockerCommand: python -m deal_finder.worker daily-cycle
+    envVars:
+      - key: DEAL_FINDER_MODE
+        value: production
+      - key: DEAL_FINDER_DATABASE_URL
+        sync: false
+      - key: APIFY_API_TOKEN
+        sync: false
+      - key: DEAL_FINDER_COLLECTION_CONFIG
+        sync: false
+  - type: cron
+    name: deal-finder-weekly-review
+    runtime: docker
+    region: frankfurt
+    schedule: "0 6 * * 0"
+    dockerCommand: python -m deal_finder.worker market-scan --mode full
+    envVars:
+      - key: DEAL_FINDER_MODE
+        value: production
+      - key: DEAL_FINDER_DATABASE_URL
+        sync: false

@@ -62,3 +62,20 @@ class ApiTests(unittest.TestCase):
         with patch.dict(os.environ,{'DEAL_FINDER_API_TOKEN':'test-token'}):
             self.assertEqual(self.client.get('/catalogue').status_code,401)
             self.assertEqual(self.client.post('/collection/pages',json=page([])).status_code,401)
+
+    def test_market_scans_archive_and_exposes_candidates_separately(self):
+        from test_archive import page
+        from test_market import complete
+        records=[complete(i) for i in range(8)] + [complete('cheap',price_eur=7000)]
+        self.client.post('/collection/pages',json=page(records))
+        self.assertEqual(self.client.get('/market/status').json()['unprojected_events'],9)
+        self.assertEqual(self.client.post('/market/scan?mode=initial').json()['queued'],1)
+        candidates=self.client.get('/market/candidates?city=milano').json()
+        self.assertEqual(candidates['count'],1)
+        self.assertFalse(candidates['items'][0]['publishable'])
+        self.assertEqual(self.client.get('/market/candidates?city=roma').json()['count'],0)
+        self.assertEqual(self.client.post('/market/scan?mode=wrong').status_code,422)
+        self.assertEqual(self.client.get('/market/candidates?limit=101').status_code,422)
+        with patch.dict(os.environ,{'DEAL_FINDER_API_TOKEN':'test-token'}):
+            self.assertEqual(self.client.get('/market/candidates').status_code,401)
+            self.assertEqual(self.client.post('/market/scan').status_code,401)

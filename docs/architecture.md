@@ -10,6 +10,7 @@ le auto disponibili da vedere, senza cambiare automaticamente la metodologia pre
 | --- | --- | --- |
 | Raccolte | collection_pages, collection_quarantine | Scope, checkpoint, pagine idempotenti e originali invalidi |
 | Catalogo | listing_events | Versioni immutabili, originali, rimozioni, metadati geografici e prezzi |
+| Base prezzi | market_observations, market_reviews | Proiezioni indicizzate, dati mancanti, benchmark e candidature riproducibili |
 | Analisi | snapshots, identity_attestations, batches, raw_records, jobs, agent_runs | Dati normalizzati, evidenze, coda e input/risultati riproducibili |
 | Precisione | evaluation_reports | Errori delle previsioni contro esiti documentati |
 | Migrazioni | schema_migrations | Versione e checksum dello schema |
@@ -17,6 +18,11 @@ le auto disponibili da vedere, senza cambiare automaticamente la metodologia pre
 La migrazione 003 aggiunge tre tabelle allo schema privato esistente. RLS su tutte;
 backend con SELECT/INSERT sul nuovo archivio, senza UPDATE/DELETE dello storico.
 Nessuna modifica alle migrazioni già applicate.
+
+La migrazione 004 aggiunge due tabelle immutabili per la base prezzi, con gli
+stessi vincoli di accesso privato e RLS. La normalizzazione completa precede la
+scansione iniziale; i successivi cicli rivalutano annunci e basi di confronto
+modificati. L'accodamento idempotente recupera interruzioni tra report e coda.
 
 Ogni pagina massimo 5.000 record/20 MB. Source/run/page identificano un contenuto
 immutabile; la transazione salva eventi, quarantena e checkpoint insieme.
@@ -34,8 +40,9 @@ viene trattata come vendita o cancellazione.
 
 1. Connector/CollectionAgent: raccolta iniziale paginata o aggiornamento incrementale.
 2. Archive: originali conservati e consultabili; geografia e prezzo totale.
-3. Promozione: specifiche complete verso Queue, attestazioni separate.
-4. Screening prezzi: provincia, fallback nazionale segnalato, sconto da P25.
+3. Proiezione dell'intera base: specifiche complete indicizzate, errori tracciati.
+4. Screening prezzi: provincia, fallback nazionale segnalato, sconto da P25;
+   coda automatica delle candidature, attestazioni separate.
 5. Ispezione e preventivi completi per le auto selezionate.
 6. Modelli calibrati di rivendita/liquidità, conti, supervisione.
 7. Anteprima di pubblicazione e successiva edizione mattutina quando i gates saranno pronti.
@@ -46,7 +53,8 @@ di costi/scenari restano operativi senza trasformare prezzi richiesti in previsi
 
 ## Implementazioni successive
 
-- Adapter reali per ogni fonte con accesso configurato, retry/rate limit e audit
+- Configurazione task/mappature dell'adapter Apify e ulteriori adapter di fonte,
+  retry/rate limit e audit
   della copertura; nessun aggiramento di login o meccanismi di accesso.
 - Storage dei file delle immagini con checksum e associazione allo snapshot.
 - Geocodifica con provenienza/precisione e trattamento delle posizioni approssimate.
@@ -55,7 +63,7 @@ di costi/scenari restano operativi senza trasformare prezzi richiesti in previsi
 - Transazioni e date effettive documentate. Addestramento/verifica separati per
   tempo e veicolo. Errori e copertura per modello, fascia, zona e venditore.
 - Versioni/approvazioni dei modelli, verifica disponibilità e termini d'acquisto.
-- Scheduler Render, heartbeat, monitoraggio, backup e prove di carico;
+- Attivazione del template Render, heartbeat, monitoraggio, backup e prove di carico;
   feed con edizioni atomiche e aggiornamento delle auto rimosse.
 
 Nessuna precisione percentuale, copertura totale o guadagno garantito è dichiarato.

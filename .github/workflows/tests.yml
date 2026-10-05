@@ -30,4 +30,4 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -c "from deal_finder.api import app; assert app.openapi()['info']['version'] == '0.3.0'"
       - run: pip wheel --no-deps . -w /tmp/deal-finder-wheel
-      - run: python -c "import zipfile, glob; z=zipfile.ZipFile(glob.glob('/tmp/deal-finder-wheel/*.whl')[0]); assert all('deal_finder/migrations/' + p in z.namelist() for p in ['001_postgres.sql', '002_private_access.sql', '003_national_archive.sql'])"
+      - run: python -c "import zipfile, glob; z=zipfile.ZipFile(glob.glob('/tmp/deal-finder-wheel/*.whl')[0]); assert all('deal_finder/migrations/' + p in z.namelist() for p in ['001_postgres.sql', '002_private_access.sql', '003_national_archive.sql', '004_market_screening.sql'])"

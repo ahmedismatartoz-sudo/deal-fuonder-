@@ -1,14 +1,14 @@
 # Sette componenti e controlli interni
 
-Contratto `national-pipeline-v0.4`. GET /agents e CLI agents espongono i sette
+Contratto `national-pipeline-v0.5`. GET /agents e CLI agents espongono i sette
 componenti; GET /agents elenca separatamente i controlli interni.
 Gli esiti registrati mantengono le chiavi dei controlli precedenti e aggiungono
 `components`, così benchmark e scenari restano ispezionabili.
 
 | Componente | Compito eseguito nella base | Evidenze/blocchi |
 | --- | --- | --- |
-| collection | Salva originali, quarantena, storico e checkpoint; riprende export paginati | Scope esplicito; nessuno scraper live configurato |
-| market_selection | Benchmark provinciale o nazionale e screening 1.000–50.000 € | Prezzo totale, identità comparabili attestata, minimo 8; sconto provvisorio ≥10% da P25 |
+| collection | Salva originali, quarantena, storico e checkpoint; riprende export e dataset Apify paginati | Task/scope/mappatura e segreti da configurare |
+| market_selection | Scansione della base e confronto provinciale/nazionale; selezione 1.000–50.000 € | Prezzo totale, minimo 8, sconto provvisorio ≥10% da P25; archivio usa prezzi dichiarati della stessa fonte, manuali identità attestate |
 | repairs | Legge ispezione e somma preventivi di ricambi/manodopera | Auto selezionata, identità attestata, ispezione completa, tutti i preventivi validi |
 | resale | Contratto per prezzo consigliato/intervallo/modello | Bloccato: nessun modello addestrato e calibrato su vendite reali |
 | opportunity | Espone scenari sui prezzi richiesti e contratto profitto/liquidità | Profitto previsto, popolarità e tempi null senza modelli e costi completi |
@@ -78,8 +78,14 @@ retry e storico immutabile degli input/risultati. Replay aggiunge nuove esecuzio
 SQLite locale e PostgreSQL centrale implementati. Nessun test di carico nazionale
 è stato eseguito. La copia dei comparabili negli input richiede misure dello storage.
 
+Il ciclo [collection-cycle.md](collection-cycle.md) collega archivio e selezione
+automatica. Il template Render predispone aggiornamento quotidiano e revisione
+completa settimanale; le esecuzioni remote restano da attivare. L'agente prezzi
+riceve i confronti dell'intera base negli input della coda, senza trasformare
+le dichiarazioni del venditore in attestazioni.
+
 L'anteprima considera l'ultimo lavoro per identità nel lotto indicato, ricontrolla
 lo snapshot nell'archivio e motiva le esclusioni. Non scrive una lista pubblica,
 non avvia un cron e non rianalizza da sola auto scadute. Quando saranno pronti
-modelli e adapter, servono scheduler mattutino, rianalisi, verifica link sul momento,
+modelli e adapter, servono verifica link sul momento,
 edizioni persistenti e sostituzione atomica della lista nell'app.

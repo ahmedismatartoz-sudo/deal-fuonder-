@@ -2,6 +2,7 @@
 import argparse
 import json
 import time
+import os
 from .queue import Queue
 from .agents import registry
 from .database import database_target
@@ -28,12 +29,23 @@ def main():
     collect = sub.add_parser('collect-file')
     collect.add_argument('file', help='Export with source, run_id, mode, scope and pages')
     collect.add_argument('--max-pages', type=int, default=100)
+    collect.add_argument('--scan', action='store_true', help='Screen the whole archive after collection completes')
+    scan = sub.add_parser('market-scan')
+    scan.add_argument('--mode', choices=['initial', 'incremental', 'full'], default='incremental')
+    sub.add_parser('market-status')
+    sub.add_parser('market-candidates')
+    cycle = sub.add_parser('daily-cycle')
+    cycle.add_argument('--config', default=None, help='Apify task configuration JSON file')
+    cycle.add_argument('--mode', choices=['initial', 'incremental'], default='incremental')
     preview = sub.add_parser('publication-preview')
     preview.add_argument('batch_id')
     sub.add_parser('agents')
     sub.add_parser('migrate')
     sub.add_parser('check-db')
     args = parser.parse_args()
+    if os.getenv('DEAL_FINDER_MODE') == 'production' and args.command != 'agents':
+        if not (args.db or database_target()).startswith(('postgresql://', 'postgres://')):
+            raise RuntimeError('Production workers require the shared PostgreSQL database')
     if args.command == 'agents':
         print(json.dumps(registry(), indent=2))
         return
@@ -50,9 +62,47 @@ def main():
             output = CollectionAgent().execute(ExportConnector(export['source'], export['pages']),
                         archive, run_id=export['run_id'], mode=export['mode'],
                         scope=export['scope'], max_pages=args.max_pages)
+            if args.scan:
+                if not output['complete']:
+                    raise ValueError('Finish collection before screening the initial base')
+                from .market import Market
+                market, queue = Market(args.db), Queue(args.db)
+                try:
+                    output = {'collection': output, 'market': market.scan(mode=export['mode'], queue=queue)}
+                finally:
+                    market.close()
+                    queue.close()
             print(json.dumps(output, indent=2))
         finally:
             archive.close()
+        return
+    if args.command in ('market-scan', 'market-status', 'market-candidates', 'daily-cycle'):
+        from .market import Market
+        market, queue = Market(args.db), None
+        try:
+            if args.command == 'market-status':
+                output = market.status()
+            elif args.command == 'market-candidates':
+                output = market.candidates()
+            else:
+                collections = None
+                if args.command == 'daily-cycle':
+                    from .apify import collect_tasks
+                    if args.config:
+                        with open(args.config) as handle:
+                            config = json.load(handle)
+                    else:
+                        config = json.loads(os.getenv('DEAL_FINDER_COLLECTION_CONFIG', '{}'))
+                    collections = collect_tasks(config, market.archive, mode=args.mode)
+                queue = Queue(args.db)
+                output = market.scan(mode=args.mode, queue=queue)
+                if collections is not None:
+                    output = {'collection': collections, 'market': output}
+            print(json.dumps(output, indent=2))
+        finally:
+            if queue:
+                queue.close()
+            market.close()
         return
     queue = Queue(args.db)
     try:

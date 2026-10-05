@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-PIPELINE_VERSION = 'national-pipeline-v0.4'
+PIPELINE_VERSION = 'national-pipeline-v0.5'
 STATUSES = {'completed', 'blocked', 'needs_review', 'quarantined', 'failed'}
 
 @dataclass(frozen=True)
@@ -28,6 +28,7 @@ class Context:
     as_of: datetime
     candidates: list
     identity_evidence: dict = field(default_factory=dict)
+    source_asking_candidates: list | None = None
     target: Any = None
     results: dict[str, Result] = field(default_factory=dict)
 
