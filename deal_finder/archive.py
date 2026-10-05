@@ -105,8 +105,8 @@ class Archive:
         province = normalize(payload['province']) if payload.get('province') is not None else None
         lat, lon = coordinates(payload.get('latitude'), payload.get('longitude'))
         images = payload.get('image_urls', [])
-        if not isinstance(images, list) or len(images) > 100:
-            raise ValueError('At most 100 image URLs allowed')
+        if not isinstance(images, list) or len(images) > 1000:
+            raise ValueError('At most 1000 image URLs allowed; original payload is retained in quarantine')
         for image in images:
             http_url(image)
         for key in ('title', 'description'):
@@ -222,6 +222,27 @@ class Archive:
                     observed_at=event['observed_at'], active=event['active'],
                     price_kind=event['payload'].get('price_kind', 'unknown'))
         return {'listing': Listing.parse(data).to_dict()}
+
+    def quality(self, source=None):
+        """Coverage of the latest records, including uncertain prices and incomplete cars."""
+        keys = ('title', 'description', 'make', 'model', 'version_text', 'generation',
+                'trim', 'fuel', 'transmission', 'year', 'mileage_km', 'price_eur',
+                'province', 'seller_type')
+        def value(key):
+            if self.db.dialect == 'postgres':
+                return "(e.payload ->> '" + key + "')"
+            return "json_extract(e.payload, '$." + key + "')"
+        images = "COALESCE(jsonb_array_length(e.payload->'image_urls'), 0)" if self.db.dialect == 'postgres' else "COALESCE(json_array_length(e.payload, '$.image_urls'), 0)"
+        aggregates = ['COUNT(*)'] + ["COALESCE(SUM(CASE WHEN COALESCE(CAST(" + value(k) + " AS TEXT), '') <> '' THEN 1 ELSE 0 END),0)" for k in keys]
+        aggregates += [f'COALESCE(SUM(CASE WHEN {images}>0 THEN 1 ELSE 0 END),0)', f'COALESCE(SUM({images}),0)']
+        params = (normalize(source),) if source else ()
+        where = 'e.source=? AND ' if source else ''
+        row = self.db.execute('SELECT ' + ','.join(aggregates) + ' FROM listing_events e WHERE ' + where + '''NOT EXISTS (
+            SELECT 1 FROM listing_events n WHERE n.source=e.source AND n.source_id=e.source_id AND n.observed_at>e.observed_at)''', params).fetchone()
+        return dict(listings=row[0], present=dict(zip(keys, row[1:1+len(keys)])),
+                    missing={k: row[0]-row[i+1] for i,k in enumerate(keys)},
+                    listings_with_photos=row[-2], photo_links=row[-1],
+                    photo_storage='source_urls', forecasts_verified=False)
 
     def search(self, *, min_price=1000, max_price=50000, city=None, province=None,
                latitude=None, longitude=None, radius_km=None, offset=0, limit=100):

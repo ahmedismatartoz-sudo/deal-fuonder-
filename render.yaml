@@ -6,6 +6,7 @@ services:
     runtime: docker
     region: frankfurt
     healthCheckPath: /health
+    maxShutdownDelaySeconds: 300
     envVars:
       - key: DEAL_FINDER_MODE
         value: production
@@ -20,10 +21,13 @@ services:
     runtime: docker
     region: frankfurt
     dockerCommand: python -m deal_finder.worker run --poll-seconds 2
+    maxShutdownDelaySeconds: 300
     envVars:
       - key: DEAL_FINDER_MODE
         value: production
       - key: DEAL_FINDER_DATABASE_URL
+        sync: false
+      - key: DEAL_FINDER_AUTOSCOUT24_BOOTSTRAP
         sync: false
   - type: cron
     name: deal-finder-daily
@@ -41,6 +45,8 @@ services:
       - key: DEAL_FINDER_COLLECTION_CONFIG
         sync: false
       - key: DEAL_FINDER_AUTOSCOUT24_CONFIG
+        sync: false
+      - key: DEAL_FINDER_AUTOSCOUT24_BOOTSTRAP
         sync: false
   - type: cron
     name: deal-finder-weekly-review

@@ -31,6 +31,26 @@ class PostgresQueueTests(test_queue.QueueTests):
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())
+    def test_collector_lock_across_connections_and_latest_quality_with_rls(self):
+        from deal_finder.archive import Archive
+        from deal_finder.autoscout24 import collect, CollectionBusy
+        from test_autoscout24 import config, FakeClient, item
+        archive, other = Archive(URL), Database(URL)
+        key = 'deal-finder:autoscout24-public'
+        try:
+            archive.db.execute('SET ROLE deal_finder_backend')
+            other.execute('SELECT pg_advisory_lock(hashtextextended(?, 0))', (key,))
+            client = FakeClient([[item()]])
+            with self.assertRaises(CollectionBusy):
+                collect(config(), archive, run_id='locked', client=client)
+            self.assertEqual(client.calls, [])
+            other.execute('SELECT pg_advisory_unlock(hashtextextended(?, 0))', (key,))
+            collect(config(), archive, run_id='locked', client=client)
+            self.assertEqual(archive.quality('autoscout24')['listings'], 1)
+            self.assertEqual(archive.quality('autoscout24')['photo_links'], 1)
+        finally:
+            other.close()
+            archive.close()
     def test_private_backend_role_can_process_but_not_rewrite_history(self):
         import psycopg
         db = self.queue.db

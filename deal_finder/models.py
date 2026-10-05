@@ -92,8 +92,8 @@ class Listing:
                 raise ValueError(f'{key} must be text')
         images = data.get('image_urls')
         if images is not None:
-            if not isinstance(images, list) or len(images) > 100:
-                raise ValueError('image_urls must be an array of at most 100 URLs')
+            if not isinstance(images, list) or len(images) > 1000:
+                raise ValueError('image_urls must be an array of at most 1000 URLs')
             for url in images:
                 parsed = urlparse(url) if isinstance(url, str) else None
                 if parsed is None or parsed.scheme not in ('http', 'https') or not parsed.netloc:
