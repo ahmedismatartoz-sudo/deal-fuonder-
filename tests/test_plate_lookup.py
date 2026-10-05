@@ -71,3 +71,11 @@ class PlateTests(unittest.TestCase):
                 self.assertEqual(client.post('/vehicles/plate-lookup', json={'plate':'AB123CD'}).status_code, 401)
                 result = client.post('/vehicles/plate-lookup', json={'plate':'AB123CD'}, headers={'Authorization':'Bearer test-api'})
                 self.assertEqual(result.json()['status'], 'configuration_required')
+
+    def test_structured_provider_value_is_not_normalized_identity(self):
+        value=response('AB123CD');value['results'][0]['data']['details']['marca']={'unexpected':'object'}
+        self.lookup.transport=lambda *_:value
+        result=self.lookup.lookup('AB123CD',as_of=NOW)
+        self.assertEqual(result['status'],'needs_review')
+        self.assertIn('make',result['conflicting_fields'])
+        self.assertNotIn('make',result['normalized'])

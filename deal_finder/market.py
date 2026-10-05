@@ -128,7 +128,9 @@ class Market:
         # marketplaces when vehicle identities have not been independently verified.
         selected, discount = False, None
         reason = 'insufficient_comparables'
-        if not target.active or target.price_kind != 'total' or not 1000 <= target.price_eur <= 50000:
+        if not 0 <= (as_of-datetime.fromisoformat(target.observed_at)).total_seconds() <= 30*86400:
+            reason = 'target_outside_analysis_window'
+        elif not target.active or target.price_kind != 'total' or not 1000 <= target.price_eur <= 50000:
             reason = 'outside_purchase_scope'
         elif target.condition == 'unknown':
             reason = 'condition_unresolved'

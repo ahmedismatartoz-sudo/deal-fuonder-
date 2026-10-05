@@ -67,13 +67,19 @@ def estimate_parts(request, *, as_of=None):
         fallback = part['fallback']
         low = number(fallback['low_cents'], 'fallback low')
         high = number(fallback['high_cents'], 'fallback high')
-        if high < low or not fallback.get('basis') or not fallback.get('source_urls'):
+        if not high or high < low or not fallback.get('basis') or not fallback.get('source_urls'):
             raise ValueError('Fallback requires ordered bounds, explicit basis and sources')
         for source in fallback['source_urls']:
             url(source)
         requirements = part.get('requirements', {})
         groups, rejected, seen = defaultdict(list), [], set()
-        for offer in part.get('offers', []):
+        offers = part.get('offers', [])
+        if not isinstance(offers,list):
+            raise ValueError('Offers must be an array')
+        for offer in offers:
+            if not isinstance(offer,dict):
+                rejected.append(dict(url=None,reason='Offer must be an object'))
+                continue
             try:
                 url(offer['url'])
                 age = (as_of-stamp(offer['observed_at'])).total_seconds()/86400
@@ -94,14 +100,14 @@ def estimate_parts(request, *, as_of=None):
                 pack = number(offer['pack_quantity'], 'pack quantity', 100)
                 if not price or not pack:
                     raise ValueError('zero price or unknown pack quantity')
-                domain = urlsplit(offer['url']).hostname
+                domain = urlsplit(offer['url']).hostname.removeprefix('www.')
                 group = offer['seller_group'].strip().casefold()
                 if not group:
                     raise ValueError('seller group missing')
                 # Known storefront aliases must not inflate independent evidence.
-                if domain in ('www.auto-doc.it', 'www.autoparti.it', 'www.tuttoautoricambi.it') and offer.get('seller') == 'AUTODOC':
+                if domain in ('auto-doc.it', 'autoparti.it', 'tuttoautoricambi.it') and offer.get('seller') == 'AUTODOC':
                     group = 'autodoc'
-                key = (group, offer['brand'].casefold(), offer['part_number'])
+                key = (group, offer['brand'].casefold(), offer['part_number'].strip().casefold())
                 if key in seen:
                     raise ValueError('duplicate seller and product')
                 seen.add(key)

@@ -351,3 +351,22 @@ def lookup_vehicle_plate(request: dict):
         raise HTTPException(status_code=422, detail=str(error)) from error
     finally:
         lookup.close()
+
+
+@app.post('/vehicles/identity-plan')
+def vehicle_identity_plan(request: dict):
+    from .agents.photo_identity import plan
+    try:
+        return plan(request)
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post('/vehicles/identify')
+def identify_vehicle(request: dict):
+    from datetime import datetime, timezone
+    from .agents.photo_identity import execute
+    try:
+        return execute(request, datetime.now(timezone.utc))
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

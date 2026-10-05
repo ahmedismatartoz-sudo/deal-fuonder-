@@ -65,6 +65,9 @@ def normalize_response(payload, plate, observed_at):
     normalized, conflicts = {}, []
     for field, names in aliases.items():
         values = [details[k] for k in names if details.get(k) not in (None, '')]
+        if any(type(value) not in (str,int) or not str(value).strip() for value in values):
+            conflicts.append(field)
+            continue
         if values and any(str(x).strip().casefold() != str(values[0]).strip().casefold() for x in values):
             conflicts.append(field)
         else:

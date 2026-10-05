@@ -48,3 +48,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(estimate(target,items,as_of=NOW-timedelta(days=2))['comparable_count'],0)
         items=[Listing.parse(row(i,price_eur=5000 if i<4 else 20000)) for i in range(8)]
         self.assertEqual(estimate(target,items,as_of=NOW)['status'],'insufficient_data')
+
+
+class TargetWindowTests(unittest.TestCase):
+    def test_stale_future_inactive_targets_never_get_available_benchmark(self):
+        listings=[Listing.parse(row(i)) for i in range(8)]
+        for changes in (dict(observed_at=(NOW-timedelta(days=31)).isoformat()), dict(active=False)):
+            value=estimate(Listing.parse(row(99,**changes)),listings,as_of=NOW)
+            self.assertEqual(value['status'],'insufficient_data')
+        value=estimate(Listing.parse(row(99)),listings,as_of=NOW-timedelta(days=2))
+        self.assertEqual(value['status'],'insufficient_data')
