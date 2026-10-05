@@ -50,7 +50,7 @@ def review(target, candidates, as_of, decision):
     return dict(version=VERSION, route=route, candidate=decision['candidate'], publishable=False,
         specialists={
             'vehicle_specs': dict(cohort_fields=['make', 'model', 'generation', 'trim', 'fuel', 'transmission'],
-                                  exact_plate_identity_required_for_parts=True),
+                                  verified_vehicle_identity_required_for_parts=True, plate_lookup_optional=True),
             'mileage': dict(target_km=target.mileage_km, bands=mileage, fixed_depreciation_applied=False),
             'condition': dict(reported=target.condition, as_is=damaged if target.condition == 'damaged' else
                               healthy if target.condition == 'undamaged' else None,
