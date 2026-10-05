@@ -1,0 +1,349 @@
+{
+  "researched_at": "2026-10-05T22:25:00+00:00",
+  "price_status": "Indexed public page observations, not checkout quotes; sample prices must be refreshed",
+  "cases": [
+    {
+      "id": "panda-left-headlight",
+      "synthetic": true,
+      "description": "Invented car missing left headlight; no photos or VIN supplied",
+      "vehicle": {
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "312/319 III",
+        "year": 2015,
+        "engine_code": "169 A4.000",
+        "gearbox": "manual"
+      },
+      "parts": [
+        {
+          "id": "headlight",
+          "name": "Faro anteriore sinistro H4",
+          "quantity": 1,
+          "requirements": {
+            "generation": "312/319 III",
+            "side": "left",
+            "lamp": "H4",
+            "motor": true
+          },
+          "offers": [
+            {
+              "part_number": "FT1244804",
+              "brand": "PRASCO",
+              "price_cents": 10499,
+              "attributes": {
+                "generation": "312/319 III",
+                "side": "left",
+                "lamp": "H4",
+                "motor": true
+              },
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "20-14126-05-2",
+              "brand": "TYC",
+              "price_cents": 12199,
+              "attributes": {
+                "generation": "312/319 III",
+                "side": "left",
+                "lamp": "H4",
+                "motor": true
+              },
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "712470601129",
+              "brand": "MAGNETI MARELLI",
+              "price_cents": 12599,
+              "attributes": {
+                "generation": "312/319 III",
+                "side": "right",
+                "lamp": "H4",
+                "motor": true
+              },
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            }
+          ],
+          "condition": "new",
+          "tier": "aftermarket",
+          "diagnosis_confirmed": false,
+          "identity_confirmed": false,
+          "fallback": {
+            "low_cents": 9000,
+            "high_cents": 18000,
+            "basis": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+            "source_urls": [
+              "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a"
+            ]
+          },
+          "hours": {
+            "low_minutes": 30,
+            "high_minutes": 120,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          }
+        }
+      ]
+    },
+    {
+      "id": "golf-front-discs",
+      "synthetic": true,
+      "description": "Invented Golf VII 2015 1.6 TDI; 288 mm assembly assumed, PR code unknown",
+      "vehicle": {
+        "make": "Volkswagen",
+        "model": "Golf VII",
+        "year": 2015,
+        "engine_code": "unknown",
+        "gearbox": "manual"
+      },
+      "parts": [
+        {
+          "id": "discs",
+          "name": "Coppia dischi anteriori 288 mm, solo ricambi",
+          "quantity": 2,
+          "requirements": {
+            "part_number": "09.9145.14",
+            "diameter_mm": 288,
+            "thickness_mm": 25,
+            "axle": "front"
+          },
+          "offers": [
+            {
+              "part_number": "09.9145.14",
+              "brand": "BREMBO",
+              "price_cents": 4949,
+              "attributes": {
+                "part_number": "09.9145.14",
+                "diameter_mm": 288,
+                "thickness_mm": 25,
+                "axle": "front"
+              },
+              "url": "https://www.auto-doc.it/brembo/1657442",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "09.9145.14",
+              "brand": "BREMBO",
+              "price_cents": 10999,
+              "attributes": {
+                "part_number": "09.9145.14",
+                "diameter_mm": 288,
+                "thickness_mm": 25,
+                "axle": "front"
+              },
+              "url": "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html",
+              "pack_quantity": 2,
+              "seller": "NORAUTO",
+              "seller_group": "norauto",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "available",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "09.9772.10",
+              "brand": "BREMBO",
+              "price_cents": 12499,
+              "attributes": {
+                "part_number": "09.9772.10",
+                "diameter_mm": 312,
+                "thickness_mm": 25,
+                "axle": "front"
+              },
+              "url": "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html",
+              "pack_quantity": 2,
+              "seller": "NORAUTO",
+              "seller_group": "norauto",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "available",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            }
+          ],
+          "condition": "new",
+          "tier": "aftermarket",
+          "diagnosis_confirmed": false,
+          "identity_confirmed": false,
+          "fallback": {
+            "low_cents": 7500,
+            "high_cents": 16000,
+            "basis": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+            "source_urls": [
+              "https://www.auto-doc.it/brembo/1657442",
+              "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html"
+            ]
+          },
+          "hours": {
+            "low_minutes": 60,
+            "high_minutes": 150,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          }
+        }
+      ]
+    },
+    {
+      "id": "clio-clutch-csc",
+      "synthetic": true,
+      "description": "Invented Clio IV 1.5 dCi 84 CV; slipping clutch claimed; no diagnosis",
+      "vehicle": {
+        "make": "Renault",
+        "model": "Clio IV",
+        "generation": "BH",
+        "year": 2015,
+        "engine_code": "K9K 838",
+        "gearbox": "5 speed manual"
+      },
+      "parts": [
+        {
+          "id": "clutch",
+          "name": "Kit frizione con CSC; volano escluso",
+          "quantity": 1,
+          "requirements": {
+            "generation": "Clio IV BH",
+            "csc": true,
+            "diameter_mm": 215,
+            "teeth": 26
+          },
+          "offers": [
+            {
+              "part_number": "3000 990 574",
+              "brand": "SACHS",
+              "price_cents": 20999,
+              "attributes": {
+                "generation": "Clio IV BH",
+                "csc": true,
+                "diameter_mm": 215,
+                "teeth": 26
+              },
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "479C0109",
+              "brand": "RIDEX",
+              "price_cents": 6499,
+              "attributes": {
+                "generation": "Clio IV BH",
+                "csc": false,
+                "diameter_mm": 215,
+                "teeth": 26
+              },
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "unknown",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            },
+            {
+              "part_number": "622 3096 33",
+              "brand": "LuK",
+              "price_cents": 13899,
+              "attributes": {
+                "generation": "Clio III",
+                "csc": true,
+                "diameter_mm": 220,
+                "teeth": 26
+              },
+              "url": "https://www.auto-doc.it/luk/623052",
+              "pack_quantity": 1,
+              "seller": "AUTODOC",
+              "seller_group": "autodoc",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "available",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page"
+            }
+          ],
+          "condition": "new",
+          "tier": "aftermarket",
+          "diagnosis_confirmed": false,
+          "identity_confirmed": false,
+          "fallback": {
+            "low_cents": 15000,
+            "high_cents": 30000,
+            "basis": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+            "source_urls": [
+              "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6"
+            ]
+          },
+          "hours": {
+            "low_minutes": 240,
+            "high_minutes": 480,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          }
+        }
+      ]
+    }
+  ],
+  "research_local_date": "2026-10-06 Europe/Rome"
+}

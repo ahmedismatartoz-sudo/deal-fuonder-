@@ -18,6 +18,24 @@ async def lifespan(app):
 
 app = FastAPI(title='Deal Finder', version='0.3.0', lifespan=lifespan)
 
+
+@app.post('/repairs/search-plan')
+def repair_search_plan(request: dict):
+    from .repair_research import search_plan
+    try:
+        return search_plan(request['vehicle'], request['part'])
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post('/repairs/estimate')
+def repair_estimate(request: dict):
+    from .repair_research import estimate_parts
+    try:
+        return estimate_parts(request)
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
 @app.middleware('http')
 async def authenticate(request, call_next):
     if request.url.path != '/health':
