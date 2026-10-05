@@ -77,8 +77,26 @@ sono eseguibili sul progetto Supabase di produzione. Nessun dato reale in CI.
 
 ## Stato e passi successivi
 
-L'adapter e la configurazione sono codice pronto da collegare. Il progetto Supabase,
-le migrazioni live e l'hosting vanno verificati separatamente e non sono deducibili
-dai test CI. Dopo il collegamento, provare un lotto sintetico sul progetto di sviluppo
+Il database Supabase dedicato e le migrazioni live sono ora verificati come
+documentato in [live-status.md](live-status.md). L'hosting dell'API e del worker
+rimane da configurare e non è deducibile dai test CI. Dopo il collegamento dei processi,
+provare un lotto sintetico sul progetto di sviluppo
 prima di importare auto reali. Misurare storage e tempi prima di caricare 100k+ annunci.
 Le previsioni di vendita restano disabilitate finché manca una calibrazione reale.
+
+## Permessi separati per il servizio
+
+La seconda migrazione abilita RLS su tutte le tabelle private e revoca ogni
+accesso a `PUBLIC` e, quando presenti, ai ruoli Supabase `anon` e `authenticated`.
+Il ruolo `deal_finder_backend` è `NOLOGIN` e non può bypassare RLS. Può leggere
+i dati, inserire nuove osservazioni e risultati e aggiornare i lavori; non può
+riscrivere o eliminare lo storico né modificare lo schema o le migrazioni.
+
+Prima del deployment, creare un login backend dedicato nel database usando
+credenziali generate e salvate nel secret manager dell'hosting. Assegnargli il
+ruolo `deal_finder_backend` con ereditarietà dei privilegi. Non dare questo ruolo
+ad `anon` o `authenticated`, non esporre lo schema `deal_finder` alla Data API.
+API e worker devono usare quel login; `migrate` deve usare una credenziale
+separata del proprietario dello schema. Le connessioni al session pooler usano
+il nome del login seguito dal riferimento del progetto, come indicato da Supabase.
+Il login backend e i segreti non sono ancora stati creati né salvati in GitHub.

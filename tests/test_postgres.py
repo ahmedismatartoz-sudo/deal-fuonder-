@@ -31,6 +31,35 @@ class PostgresQueueTests(test_queue.QueueTests):
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())
+    def test_private_backend_role_can_process_but_not_rewrite_history(self):
+        import psycopg
+        db = self.queue.db
+        db.execute('SET ROLE deal_finder_backend')
+        try:
+            receipt = self.queue.submit('scoped-backend', [envelope()])
+            self.assertEqual(receipt['record_count'], 1)
+            self.assertEqual(self.queue.work_one()['state'], 'done')
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 2)
+            for statement in (
+                'UPDATE snapshots SET payload=payload',
+                'DELETE FROM snapshots',
+                "INSERT INTO schema_migrations(name,checksum) VALUES ('untrusted','x')",
+                'CREATE TABLE deal_finder.untrusted(id integer)',
+            ):
+                with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                    db.execute(statement)
+        finally:
+            db.execute('RESET ROLE')
+    def test_all_private_tables_have_rls(self):
+        rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
+        self.assertEqual(len(rows), 8)
+        self.assertTrue(all(enabled for _, enabled in rows))
+        for table, _ in rows:
+            self.assertFalse(self.queue.db.execute(
+                'SELECT has_table_privilege(?, ?, ?)',
+                ('deal_finder_backend', 'deal_finder.' + table, 'DELETE')).fetchone()[0])
     def test_parallel_claims_are_distinct(self):
         self.queue.submit('parallel',[envelope() for _ in range(10)])
         barrier=Barrier(4)
