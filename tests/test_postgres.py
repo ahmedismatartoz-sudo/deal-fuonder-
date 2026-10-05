@@ -59,7 +59,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 4)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 5)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -74,12 +74,38 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 13)
+        self.assertEqual(len(rows), 15)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(
                 'SELECT has_table_privilege(?, ?, ?)',
                 ('deal_finder_backend', 'deal_finder.' + table, 'DELETE')).fetchone()[0])
+    def test_plate_lookup_quota_cache_and_private_permissions(self):
+        from deal_finder.plate_lookup import PlateLookup
+        from test_plate_lookup import response
+        from test_core import NOW
+        from unittest.mock import patch
+        from datetime import timedelta
+        import psycopg
+        calls = []
+        def transport(token, plate):
+            calls.append(plate)
+            return response(plate)
+        lookup = PlateLookup(URL, transport)
+        lookup.db.execute('SET ROLE deal_finder_backend')
+        try:
+            with patch.dict(os.environ, DEAL_FINDER_TUTTOTARGHE_TOKEN='synthetic-test-token',
+                            DEAL_FINDER_PLATE_FREE_PLAN_CONFIRMED='tuttotarghe-direct-10-per-day'):
+                for i in range(9):
+                    lookup.lookup(f'AB{i:03d}CD', as_of=NOW+timedelta(seconds=i*10))
+                self.assertTrue(lookup.lookup('AB000CD', as_of=NOW)['cached'])
+                self.assertEqual(lookup.lookup('AB999CD', as_of=NOW+timedelta(seconds=100))['status'], 'free_quota_exhausted')
+            self.assertEqual(len(calls), 9)
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                lookup.db.execute('DELETE FROM plate_lookup_attempts')
+        finally:
+            lookup.close()
+
     def test_parallel_claims_are_distinct(self):
         self.queue.submit('parallel',[envelope() for _ in range(10)])
         barrier=Barrier(4)

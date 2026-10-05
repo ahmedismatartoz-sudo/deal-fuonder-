@@ -339,3 +339,15 @@ def publication_preview(request: dict):
         if archive:
             archive.close()
         queue.close()
+
+
+@app.post('/vehicles/plate-lookup')
+def lookup_vehicle_plate(request: dict):
+    from .plate_lookup import PlateLookup
+    lookup = PlateLookup()
+    try:
+        return lookup.lookup(request['plate'])
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        lookup.close()
