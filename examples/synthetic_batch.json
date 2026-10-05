@@ -1,0 +1,345 @@
+{
+  "batch_id": "synthetic-demo-v1",
+  "records": [
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "0",
+        "url": "https://example.com/synthetic/0",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10000,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-0"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-0",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/0",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "1",
+        "url": "https://example.com/synthetic/1",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10100,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-1"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-1",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/1",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "2",
+        "url": "https://example.com/synthetic/2",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10200,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-2"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-2",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/2",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "3",
+        "url": "https://example.com/synthetic/3",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10300,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-3"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-3",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/3",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "4",
+        "url": "https://example.com/synthetic/4",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10400,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-4"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-4",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/4",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "5",
+        "url": "https://example.com/synthetic/5",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10500,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-5"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-5",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/5",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "6",
+        "url": "https://example.com/synthetic/6",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10600,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-6"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-6",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/6",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "7",
+        "url": "https://example.com/synthetic/7",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 10700,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-7"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-7",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/7",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      }
+    },
+    {
+      "listing": {
+        "source": "synthetic",
+        "source_id": "99",
+        "url": "https://example.com/synthetic/99",
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "319",
+        "trim": "1.2 69cv",
+        "fuel": "petrol",
+        "transmission": "manual",
+        "year": 2020,
+        "mileage_km": 50000,
+        "price_eur": 8000,
+        "province": "Milano",
+        "seller_type": "private",
+        "condition": "undamaged",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "vehicle_id": "demo-99"
+      },
+      "identity_evidence": {
+        "vehicle_id": "demo-99",
+        "verified": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-identity/99",
+        "verified_at": "2026-10-04T09:00:00+00:00"
+      },
+      "inspection": {
+        "vehicle_id": "demo-99",
+        "verified": true,
+        "complete": true,
+        "verified_by": "synthetic-fixture",
+        "evidence_url": "https://example.com/synthetic-inspection",
+        "inspected_at": "2026-10-04T10:00:00+00:00",
+        "required_repairs": []
+      },
+      "operating_costs": {
+        "transfer": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "transport": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "preparation": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "warranty": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "taxes": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "fees": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        },
+        "contingency": {
+          "low_cents": 10000,
+          "high_cents": 20000,
+          "currency": "EUR",
+          "tax_included": true,
+          "quoted_at": "2026-10-04T10:00:00+00:00",
+          "valid_until": "2026-11-01T10:00:00+00:00",
+          "verified": true,
+          "verified_by": "synthetic-fixture",
+          "evidence_url": "https://example.com/synthetic-cost"
+        }
+      }
+    }
+  ]
+}
