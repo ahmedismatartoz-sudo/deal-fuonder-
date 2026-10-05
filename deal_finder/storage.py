@@ -24,7 +24,7 @@ class Store:
             (*listing.identity, listing.observed_at, self.db.json_param(payload))).rowcount
         previous = self.db.execute('SELECT payload FROM snapshots WHERE source=? AND source_id=? AND observed_at=?',
                                    (*listing.identity, listing.observed_at)).fetchone()
-        if self.db.json_decode(previous[0]) != listing.to_dict():
+        if Listing.parse(self.db.json_decode(previous[0])).to_dict() != listing.to_dict():
             raise ValueError('Conflicting immutable listing snapshot')
         return inserted
 

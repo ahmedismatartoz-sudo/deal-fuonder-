@@ -25,6 +25,11 @@ def main():
     replay.add_argument('batch_id')
     result = sub.add_parser('result')
     result.add_argument('job_id', type=int)
+    collect = sub.add_parser('collect-file')
+    collect.add_argument('file', help='Export with source, run_id, mode, scope and pages')
+    collect.add_argument('--max-pages', type=int, default=100)
+    preview = sub.add_parser('publication-preview')
+    preview.add_argument('batch_id')
     sub.add_parser('agents')
     sub.add_parser('migrate')
     sub.add_parser('check-db')
@@ -35,11 +40,33 @@ def main():
     if args.command == 'migrate':
         print(json.dumps(migrate(args.db), indent=2))
         return
+    if args.command == 'collect-file':
+        from .archive import Archive
+        from .collectors import CollectionAgent, ExportConnector
+        with open(args.file) as handle:
+            export = json.load(handle)
+        archive = Archive(args.db)
+        try:
+            output = CollectionAgent().execute(ExportConnector(export['source'], export['pages']),
+                        archive, run_id=export['run_id'], mode=export['mode'],
+                        scope=export['scope'], max_pages=args.max_pages)
+            print(json.dumps(output, indent=2))
+        finally:
+            archive.close()
+        return
     queue = Queue(args.db)
     try:
         if args.command == 'check-db':
             queue.db.execute('SELECT 1')
             output = {'status': 'ready', 'backend': queue.db.dialect}
+        elif args.command == 'publication-preview':
+            from .archive import Archive
+            from .publication import PublicationAgent
+            archive = Archive(args.db)
+            try:
+                output = PublicationAgent().preview(queue, archive, args.batch_id)
+            finally:
+                archive.close()
         elif args.command == 'submit':
             with open(args.file) as handle:
                 batch = json.load(handle)

@@ -1,0 +1,57 @@
+"""Seven product components; deterministic controls retain their audited results."""
+from ..models import Listing
+from .contracts import PIPELINE_VERSION
+from .specialists import analyze as controls, selection_decision
+from .contracts import Result
+
+
+COMPONENTS = (
+    ('collection', (), 'Archive source originals, quarantine and resumable collection checkpoints.'),
+    ('market_selection', ('collection',), 'Compare like-for-like cars and screen 1000..50000 EUR candidates.'),
+    ('repairs', ('market_selection',), 'Read documented inspection and total complete repair quotes.'),
+    ('resale', ('repairs',), 'Provide resale estimates only after transaction-model calibration.'),
+    ('opportunity', ('resale',), 'Account for all costs, forecast profit and documented sale liquidity.'),
+    ('supervisor', ('market_selection', 'repairs', 'resale', 'opportunity'), 'Aggregate evidence, calibration and availability gates.'),
+    ('publication', ('supervisor',), 'Publish only supervisor-approved, current opportunities.')
+)
+
+
+def registry():
+    return [dict(name=name, version=PIPELINE_VERSION, requires=list(requires),
+                 mode='collection' if name == 'collection' else 'analysis', purpose=purpose)
+            for name, requires, purpose in COMPONENTS]
+
+
+def analyze(raw, candidates, as_of, **kwargs):
+    out = controls(raw, candidates, as_of, **kwargs)
+    quality = out['quality']
+    target = Listing.parse(quality['data']['listing']) if quality['status'] == 'completed' else None
+    market = out['market']
+    decision = selection_decision(target, Result('market', market['status'], market['data'], market['reasons']))
+    selected = decision['candidate']
+    repaired = selected and out['identity']['status'] == 'completed' and out['condition']['status'] == 'completed' and out['repair']['status'] == 'completed'
+    checks = dict(valid_listing=target is not None, identity_verified=out['identity']['status'] == 'completed',
+                  selected_by_price=selected, repairs_documented=repaired,
+                  all_costs_documented=out['opportunity']['status'] == 'completed',
+                  calibrated_resale_model=False, calibrated_sale_time_model=False,
+                  acquisition_terms_verified=False, current_source_availability_verified=False)
+    blocked = [name for name, passed in checks.items() if not passed]
+    components = {
+        'collection': dict(status='completed', data=dict(input_received=True, live_scraping_confirmed=False)),
+        'market_selection': dict(status='completed' if market['status'] == 'completed' else 'blocked',
+                                 data=dict(**decision, benchmark=market['data'])),
+        'repairs': dict(status='completed' if repaired else 'blocked', data=out['repair']['data'],
+                        reasons=out['condition']['reasons'] + out['repair']['reasons']),
+        'resale': dict(status='blocked', data=dict(recommended_price_eur=None, prediction_interval_eur=None,
+                       model_version=None), reasons=['Transaction-based resale model is not calibrated.']),
+        'opportunity': dict(status='blocked', data=dict(scenario=out['opportunity']['data'],
+                            forecast_profit_cents=None, expected_days_to_sell=None, popularity_score=None,
+                            liquidity_basis='unavailable_without_documented_outcomes'),
+                            reasons=['Calibrated resale and liquidity estimates required.']),
+        'supervisor': dict(status='completed', data=dict(approved=False, checks=checks, blocking_checks=blocked)),
+        'publication': dict(status='blocked', data=dict(publishable=False),
+                            reasons=['Supervisor has not approved an opportunity.'])
+    }
+    out['components'] = components
+    out['pipeline_version'] = PIPELINE_VERSION
+    return out

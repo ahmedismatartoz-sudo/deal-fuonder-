@@ -60,7 +60,7 @@ def valuation(target: dict):
         store.close()
 
 from .queue import Queue
-from .agents import registry
+from .agents import registry, control_registry, PIPELINE_VERSION
 from .agents.intake import IntakeAgent
 
 class BatchRequest(BaseModel):
@@ -74,7 +74,7 @@ class EvaluationRequest(BaseModel):
 
 @app.get('/agents')
 def agents():
-    return {'pipeline_version': 'agents-v0.2', 'agents': registry(),
+    return {'pipeline_version': PIPELINE_VERSION, 'agents': registry(), 'controls': control_registry(),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
             'forecast_enabled': False}
 
@@ -142,4 +142,96 @@ def evaluate_model(request: EvaluationRequest):
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     finally:
+        queue.close()
+
+from .archive import Archive
+from .collectors import sources
+from .publication import PublicationAgent
+
+@app.get('/collection/sources')
+def collection_sources():
+    return {'sources': sources()}
+
+@app.post('/collection/pages', status_code=202)
+def receive_collection_page(page: dict):
+    archive = Archive(database_target())
+    try:
+        return archive.ingest(page)
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+@app.get('/collection/runs/{source}/{run_id}')
+def collection_status(source: str, run_id: str):
+    archive = Archive(database_target())
+    try:
+        return archive.run_status(source, run_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail='Collection run not found') from error
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+@app.get('/catalogue')
+def catalogue(min_price: int = 1000, max_price: int = 50000, city: str | None = None,
+              province: str | None = None, latitude: float | None = None,
+              longitude: float | None = None, radius_km: float | None = None,
+              offset: int = 0, limit: int = 100):
+    archive = Archive(database_target())
+    try:
+        return archive.search(min_price=min_price, max_price=max_price, city=city, province=province,
+                              latitude=latitude, longitude=longitude, radius_km=radius_km,
+                              offset=offset, limit=limit)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+@app.get('/catalogue/{source}/{source_id}/history')
+def catalogue_history(source: str, source_id: str, offset: int = 0, limit: int = 100):
+    archive = Archive(database_target())
+    try:
+        return {'items': archive.history(source, source_id, offset=offset, limit=limit)}
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
+@app.post('/catalogue/{source}/{source_id}/promote', status_code=202)
+def promote_listing(source: str, source_id: str, request: dict):
+    archive = Archive(database_target())
+    queue = None
+    try:
+        allowed = {'batch_id', 'identity_evidence', 'inspection', 'repair_quotes', 'operating_costs'}
+        if set(request) - allowed:
+            raise ValueError('Unexpected promotion fields')
+        envelope = archive.normalized_envelope(source, source_id)
+        envelope.update({k: v for k, v in request.items() if k != 'batch_id'})
+        queue = Queue(database_target())
+        return queue.submit(request['batch_id'], [envelope])
+    except KeyError as error:
+        raise HTTPException(status_code=422, detail='Listing or required field missing') from error
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        if queue:
+            queue.close()
+        archive.close()
+
+@app.post('/publication/preview')
+def publication_preview(request: dict):
+    queue = Queue(database_target())
+    archive = None
+    try:
+        archive = Archive(database_target())
+        return PublicationAgent().preview(queue, archive, request['batch_id'])
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail='Batch not found') from error
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        if archive:
+            archive.close()
         queue.close()

@@ -1,6 +1,7 @@
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+from math import isfinite
 
 
 def normalize(value):
@@ -29,6 +30,14 @@ class Listing:
     observed_at: str
     vehicle_id: str | None = None
     active: bool = True
+    title: str = ''
+    description: str = ''
+    image_urls: list[str] | None = None
+    country: str = 'IT'
+    city: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    price_kind: str = 'total'
 
     @classmethod
     def parse(cls, row):
@@ -78,6 +87,33 @@ class Listing:
             data['vehicle_id'] = data['vehicle_id'].strip()
         else:
             data['vehicle_id'] = None
+        for key in ('title', 'description'):
+            if not isinstance(data.get(key, ''), str):
+                raise ValueError(f'{key} must be text')
+        images = data.get('image_urls')
+        if images is not None:
+            if not isinstance(images, list) or len(images) > 100:
+                raise ValueError('image_urls must be an array of at most 100 URLs')
+            for url in images:
+                parsed = urlparse(url) if isinstance(url, str) else None
+                if parsed is None or parsed.scheme not in ('http', 'https') or not parsed.netloc:
+                    raise ValueError('Invalid image URL')
+        country = data.get('country', 'IT')
+        if not isinstance(country, str) or country.upper() != 'IT':
+            raise ValueError('Only Italy is supported')
+        data['country'] = 'IT'
+        if data.get('city') is not None:
+            data['city'] = normalize(data['city'])
+        lat, lon = data.get('latitude'), data.get('longitude')
+        if (lat is None) != (lon is None):
+            raise ValueError('Coordinates must be paired')
+        if lat is not None:
+            if any(isinstance(x, bool) or not isinstance(x, (int, float)) or not isfinite(x) for x in (lat, lon)):
+                raise ValueError('Coordinates must be finite numbers')
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                raise ValueError('Coordinates out of bounds')
+        if data.get('price_kind', 'total') not in ('total', 'installment', 'deposit', 'unknown'):
+            raise ValueError('Invalid price_kind')
         return cls(**data)
 
     @property
