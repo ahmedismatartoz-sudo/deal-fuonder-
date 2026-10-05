@@ -189,6 +189,31 @@ def market_candidates(city: str | None = None, province: str | None = None,
 def collection_sources():
     return {'sources': sources()}
 
+
+class AutoScout24Request(BaseModel):
+    run_id: str
+    mode: str = 'incremental'
+    max_pages: int = 1
+
+
+@app.post('/collection/autoscout24')
+def collect_autoscout24(request: AutoScout24Request):
+    """One bounded step; use the worker for bulk collection. Config is server-side."""
+    import json
+    from .autoscout24 import collect, CollectionBlocked
+    if not 1 <= request.max_pages <= 5:
+        raise HTTPException(status_code=422, detail='max_pages must be 1..5; use the worker for bulk collection')
+    archive = Archive(database_target())
+    try:
+        config = json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+        return collect(config, archive, run_id=request.run_id, mode=request.mode, max_pages=request.max_pages)
+    except CollectionBlocked as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        archive.close()
+
 @app.post('/collection/pages', status_code=202)
 def receive_collection_page(page: dict):
     archive = Archive(database_target())

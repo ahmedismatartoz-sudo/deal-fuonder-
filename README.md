@@ -30,11 +30,13 @@ Vedere [docs/agents.md](docs/agents.md) e [docs/architecture.md](docs/architectu
 **Disponibile:** archivio nazionale di originali anche incompleti, testo completo
 e URL delle fotografie; eventi immutabili, rimozioni esplicite, quarantena;
 raccolta iniziale/incrementale con pagine idempotenti e checkpoint; adapter export e Apify;
+scraper AutoScout24 nativo sull'HTML pubblico, integrato con API e ciclo giornaliero;
 filtri città/provincia/raggio/prezzo; promozione esplicita degli annunci completi
 alla coda e selezione automatica sull'intera base; benchmark dei prezzi richiesti; preventivi/ispezioni attestati;
 scenari con tutte le categorie di costo; supervisore e anteprima di pubblicazione.
 
-**Da collegare:** task Apify e mappature su export reali Facebook/Subito/AutoScout24/Automobile.it,
+**Da collegare:** ricerche nazionali e configurazione hosting dello scraper nativo;
+task Apify e mappature su export reali Facebook/Subito/Automobile.it,
 archiviazione dei file fotografici, geocodifica documentata, base ricambi/manodopera,
 modelli di prezzo di vendita e liquidità calibrati su esiti reali, scheduler
 mattutino e servizi Render continuativi (template e ciclo giornaliero predisposti). Nessuna copertura totale dei marketplace
@@ -56,6 +58,10 @@ permette di riprendere lo stesso export; non cambiare file durante una raccolta.
 
 Per collegamento Apify, base iniziale, aggiornamenti dei soli nuovi annunci,
 refresh mirati e ciclo Render vedere [docs/collection-cycle.md](docs/collection-cycle.md).
+Per raccolta diretta AutoScout24 senza tariffa Actor:
+[docs/autoscout24.md](docs/autoscout24.md), comando `collect-autoscout24` e
+POST `/collection/autoscout24`. Il ciclo nativo scarica dettagli dei nuovi ID;
+il refresh dei vecchi annunci resta separato. Non dichiara copertura totale.
 `collect-file --scan` collega un export completato all'analisi della base.
 `daily-cycle --mode initial` esegue il bootstrap; `daily-cycle` esclude i task
 iniziali e importa i run quotidiani/refresh, poi seleziona e accoda le candidature.

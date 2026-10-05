@@ -1,0 +1,9 @@
+{
+  "search_urls": [
+    "https://www.autoscout24.it/lst/fiat/panda?fregfrom=2015&fregto=2015&pricefrom=5000&priceto=6000",
+    "https://www.autoscout24.it/lst/fiat/500?fregfrom=2015&fregto=2015&pricefrom=6000&priceto=8000"
+  ],
+  "fetch_details": true,
+  "delay_seconds": 2,
+  "max_pages_per_search": 200
+}

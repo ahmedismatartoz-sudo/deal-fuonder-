@@ -32,7 +32,7 @@ connettore alla creazione: 0/mese; non è una previsione dei costi futuri.
 La prova SQL conferma schema e permessi, non l'esecuzione continuativa degli
 agenti Python su Supabase. La CI PostgreSQL usa esclusivamente un database
 usa-e-getta locale; nessun test distruttivo viene eseguito sul progetto live.
-La suite verificata comprende 121 test, tutti superati su GitHub Actions:
+La suite della PR #6 comprendeva 121 test, tutti superati su GitHub Actions:
 API/SQLite/PostgreSQL, ruoli privati, provenienza, checkpoint, rimozioni,
 rianalisi e packaging delle quattro migrazioni. Nessuna prova di carico nazionale.
 
@@ -49,19 +49,34 @@ Il flusso espone sette componenti principali e controlli interni separati.
 Template Render: API, worker, import/analisi giornalieri, revisione settimanale.
 Configurazione e comandi in [collection-cycle.md](collection-cycle.md).
 
+### Scraper nativo AutoScout24
+
+Collector HTML pubblico integrato con API, worker e daily-cycle, senza Actor
+Apify a pagamento. Verifica live locale del 05/10/2026: una ricerca circoscritta,
+due annunci reali importati con dettagli, fotografie come URL, descrizioni e
+prezzi originali; zero quarantene. Database di verifica separato, nessun dato
+di questa prova importato nel progetto Supabase live. Non è una raccolta nazionale.
+Venti test dedicati su parsing, rate/prezzi condizionati, confini URL/robots,
+filtri applicati, checkpoint, new-only, API e ciclo nativo. Aggiunta integrazione
+PostgreSQL nella CI usa-e-getta. Configurazione in [autoscout24.md](autoscout24.md).
+I dati mancanti, inclusi provincia/generazione/allestimento, bloccano i benchmark
+precisi finché non sono arricchiti: nessuna identità o condizione viene inventata.
+
 ## Avvio ancora da configurare
 
 1. Su Render o sull'hosting scelto configurare API e worker con lo stesso database.
 2. Provisionare login backend e segreti database/token; proprietario separato
    per le migrazioni. Il ruolo NOLOGIN esistente contiene solo i permessi.
 3. Eseguire check-db; avviare API con HTTPS e worker supervisionato.
-4. Configurare task Apify, token e mappature verificate sui veri export. Raccogliere
+4. Configurare ricerche native AutoScout24; per altre fonti/refresh configurare
+   task Apify, token e mappature verificate sui veri export. Raccogliere
    la base una volta; poi attivare task giornalieri dei nuovi annunci e refresh
    mirati, con import giornaliero dal servizio. I campi mancanti non sono inventati.
 5. Raccogliere transazioni e date documentate, calibrare prezzo/liquidità/costi,
    poi abilitare i gates di pubblicazione mattutina con feed persistente.
 
 L'attivazione dell'account Render non conferma servizi avviati. Non risultano
-hosting continuativi, task/credenziali Apify collegati, annunci reali acquisiti o modelli calibrati.
+hosting continuativi, task/credenziali Apify collegati, annunci reali acquisiti
+nel database live o modelli calibrati.
 Le fotografie sono conservate come URL; i file non sono ancora copiati in storage.
 Pubblicazione automatica e raccomandazioni d'acquisto restano disabilitate.
