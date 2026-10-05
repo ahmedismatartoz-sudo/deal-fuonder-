@@ -32,7 +32,7 @@ class QueueTests(unittest.TestCase):
         for _ in range(3):self.queue.work_one()
         out=self.queue.result(2)['run']['outputs']
         self.assertEqual(out['quality']['status'],'quarantined')
-        saved=json.loads(self.queue.db.execute('SELECT payload FROM raw_records WHERE ordinal=1').fetchone()[0])
+        saved=self.queue.db.json_decode(self.queue.db.execute('SELECT payload FROM raw_records WHERE ordinal=1').fetchone()[0])
         self.assertEqual(saved,bad)
     def test_all_snapshots_available_before_first_job(self):
         self.queue.submit('batch',self.records())
@@ -83,10 +83,10 @@ class QueueTests(unittest.TestCase):
         self.queue.submit('batch',self.records())
         for _ in range(9):self.queue.work_one()
         inputs,as_of,outputs=self.queue.db.execute('SELECT inputs,as_of,outputs FROM agent_runs WHERE job_id=9').fetchone()
-        context=json.loads(inputs)
+        context=self.queue.db.json_decode(inputs)
         proofs={tuple(x['key']):x['proof'] for x in context['identity_evidence']}
         actual=analyze(context['raw'],[Listing.parse(x) for x in context['candidates']],datetime.fromisoformat(as_of),identity_evidence=proofs)
-        self.assertEqual(actual,json.loads(outputs))
+        self.assertEqual(actual,self.queue.db.json_decode(outputs))
     def test_missing_identity_evidence_excluded_from_market(self):
         self.queue.submit('batch',[dict(listing=row(i)) for i in range(8)]+[envelope()])
         for _ in range(9):self.queue.work_one()

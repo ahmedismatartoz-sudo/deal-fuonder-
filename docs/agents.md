@@ -113,3 +113,9 @@ Le identità e le date dei record devono essere verificati da un operatore.
 Le metriche non abilitano automaticamente le previsioni. Il passo successivo è
 costruire una base di transazioni reali, verificare le evidenze e fissare soglie
 accettabili per segmento. Non esiste ancora un modello di vendita da certificare.
+
+## Aggiornamento v0.3
+
+Adapter PostgreSQL e migrazioni ora implementati. Il runtime seleziona PostgreSQL
+quando DEAL_FINDER_DATABASE_URL è configurata. Le note SQLite sopra descrivono
+il percorso locale; per il database centrale seguire docs/postgres.md.

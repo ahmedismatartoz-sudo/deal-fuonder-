@@ -1,3 +1,4 @@
+-- Historical design draft. Do NOT apply; use deal-finder migrate with packaged migrations.
 -- PostgreSQL deployment contract; local runtime implements these tables in SQLite.
 -- Apply after 001_initial.sql. A PostgreSQL worker adapter remains to be built.
 CREATE TABLE ingestion_batches (

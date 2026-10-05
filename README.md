@@ -26,7 +26,7 @@ API: http://127.0.0.1:8000/docs. Solo sviluppo locale: aggiungere autenticazione
 - Mediana ponderata per anno/km/freschezza con URL e pesi dei comparabili.
 - Minimo 8 comparabili, controllo numerosità effettiva e dispersione.
 - SQLite locale; schema PostgreSQL preparato in database/001_initial.sql.
-  Il collegamento operativo a PostgreSQL resta da implementare.
+  Il collegamento PostgreSQL è disponibile nella v0.3 descritta sotto.
 
 POST /imports: oggetto con format (json/csv) e content (stringa contenente i dati).
 POST /valuations: annuncio target nel formato di deal_finder/models.py.
@@ -83,3 +83,13 @@ python -m deal_finder.worker --db deal-finder.db run --poll-seconds 2
 
 Avviare API e worker con lo stesso percorso di database. Il comando run rimane
 attivo finché viene interrotto; non è ancora installato come servizio cloud.
+
+## Database centrale (v0.3)
+
+PostgreSQL/Supabase è supportato tramite DEAL_FINDER_DATABASE_URL. Le migrazioni
+versionate si applicano con `python -m deal_finder.worker migrate`; verifica con
+`check-db`. API e worker usano lo stesso database. Per produzione usare
+`python -m deal_finder.serve`, con token bearer e PostgreSQL configurati.
+Dockerfile e compose.yaml sono predisposti. Contratto e procedura aggiornati in
+[docs/postgres.md](docs/postgres.md). I file SQL nella cartella database sono
+vecchi draft di design: non applicarli. Le migrazioni operative sono nel pacchetto.

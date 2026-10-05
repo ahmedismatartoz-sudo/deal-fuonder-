@@ -1,11 +1,35 @@
 import os
+import hmac
+from contextlib import asynccontextmanager
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from .models import Listing
 from .pricing import estimate
 from .storage import Store
+from .database import database_target
 
-app = FastAPI(title='Deal Finder', version='0.2.0')
+@asynccontextmanager
+async def lifespan(app):
+    if os.getenv('DEAL_FINDER_MODE') == 'production':
+        from .serve import validate_runtime
+        validate_runtime()
+    yield
+
+app = FastAPI(title='Deal Finder', version='0.3.0', lifespan=lifespan)
+
+@app.middleware('http')
+async def authenticate(request, call_next):
+    if request.url.path != '/health':
+        token = os.getenv('DEAL_FINDER_API_TOKEN')
+        if os.getenv('DEAL_FINDER_MODE') == 'production' and (not token or len(token) < 32):
+            return JSONResponse(status_code=503, content={'detail': 'Service configuration incomplete'})
+        if token:
+            auth = request.headers.get('authorization', '')
+            if not hmac.compare_digest(auth.encode(), ('Bearer ' + token).encode()):
+                return JSONResponse(status_code=401, content={'detail': 'Bearer authentication required'})
+    return await call_next(request)
+
 
 class ImportRequest(BaseModel):
     format: str = 'json'
@@ -13,11 +37,11 @@ class ImportRequest(BaseModel):
 
 @app.get('/health')
 def health():
-    return {'status': 'ok', 'version': '0.2.0'}
+    return {'status': 'ok', 'version': '0.3.0'}
 
 @app.post('/imports')
 def import_listings(request: ImportRequest):
-    store = Store(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    store = Store(database_target())
     try:
         return store.import_text(request.content, request.format)
     except (ValueError, KeyError, TypeError) as error:
@@ -27,7 +51,7 @@ def import_listings(request: ImportRequest):
 
 @app.post('/valuations')
 def valuation(target: dict):
-    store = Store(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    store = Store(database_target())
     try:
         return estimate(Listing.parse(target), store.listings())
     except (ValueError, KeyError, TypeError) as error:
@@ -56,7 +80,7 @@ def agents():
 
 @app.post('/batches', status_code=202)
 def submit_batch(request: BatchRequest):
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         return IntakeAgent().execute(queue, request.batch_id, request.records)
     except (ValueError, TypeError) as error:
@@ -66,7 +90,7 @@ def submit_batch(request: BatchRequest):
 
 @app.get('/batches/{batch_id}')
 def batch_status(batch_id: str):
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         return queue.batch(batch_id)
     except KeyError as error:
@@ -78,7 +102,7 @@ def batch_status(batch_id: str):
 def batch_jobs(batch_id: str, offset: int = 0, limit: int = 100):
     if offset < 0 or not 1 <= limit <= 100:
         raise HTTPException(status_code=422, detail='Invalid pagination')
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         queue.batch(batch_id)
         ids = [row[0] for row in queue.db.execute(
@@ -92,7 +116,7 @@ def batch_jobs(batch_id: str, offset: int = 0, limit: int = 100):
 
 @app.post('/batches/{batch_id}/replay', status_code=202)
 def replay_batch(batch_id: str):
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         return queue.replay_batch(batch_id)
     except KeyError as error:
@@ -102,7 +126,7 @@ def replay_batch(batch_id: str):
 
 @app.get('/jobs/{job_id}')
 def job_result(job_id: int):
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         return queue.result(job_id)
     except KeyError as error:
@@ -112,7 +136,7 @@ def job_result(job_id: int):
 
 @app.post('/evaluations')
 def evaluate_model(request: EvaluationRequest):
-    queue = Queue(os.getenv('DEAL_FINDER_DB', 'deal-finder.db'))
+    queue = Queue(database_target())
     try:
         return queue.evaluate(request.model_version, request.training_vehicle_ids, request.records)
     except (ValueError, TypeError) as error:

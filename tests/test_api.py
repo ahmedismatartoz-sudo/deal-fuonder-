@@ -36,3 +36,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.json()['result']['status'],'blocked')
         self.assertFalse(response.json()['result']['data']['forecast_release_approved'])
+    def test_bearer_authentication(self):
+        with patch.dict(os.environ,{'DEAL_FINDER_API_TOKEN':'unit-test-token-with-at-least-32-characters'}):
+            self.assertEqual(self.client.get('/health').status_code,200)
+            self.assertEqual(self.client.get('/agents').status_code,401)
+            self.assertEqual(self.client.post('/batches',json={'batch_id':'private','records':[envelope()]}).status_code,401)
+            self.assertEqual(self.client.get('/agents',headers={'authorization':'Bearer unit-test-token-with-at-least-32-characters'}).status_code,200)
