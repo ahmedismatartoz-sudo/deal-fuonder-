@@ -3,12 +3,14 @@ from ..models import Listing
 from .contracts import PIPELINE_VERSION
 from .specialists import analyze as controls, selection_decision
 from .contracts import Result
+from .market_experts import review, registry as expert_registry
+from .handoff import parts_handoff, card, FILTER_FIELDS
 
 
 COMPONENTS = (
     ('collection', (), 'Archive source originals, quarantine and resumable collection checkpoints.'),
     ('market_selection', ('collection',), 'Compare like-for-like cars and screen 1000..50000 EUR candidates.'),
-    ('repairs', ('market_selection',), 'Read documented inspection and total complete repair quotes.'),
+    ('repairs', ('market_selection',), 'Research compatible parts prices and separate hours; preserve legacy complete quote controls.'),
     ('resale', ('repairs',), 'Provide resale estimates only after transaction-model calibration.'),
     ('opportunity', ('resale',), 'Account for all costs, forecast profit and documented sale liquidity.'),
     ('supervisor', ('market_selection', 'repairs', 'resale', 'opportunity'), 'Aggregate evidence, calibration and availability gates.'),
@@ -18,7 +20,8 @@ COMPONENTS = (
 
 def registry():
     return [dict(name=name, version=PIPELINE_VERSION, requires=list(requires),
-                 mode='collection' if name == 'collection' else 'analysis', purpose=purpose)
+                 mode='collection' if name == 'collection' else 'analysis', purpose=purpose,
+                 subagents=expert_registry() if name == 'market_selection' else [])
             for name, requires, purpose in COMPONENTS]
 
 
@@ -52,6 +55,15 @@ def analyze(raw, candidates, as_of, **kwargs):
         'publication': dict(status='blocked', data=dict(publishable=False),
                             reasons=['Supervisor has not approved an opportunity.'])
     }
+    pool = kwargs.get('source_asking_candidates')
+    pool = candidates if pool is None else pool
+    out['market_experts'] = review(target, pool, as_of, decision)
+    parts = parts_handoff(raw, target, selected, as_of)
+    out['parts_research'] = parts
+    out['candidate_card'] = card(target, decision, market['data'], parts)
+    out['handoff'] = dict(route=decision['route'], tasks=out['market_experts']['next_tasks'],
+                          filter_fields=list(FILTER_FIELDS), shared_archive_required=True,
+                          price_lookup_policy='free_only', paid_lookup_enabled=False)
     out['components'] = components
     out['pipeline_version'] = PIPELINE_VERSION
     return out

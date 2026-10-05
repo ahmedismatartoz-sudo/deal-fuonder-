@@ -15,8 +15,10 @@ def weighted_quantile(items, quantile):
     return ordered[-1][0]
 
 
-def estimate(target, listings, *, as_of=None, minimum=8, scope='province'):
+def estimate(target, listings, *, as_of=None, minimum=8, scope='province', condition='undamaged'):
     """Explainable asking-price benchmark; never a calibrated sale prediction."""
+    if condition not in ('undamaged', 'damaged'):
+        raise ValueError('Comparable condition must be explicit')
     if scope not in ('province', 'national'):
         raise ValueError('Invalid geographic scope')
     now = as_of or datetime.now(timezone.utc)
@@ -41,7 +43,7 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province'):
             continue
         if target.price_kind != 'total' or item.price_kind != 'total':
             continue
-        if not item.active or item.condition != 'undamaged' or not 0 <= age <= 30:
+        if not item.active or item.condition != condition or not 0 <= age <= 30:
             continue
         if any(getattr(item, field) != getattr(target, field) for field in MATCH_FIELDS if scope != 'national' or field != 'province'):
             continue
@@ -61,7 +63,7 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province'):
                         price_eur=x.price_eur, province=x.province, weight=round(w, 6), observed_at=x.observed_at)
                    for x, w in selected]
     result = dict(status='insufficient_data', basis='asking_prices',
-                  model_version='asking-comparables-v0.2', geographic_scope=scope, comparable_count=len(selected),
+                  model_version='asking-comparables-v0.3', comparable_condition=condition, geographic_scope=scope, comparable_count=len(selected),
                   comparables=comparables, benchmark_eur=None, observed_range_eur=None,
                   warnings=['Not a sale-price forecast; accuracy has not been calibrated.'])
     if scope == 'national':
