@@ -10,7 +10,7 @@ from .archive import Archive, canonical
 from .models import Listing
 from .pricing import estimate
 
-VERSION = 'archive-asking-screen-v1'
+VERSION = 'archive-asking-screen-v2'
 COHORT = ('make', 'model', 'generation', 'trim', 'fuel', 'transmission', 'seller_type')
 
 
@@ -130,12 +130,15 @@ class Market:
         reason = 'insufficient_comparables'
         if not target.active or target.price_kind != 'total' or not 1000 <= target.price_eur <= 50000:
             reason = 'outside_purchase_scope'
+        elif target.condition == 'unknown':
+            reason = 'condition_unresolved'
         elif benchmark['status'] == 'benchmark_available':
             lower = benchmark['observed_range_eur']['p25']
             discount = round((lower-target.price_eur)/lower, 6)
             selected = (lower-target.price_eur)*10 >= lower
             reason = 'below_asking_market' if selected else 'discount_too_small'
         return dict(listing=target.to_dict(), selected=selected, reason=reason,
+                    route='verification' if selected else 'enrichment' if reason in ('insufficient_comparables', 'condition_unresolved') else 'screened_out',
                     basis_signature=basis_signature,
                     discount_fraction=discount, benchmark=benchmark,
                     status='candidate_for_verification' if selected else 'screened',

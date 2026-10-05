@@ -189,12 +189,14 @@ def selection_decision(target, market):
     policy = dict(min_price_eur=1000, max_price_eur=50000, min_discount_fraction=0.10,
                   basis='asking_price_p25', calibrated=False)
     if target is None or market is None or market.status != 'completed':
-        return dict(candidate=False, policy=policy, reason='Reliable asking benchmark unavailable')
+        return dict(candidate=False, route='enrichment', policy=policy, reason='Reliable asking benchmark unavailable')
     lower = market.data['observed_range_eur']['p25']
     discount = (lower - target.price_eur) / lower
     candidate = (target.active and target.price_kind == 'total'
-                 and 1000 <= target.price_eur <= 50000 and discount >= policy['min_discount_fraction'])
-    return dict(candidate=candidate, policy=policy, discount_fraction=round(discount, 6),
+                 and target.condition != 'unknown' and 1000 <= target.price_eur <= 50000 and discount >= policy['min_discount_fraction'])
+    if target.condition == 'unknown':
+        return dict(candidate=False, route='enrichment', policy=policy, reason='Condition unresolved')
+    return dict(candidate=candidate, route='verification' if candidate else 'screened_out', policy=policy, discount_fraction=round(discount, 6),
                 reason='Passed price screening; inspection and costs still required' if candidate
                        else 'Outside budget or insufficient discount from observed lower quartile')
 
