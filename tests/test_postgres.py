@@ -39,7 +39,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 2)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 3)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -54,7 +54,7 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 11)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(
@@ -114,3 +114,33 @@ class PostgresQueueTests(test_queue.QueueTests):
                 result=client.get('/jobs/1',headers=headers)
                 self.assertEqual(result.status_code,200)
                 self.assertEqual(result.json()['state'],'done')
+
+
+import test_archive
+
+@unittest.skipUnless(URL, 'Disposable PostgreSQL test database not configured')
+class PostgresArchiveTests(test_archive.ArchiveTests):
+    def setUp(self):
+        parsed=urlparse(URL)
+        if parsed.hostname not in ('127.0.0.1','localhost') or parsed.path != '/deal_finder_test':
+            raise RuntimeError('Archive tests require disposable loopback PostgreSQL')
+        db=Database(URL)
+        db.execute('DROP SCHEMA IF EXISTS deal_finder CASCADE')
+        db.close()
+        migrate(URL)
+        from deal_finder.archive import Archive
+        self.archive=Archive(URL)
+
+    def test_scoped_backend_can_archive_but_not_rewrite_events(self):
+        import psycopg
+        self.archive.db.execute('SET ROLE deal_finder_backend')
+        try:
+            self.ingest(test_archive.page([test_archive.event(), {'invalid':True}]))
+            self.assertEqual(len(self.archive.search()['items']), 1)
+            self.assertEqual(self.archive.run_status('export','first')['quarantined'], 1)
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                self.archive.db.execute('UPDATE listing_events SET payload=payload')
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                self.archive.db.execute('DELETE FROM collection_pages')
+        finally:
+            self.archive.db.execute('RESET ROLE')

@@ -1,7 +1,7 @@
 from datetime import timedelta
 from ..models import Listing, normalize
 from ..pricing import estimate
-from .contracts import Result, instant, evidence, bounded_cost, verified_identity
+from .contracts import Result, instant, evidence, bounded_cost, verified_identity, PIPELINE_VERSION
 
 class QualityAgent:
     name = 'quality'
@@ -52,6 +52,10 @@ class MarketAgent:
             return Result(self.name, 'blocked', reasons=['Target listing is stale.'])
         vetted = [x for x in ctx.candidates if verified_identity(ctx.identity_evidence.get((*x.identity, x.observed_at)), x, ctx.as_of)]
         result = estimate(ctx.target, vetted, as_of=ctx.as_of)
+        if result['status'] != 'benchmark_available':
+            national = estimate(ctx.target, vetted, as_of=ctx.as_of, scope='national')
+            if national['status'] == 'benchmark_available':
+                result = national
         result['excluded_unverified_identity_count'] = len(ctx.candidates) - len(vetted)
         status = 'completed' if result['status'] == 'benchmark_available' else 'blocked'
         return Result(self.name, status, result, result['warnings'])
@@ -174,22 +178,39 @@ class ValidationAgent:
             'buy_recommendation': False,
             'forecast_block_reason': 'No calibrated sale-price model or independent transaction validation yet.'})
 
+def selection_decision(target, market):
+    """Provisional screening policy, distinct from predicted profit."""
+    policy = dict(min_price_eur=1000, max_price_eur=50000, min_discount_fraction=0.10,
+                  basis='asking_price_p25', calibrated=False)
+    if target is None or market is None or market.status != 'completed':
+        return dict(candidate=False, policy=policy, reason='Reliable asking benchmark unavailable')
+    lower = market.data['observed_range_eur']['p25']
+    discount = (lower - target.price_eur) / lower
+    candidate = (target.active and target.price_kind == 'total'
+                 and 1000 <= target.price_eur <= 50000 and discount >= policy['min_discount_fraction'])
+    return dict(candidate=candidate, policy=policy, discount_fraction=round(discount, 6),
+                reason='Passed price screening; inspection and costs still required' if candidate
+                       else 'Outside budget or insufficient discount from observed lower quartile')
+
+
 AGENTS = (QualityAgent(), IdentityAgent(), MarketAgent(), ConditionAgent(), RepairAgent(), OpportunityAgent(), ValidationAgent())
 
 
 def registry():
     from .intake import IntakeAgent
     from .evaluation import EvaluationAgent
-    return [dict(name='intake', version='agents-v0.2', requires=[], mode='ingestion', purpose=IntakeAgent.purpose)] + [
-        dict(name=x.name, version='agents-v0.2', requires=list(x.requires), mode='analysis', purpose=x.purpose)
-        for x in AGENTS] + [dict(name='evaluation', version='agents-v0.2', requires=[], mode='evaluation', purpose=EvaluationAgent.purpose)]
+    return [dict(name='intake', version=PIPELINE_VERSION, requires=[], mode='ingestion', purpose=IntakeAgent.purpose)] + [
+        dict(name=x.name, version=PIPELINE_VERSION, requires=list(x.requires), mode='analysis', purpose=x.purpose)
+        for x in AGENTS] + [dict(name='evaluation', version=PIPELINE_VERSION, requires=[], mode='evaluation', purpose=EvaluationAgent.purpose)]
 
 
 def analyze(raw, candidates, as_of, agents=AGENTS, identity_evidence=None):
     from .contracts import Context
     ctx = Context(raw=raw, candidates=candidates, as_of=as_of, identity_evidence=identity_evidence or {})
     for agent in agents:
-        if not ctx.ready(*agent.requires):
+        if agent.name in ('condition', 'repair', 'opportunity') and not selection_decision(ctx.target, ctx.results.get('market'))['candidate']:
+            result = Result(agent.name, 'blocked', reasons=['Price screening did not select this listing.'])
+        elif not ctx.ready(*agent.requires):
             result = Result(agent.name, 'blocked', reasons=[f'Dependency unavailable: {name}'
                             for name in agent.requires if not ctx.ready(name)])
         else:

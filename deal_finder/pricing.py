@@ -15,8 +15,10 @@ def weighted_quantile(items, quantile):
     return ordered[-1][0]
 
 
-def estimate(target, listings, *, as_of=None, minimum=8):
+def estimate(target, listings, *, as_of=None, minimum=8, scope='province'):
     """Explainable asking-price benchmark; never a calibrated sale prediction."""
+    if scope not in ('province', 'national'):
+        raise ValueError('Invalid geographic scope')
     now = as_of or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError('as_of must be timezone-aware')
@@ -37,9 +39,11 @@ def estimate(target, listings, *, as_of=None, minimum=8):
         age = (now - datetime.fromisoformat(item.observed_at)).total_seconds() / 86400
         if item.identity == target.identity or (target.vehicle_id and item.vehicle_id == target.vehicle_id):
             continue
+        if target.price_kind != 'total' or item.price_kind != 'total':
+            continue
         if not item.active or item.condition != 'undamaged' or not 0 <= age <= 30:
             continue
-        if any(getattr(item, field) != getattr(target, field) for field in MATCH_FIELDS):
+        if any(getattr(item, field) != getattr(target, field) for field in MATCH_FIELDS if scope != 'national' or field != 'province'):
             continue
         year_gap = abs(item.year - target.year)
         km_gap = abs(item.mileage_km - target.mileage_km)
@@ -54,12 +58,16 @@ def estimate(target, listings, *, as_of=None, minimum=8):
         weight = 1 / (1 + year_gap + km_gap / 20_000 + age / 30)
         selected.append((item, weight))
     comparables = [dict(source=x.source, source_id=x.source_id, url=x.url,
-                        price_eur=x.price_eur, weight=round(w, 6), observed_at=x.observed_at)
+                        price_eur=x.price_eur, province=x.province, weight=round(w, 6), observed_at=x.observed_at)
                    for x, w in selected]
     result = dict(status='insufficient_data', basis='asking_prices',
-                  model_version='asking-comparables-v0.1', comparable_count=len(selected),
+                  model_version='asking-comparables-v0.2', geographic_scope=scope, comparable_count=len(selected),
                   comparables=comparables, benchmark_eur=None, observed_range_eur=None,
                   warnings=['Not a sale-price forecast; accuracy has not been calibrated.'])
+    if scope == 'national':
+        result['warnings'].append('National comparables: local price adjustments have not been calibrated.')
+    if target.price_kind != 'total':
+        result['warnings'].append('Confirmed total purchase price required.')
     if any(not x.vehicle_id for x, _ in selected):
         result['warnings'].append('Cross-marketplace duplicates may remain without verified vehicle IDs.')
     if len(selected) < minimum:

@@ -1,104 +1,91 @@
 # Deal Finder
 
-Nucleo iniziale per opportunità nel mercato delle auto usate. Priorità: precisione,
-provenienza dei dati e calcoli verificabili. Nessuna ipotesi su officine o costi agevolati.
+Software per individuare opportunità nelle auto usate in Italia. Priorità:
+precisione dei prezzi, provenienza delle evidenze e analisi riproducibili.
+Budget di selezione: **1.000–50.000 €**. Nessuna ipotesi su un'officina propria.
 
-## Avvio locale (Python 3.11+)
+## Avvio e verifiche
 
-```sh
-python -m venv .venv
-. .venv/bin/activate
-pip install -e .
-python -m unittest discover -s tests -v
-uvicorn deal_finder.api:app --host 127.0.0.1 --port 8000
-```
+Python 3.11+. Installare `pip install -r requirements.lock`, poi
+`pip install --no-deps -e .`. Eseguire `python -m unittest discover -s tests -v`.
+La CI esegue anche le integrazioni PostgreSQL su database usa-e-getta.
 
-API: http://127.0.0.1:8000/docs. Solo sviluppo locale: aggiungere autenticazione
- e limiti di upload prima di esporre il servizio in rete.
+SQLite per sviluppo; configurare DEAL_FINDER_DATABASE_URL per PostgreSQL.
+Le migrazioni operative sono in deal_finder/migrations:
+`python -m deal_finder.worker migrate`, poi `check-db`.
+Non applicare i vecchi draft della cartella database.
 
-## Funzioni disponibili
+API locale: `uvicorn deal_finder.api:app --host 127.0.0.1 --port 8000`.
+Produzione: `python -m deal_finder.serve`, con token bearer e PostgreSQL.
+API e worker devono usare lo stesso database. Docker/compose sono predisposti.
+Le dipendenze sono fissate in requirements.lock.
 
-- Import CSV/JSON atomico, validazione, normalizzazione, storico immutabile.
-- Identità fonte/annuncio, import idempotenti e rifiuto dei conflitti di timestamp.
-- Comparabili della stessa marca/modello/generazione/allestimento-motore,
-  carburante/cambio/provincia/tipo venditore, anno ±1 e km ±20.000.
-- Solo annunci attivi senza danni dichiarati, osservati negli ultimi 30 giorni.
-- Mediana ponderata per anno/km/freschezza con URL e pesi dei comparabili.
-- Minimo 8 comparabili, controllo numerosità effettiva e dispersione.
-- SQLite locale; schema PostgreSQL preparato in database/001_initial.sql.
-  Il collegamento PostgreSQL è disponibile nella v0.3 descritta sotto.
+## Flusso operativo
 
-POST /imports: oggetto con format (json/csv) e content (stringa contenente i dati).
-POST /valuations: annuncio target nel formato di deal_finder/models.py.
-price_eur è un intero in euro; observed_at ISO 8601 con fuso; vehicle_id opzionale
-richiede un'identità verificata. Gli esempi nei test sono sintetici.
+Sette componenti principali: raccolta → selezione prezzi → ripristino →
+rivendita → margine/liquidità → supervisione → pubblicazione.
+Qualità, identità, evidenze e misurazione degli errori sono controlli interni.
+Vedere [docs/agents.md](docs/agents.md) e [docs/architecture.md](docs/architecture.md).
 
-## Limiti
+**Disponibile:** archivio nazionale di originali anche incompleti, testo completo
+e URL delle fotografie; eventi immutabili, rimozioni esplicite, quarantena;
+raccolta iniziale/incrementale con pagine idempotenti e checkpoint; adapter export;
+filtri città/provincia/raggio/prezzo; promozione esplicita degli annunci completi
+alla coda; benchmark dei prezzi richiesti; preventivi/ispezioni attestati;
+scenari con tutte le categorie di costo; supervisore e anteprima di pubblicazione.
 
-La versione 0.1 produce un benchmark dei **prezzi richiesti**, non una previsione
-di vendita, guadagno netto o tempo di uscita. P25/P75 descrivono i comparabili,
-non un intervallo predittivo. Dati insufficienti o prezzi troppo dispersi bloccano
-la stima. Le soglie sono provvisorie e non calibrate sul mercato reale.
-La deduplicazione tra marketplace necessita di vehicle_id verificati; altrimenti
-il risultato segnala il rischio di duplicati. Non ci sono ancora scraper o dati reali.
+**Da collegare:** adapter live Facebook/Subito/AutoScout24/Automobile.it,
+archiviazione dei file fotografici, geocodifica documentata, base ricambi/manodopera,
+modelli di prezzo di vendita e liquidità calibrati su esiti reali, scheduler
+mattutino e servizi Render continuativi. Nessuna copertura totale dei marketplace
+è dichiarata. La raccolta terminata riguarda solo lo scope/export ricevuto.
 
-Prossimo passo: collegare PostgreSQL, importare annunci verificati e raccogliere
-vendite effettive per misurare e calibrare gli errori. Vedere docs/architecture.md.
-
-## Agenti e coda persistente (v0.2)
-
-Nove agenti eseguibili: intake, qualità, identità, mercato, condizioni,
-ripristino, opportunità, validazione e misurazione delle previsioni.
-Contratti dettagliati, limiti e criteri di precisione in [docs/agents.md](docs/agents.md).
+## Raccolta iniziale e aggiornamenti
 
 ```sh
+python -m deal_finder.worker --db demo.db collect-file examples/collection_export.json --max-pages 100
 python -m deal_finder.worker agents
 python -m deal_finder.worker --db demo.db submit examples/synthetic_batch.json
 python -m deal_finder.worker --db demo.db drain --limit 100
-python -m deal_finder.worker --db demo.db batch synthetic-demo-v1
-python -m deal_finder.worker --db demo.db result 9
+python -m deal_finder.worker --db demo.db publication-preview synthetic-demo-v1
 ```
 
-L'esempio è interamente sintetico e non identifica opportunità reali. Le date
-sono fisse per riproducibilità; scadranno e il sistema bloccherà le analisi stale.
-Per i tuoi dati inviare un lotto con batch_id univoco a POST /batches. Un worker
-locale avviato con drain esegue i lavori. GET /batches/{id}/jobs mostra gli esiti;
-POST /batches/{id}/replay li rianalizza; POST /evaluations misura gli errori su
-vendite documentate. Nulla si avvia automaticamente o raccoglie dati dai marketplace.
+Gli esempi sono sintetici. Il file export contiene source, run_id, mode
+(initial/incremental), scope e pages (array di pagine di eventi). Il checkpoint
+permette di riprendere lo stesso export; non cambiare file durante una raccolta.
 
-I record invalidi vengono conservati in quarantena e non impediscono l'analisi
-degli altri record del lotto. Il vecchio POST /imports mantiene il suo contratto
-atomico. Il Market Agent richiede attestazioni di identità anche per i comparabili.
-L'endpoint sperimentale POST /valuations della v0.1 resta un benchmark diretto
-senza questi controlli aggiuntivi: utilizzare la pipeline per gli esiti organizzati.
+API protette dal token configurato:
+- POST /collection/pages, GET /collection/runs/{source}/{run_id}, GET /collection/sources.
+- GET /catalogue: min_price/max_price, city/province, latitude/longitude/radius_km,
+  offset/limit. Il catalogo non certifica opportunità.
+- GET /catalogue/{source}/{source_id}/history.
+- POST /catalogue/{source}/{source_id}/promote: batch_id e attestazioni separate.
+- POST /batches; GET /batches/{id}/jobs e /jobs/{id}; POST /batches/{id}/replay.
+- POST /publication/preview con batch_id: anteprima e motivi di esclusione.
+- POST /evaluations: metriche su previsioni congelate e compravendite documentate.
 
-Per testare anche l'API: `pip install -e ".[test]"`. I test di API sono obbligatori
-nella CI; senza FastAPI/httpx sono saltati nell'ambiente locale.
+Il worker `run --poll-seconds 2` rimane in ascolto dei lotti; non avvia
+raccolte online o pianificazioni giornaliere. Un lavoro done può avere analisi
+bloccate per evidenze mancanti: consultare components.supervisor.
 
-Per restare in ascolto e organizzare automaticamente i nuovi lotti:
+## Precisione e blocchi
 
-```sh
-python -m deal_finder.worker --db deal-finder.db run --poll-seconds 2
-```
+Comparabili con identità attestata, stessi marca/modello/generazione/allestimento,
+carburante/cambio/venditore, anno ±1 e km ±20.000; minimo 8, campione effettivo
+e dispersione controllati. Prima la provincia, poi eventuale confronto nazionale
+esplicitamente segnalato. Nessuna correzione geografica inventata.
 
-Avviare API e worker con lo stesso percorso di database. Il comando run rimane
-attivo finché viene interrotto; non è ancora installato come servizio cloud.
+Prezzi totali distinti da rate/anticipi/prezzi sconosciuti. Solo ultimi annunci
+attivi, osservati entro 30 giorni. Screening provvisorio: almeno 10% sotto P25;
+questa soglia non dimostra redditività ed è da calibrare. Le fotografie e
+le dichiarazioni del venditore non sostituiscono un'ispezione.
 
-## Database centrale (v0.3)
+P25/P75 e scenari sui prezzi richiesti **non sono previsioni di vendita o profitto**.
+Prezzo consigliato, margine previsto e giorni alla vendita restano null senza
+modelli calibrati. Pubblicazione automatica disabilitata; il supervisore non
+approva finché mancano modelli, termini d'acquisto e verifica disponibilità.
+POST /valuations resta un benchmark sperimentale diretto senza tutti i controlli
+della pipeline: non usarlo per decisioni d'acquisto.
 
-PostgreSQL/Supabase è supportato tramite DEAL_FINDER_DATABASE_URL. Le migrazioni
-versionate si applicano con `python -m deal_finder.worker migrate`; verifica con
-`check-db`. API e worker usano lo stesso database. Per produzione usare
-`python -m deal_finder.serve`, con token bearer e PostgreSQL configurati.
-Dockerfile e compose.yaml sono predisposti. Contratto e procedura aggiornati in
-[docs/postgres.md](docs/postgres.md). I file SQL nella cartella database sono
-vecchi draft di design: non applicarli. Le migrazioni operative sono nel pacchetto.
-
-## Database live e avvio dei processi
-
-Il progetto Supabase `deal-finder` è stato creato in `eu-central-1` e le due
-migrazioni operative sono applicate. Stato e verifiche in
-[docs/live-status.md](docs/live-status.md). Questo conferma il database, non
-l'avvio continuativo dell'API o del worker e non la precisione sul mercato reale.
-Le dipendenze verificate sono fissate in `requirements.lock`; installare con
-`pip install -r requirements.lock` e `pip install --no-deps -e .`.
+Database live: [docs/live-status.md](docs/live-status.md).
+Configurazione PostgreSQL: [docs/postgres.md](docs/postgres.md).

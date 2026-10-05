@@ -41,7 +41,7 @@ class AgentTests(unittest.TestCase):
         for agent in registry():
             self.assertTrue(set(agent['requires']).issubset(visited))
             visited.add(agent['name'])
-        self.assertEqual(len(visited),9)
+        self.assertEqual(len(visited),7)
 
     def test_full_scenario_is_never_forecast(self):
         out=analyze(envelope(),pool(),NOW)

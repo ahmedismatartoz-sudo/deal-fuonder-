@@ -1,0 +1,33 @@
+{
+  "source": "export",
+  "run_id": "synthetic-initial-v1",
+  "mode": "initial",
+  "scope": {
+    "country": "IT",
+    "dataset": "synthetic_demo"
+  },
+  "pages": [
+    [
+      {
+        "source_id": "demo-car",
+        "observed_at": "2026-10-04T10:00:00+00:00",
+        "url": "https://example.com/synthetic/demo-car",
+        "active": true,
+        "payload": {
+          "title": "Auto dimostrativa sintetica",
+          "description": "Esempio incompleto: non è un annuncio reale e non è un'opportunità.",
+          "image_urls": [
+            "https://example.com/synthetic/photo.jpg"
+          ],
+          "country": "IT",
+          "city": "Milano",
+          "province": "Milano",
+          "latitude": 45.4642,
+          "longitude": 9.19,
+          "price_eur": 8000,
+          "price_kind": "total"
+        }
+      }
+    ]
+  ]
+}

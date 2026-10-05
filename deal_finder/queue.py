@@ -145,13 +145,14 @@ class Queue(Store):
     def candidates(self, target, as_of):
         # Latest source observation is chosen BEFORE matching specs. This prevents
         # obsolete variants from remaining comparable after a seller correction.
-        fields = ('make', 'model', 'generation', 'trim', 'fuel', 'transmission', 'province', 'seller_type')
+        fields = ('make', 'model', 'generation', 'trim', 'fuel', 'transmission', 'seller_type')
         predicates = ' AND '.join(f"{self.db.json_field(k, 's')}=?" for k in fields)
         params = [getattr(target, k) for k in fields]
         if target.vehicle_id:
             predicates = '(' + predicates + f" OR {self.db.json_field('vehicle_id', 's')}=?)"
             params.append(target.vehicle_id)
-        params.extend([as_of.isoformat(), as_of.isoformat()])
+        predicates = '(' + predicates + ' OR (s.source=? AND s.source_id=?))'
+        params.extend([*target.identity, as_of.isoformat(), as_of.isoformat()])
         query = """SELECT s.payload FROM snapshots s WHERE """ + predicates + """
             AND s.observed_at<=? AND NOT EXISTS (
                 SELECT 1 FROM snapshots newer WHERE newer.source=s.source
