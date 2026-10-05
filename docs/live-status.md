@@ -29,8 +29,8 @@ connettore alla creazione: 0/mese; non è una previsione dei costi futuri.
   dopo la 004 senza rilievi.
 - Hash 004: `06c58dc22acf611b80b09153f86326429980ccbb3167edcd7da443a28fddfb6b`.
 
-La prova SQL conferma schema e permessi, non l'esecuzione continuativa degli
-agenti Python su Supabase. La CI PostgreSQL usa esclusivamente un database
+La prova SQL iniziale confermava schema e permessi. L'avvio continuativo su
+Render è stato verificato successivamente, come riportato sotto. La CI PostgreSQL usa esclusivamente un database
 usa-e-getta locale; nessun test distruttivo viene eseguito sul progetto live.
 La suite della PR #6 comprendeva 121 test, tutti superati su GitHub Actions:
 API/SQLite/PostgreSQL, ruoli privati, provenienza, checkpoint, rimozioni,
@@ -62,21 +62,53 @@ PostgreSQL nella CI usa-e-getta. Configurazione in [autoscout24.md](autoscout24.
 I dati mancanti, inclusi provincia/generazione/allestimento, bloccano i benchmark
 precisi finché non sono arricchiti: nessuna identità o condizione viene inventata.
 
-## Avvio ancora da configurare
+## Avvio Render verificato — 5 ottobre 2026, 21:45 UTC
 
-1. Su Render o sull'hosting scelto configurare API e worker con lo stesso database.
-2. Provisionare login backend e segreti database/token; proprietario separato
-   per le migrazioni. Il ruolo NOLOGIN esistente contiene solo i permessi.
-3. Eseguire check-db; avviare API con HTTPS e worker supervisionato.
-4. Configurare ricerche native AutoScout24; per altre fonti/refresh configurare
-   task Apify, token e mappature verificate sui veri export. Raccogliere
-   la base una volta; poi attivare task giornalieri dei nuovi annunci e refresh
-   mirati, con import giornaliero dal servizio. I campi mancanti non sono inventati.
-5. Raccogliere transazioni e date documentate, calibrare prezzo/liquidità/costi,
-   poi abilitare i gates di pubblicazione mattutina con feed persistente.
+- Blueprint collegato a main; API e worker avviati dopo aver configurato
+  DEAL_FINDER_DATABASE_URL. La build iniziale era riuscita, ma il processo
+  si fermava perché mancava la connessione.
+- API: https://deal-finder-api-3lr5.onrender.com; GET /health verificato con
+  HTTP 200. GET /market/status autenticato verificato con HTTP 200.
+- Ruolo di login deal_finder_runtime, membro di deal_finder_backend:
+  nessun superuser, creazione database/ruoli o bypass RLS.
+  Password generata e token API inseriti direttamente nelle variabili Render;
+  nessun segreto aggiunto al repository. Session pooler su porta 5432 con TLS.
+- Worker confermato live da deploy/log; connessione del ruolo runtime
+  rilevata nel database. Nessun candidato accodato nel campione.
+- Job giornaliero configurato con le due ricerche dell'esempio nativo:
+  Panda 2015 a 5.000–6.000 euro e Fiat 500 2015 a 6.000–8.000 euro, Italia.
+  Deploy del cron confermato live; esecuzione programmata alle 04:00 UTC.
+  Questa verifica non conferma ancora l'esecuzione del primo ciclo giornaliero.
+- Revisione settimanale creata, connessione configurata; pianificazione
+  domenica alle 06:00 UTC.
 
-L'attivazione dell'account Render non conferma servizi avviati. Non risultano
-hosting continuativi, task/credenziali Apify collegati, annunci reali acquisiti
-nel database live o modelli calibrati.
+### Prima raccolta persistente su Supabase
+
+Run native-render-bootstrap-2026-10-05-01, modalità initial:
+12 pagine, 209 annunci unici accettati, zero quarantene, complete=true.
+Checkpoint ripreso correttamente tra richieste successive; dettagli acquisiti
+dal collector su Render. Campione ristretto a due modelli/anno/fasce di prezzo:
+non è una base nazionale rappresentativa né copertura del mercato verificata.
+
+Verifica SQL: 209 eventi e 209 ID unici; 81 prezzi classificati total,
+128 unknown, esclusi dai confronti utilizzabili. Scansione iniziale via API:
+209 eventi proiettati, zero eventi da indicizzare residui, zero selezioni/jobs.
+Tutti i 209 record hanno un problema di normalizzazione sul campo generation:
+il benchmark preciso resta bloccato finché la generazione non viene
+arricchita con provenienza documentata. Zero quarantene non significa
+completezza dei dati o disponibilità di stime attendibili.
+
+## Lavoro ancora necessario
+
+1. Arricchire generazione e altre specifiche mancanti con fonti documentate,
+   senza inferirle automaticamente dall'anno; verificare prezzi totali.
+2. Ampliare le ricerche per marca/modello, anno, prezzo e zona e misurare
+   copertura/qualità della base. Il campione attuale non è la base ampia richiesta.
+3. Verificare il primo ciclo giornaliero, il recupero dei nuovi ID e il refresh
+   mirato dei vecchi annunci; eventuali task Apify non sono collegati.
+4. Raccogliere transazioni e date documentate, calibrare prezzo/liquidità/costi,
+   poi abilitare i gates di pubblicazione con un feed persistente.
+
 Le fotografie sono conservate come URL; i file non sono ancora copiati in storage.
-Pubblicazione automatica e raccomandazioni d'acquisto restano disabilitate.
+Previsioni di rivendita/margine/liquidità, pubblicazione automatica e
+raccomandazioni d'acquisto restano disabilitate.
