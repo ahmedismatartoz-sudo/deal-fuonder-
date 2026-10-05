@@ -1,0 +1,224 @@
+[
+  {
+    "case_id": "panda-left-headlight",
+    "result": {
+      "version": "parts-web-research-v1",
+      "status": "provisional",
+      "vehicle": {
+        "make": "Fiat",
+        "model": "Panda",
+        "generation": "312/319 III",
+        "year": 2015,
+        "engine_code": "169 A4.000",
+        "gearbox": "manual"
+      },
+      "items": [
+        {
+          "id": "headlight",
+          "name": "Faro anteriore sinistro H4",
+          "quantity": 1,
+          "parts_low_cents": 9000,
+          "parts_typical_cents": 13500,
+          "parts_high_cents": 18000,
+          "basis": "sourced_analogy",
+          "uncertainty": "wide",
+          "independent_sellers": 0,
+          "accepted_offers": [],
+          "rejected_offers": [
+            {
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "reason": "stock not confirmed in source"
+            },
+            {
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "reason": "stock not confirmed in source"
+            },
+            {
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a",
+              "reason": "stock not confirmed in source"
+            }
+          ],
+          "assumptions": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+          "fallback_sources": [
+            "https://www.auto-doc.it/pezzi-di-ricambio/faro-principale-gruppo-ottico-10533/fiat/panda/panda-312/14002-1-2-312pxa1a"
+          ],
+          "hours": {
+            "low_minutes": 30,
+            "high_minutes": 120,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          },
+          "shipping_included": false
+        }
+      ],
+      "parts_low_cents": 9000,
+      "parts_typical_cents": 13500,
+      "parts_high_cents": 18000,
+      "labor_cost_cents": null,
+      "hours_additive": false,
+      "calibrated": false,
+      "verified_quote": false,
+      "forecasts_enabled": false,
+      "exclusions": [
+        "shipping and bulky surcharges",
+        "paint and consumables unless explicitly listed",
+        "unidentified hidden damage; upper bound is not a guaranteed maximum"
+      ],
+      "as_of": "2026-10-05T22:25:00+00:00"
+    }
+  },
+  {
+    "case_id": "golf-front-discs",
+    "result": {
+      "version": "parts-web-research-v1",
+      "status": "provisional",
+      "vehicle": {
+        "make": "Volkswagen",
+        "model": "Golf VII",
+        "year": 2015,
+        "engine_code": "unknown",
+        "gearbox": "manual"
+      },
+      "items": [
+        {
+          "id": "discs",
+          "name": "Coppia dischi anteriori 288 mm, solo ricambi",
+          "quantity": 2,
+          "parts_low_cents": 7500,
+          "parts_typical_cents": 10999,
+          "parts_high_cents": 16000,
+          "basis": "observed_offers_with_assumptions",
+          "uncertainty": "wide",
+          "independent_sellers": 1,
+          "accepted_offers": [
+            {
+              "part_number": "09.9145.14",
+              "brand": "BREMBO",
+              "price_cents": 10999,
+              "attributes": {
+                "part_number": "09.9145.14",
+                "diameter_mm": 288,
+                "thickness_mm": 25,
+                "axle": "front"
+              },
+              "url": "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html",
+              "pack_quantity": 2,
+              "seller": "NORAUTO",
+              "seller_group": "norauto",
+              "currency": "EUR",
+              "vat_included": true,
+              "condition": "new",
+              "tier": "aftermarket",
+              "availability": "available",
+              "fitment_basis": "Published product specifications; no VIN confirmation",
+              "observed_at": "2026-10-05T22:25:00+00:00",
+              "retrieval": "indexed_page",
+              "normalized_cost_cents": 10999
+            }
+          ],
+          "rejected_offers": [
+            {
+              "url": "https://www.auto-doc.it/brembo/1657442",
+              "reason": "stock not confirmed in source"
+            },
+            {
+              "url": "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html",
+              "reason": "incomplete or conflicting compatibility"
+            }
+          ],
+          "assumptions": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+          "fallback_sources": [
+            "https://www.auto-doc.it/brembo/1657442",
+            "https://www.norauto.it/p/2-dischi-brembo-referenza-09.9145.14-216244.html"
+          ],
+          "hours": {
+            "low_minutes": 60,
+            "high_minutes": 150,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          },
+          "shipping_included": false
+        }
+      ],
+      "parts_low_cents": 7500,
+      "parts_typical_cents": 10999,
+      "parts_high_cents": 16000,
+      "labor_cost_cents": null,
+      "hours_additive": false,
+      "calibrated": false,
+      "verified_quote": false,
+      "forecasts_enabled": false,
+      "exclusions": [
+        "shipping and bulky surcharges",
+        "paint and consumables unless explicitly listed",
+        "unidentified hidden damage; upper bound is not a guaranteed maximum"
+      ],
+      "as_of": "2026-10-05T22:25:00+00:00"
+    }
+  },
+  {
+    "case_id": "clio-clutch-csc",
+    "result": {
+      "version": "parts-web-research-v1",
+      "status": "provisional",
+      "vehicle": {
+        "make": "Renault",
+        "model": "Clio IV",
+        "generation": "BH",
+        "year": 2015,
+        "engine_code": "K9K 838",
+        "gearbox": "5 speed manual"
+      },
+      "items": [
+        {
+          "id": "clutch",
+          "name": "Kit frizione con CSC; volano escluso",
+          "quantity": 1,
+          "parts_low_cents": 15000,
+          "parts_typical_cents": 22500,
+          "parts_high_cents": 30000,
+          "basis": "sourced_analogy",
+          "uncertainty": "wide",
+          "independent_sellers": 0,
+          "accepted_offers": [],
+          "rejected_offers": [
+            {
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6",
+              "reason": "stock not confirmed in source"
+            },
+            {
+              "url": "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6",
+              "reason": "stock not confirmed in source"
+            },
+            {
+              "url": "https://www.auto-doc.it/luk/623052",
+              "reason": "incomplete or conflicting compatibility"
+            }
+          ],
+          "assumptions": "Research-based provisional envelope for this synthetic case only; margins are engineering assumptions, not learned percentiles",
+          "fallback_sources": [
+            "https://www.auto-doc.it/pezzi-di-ricambio/kit-frizione-10151/renault/clio/clio-iv/135335-1-5-dci-bhm6"
+          ],
+          "hours": {
+            "low_minutes": 240,
+            "high_minutes": 480,
+            "basis": "Synthetic planning assumption; not OEM time-guide evidence"
+          },
+          "shipping_included": false
+        }
+      ],
+      "parts_low_cents": 15000,
+      "parts_typical_cents": 22500,
+      "parts_high_cents": 30000,
+      "labor_cost_cents": null,
+      "hours_additive": false,
+      "calibrated": false,
+      "verified_quote": false,
+      "forecasts_enabled": false,
+      "exclusions": [
+        "shipping and bulky surcharges",
+        "paint and consumables unless explicitly listed",
+        "unidentified hidden damage; upper bound is not a guaranteed maximum"
+      ],
+      "as_of": "2026-10-05T22:25:00+00:00"
+    }
+  }
+]
