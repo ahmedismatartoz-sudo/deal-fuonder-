@@ -13,6 +13,8 @@ services:
         sync: false
       - key: DEAL_FINDER_API_TOKEN
         sync: false
+      - key: DEAL_FINDER_AUTOSCOUT24_CONFIG
+        sync: false
   - type: worker
     name: deal-finder-worker
     runtime: docker
@@ -37,6 +39,8 @@ services:
       - key: APIFY_API_TOKEN
         sync: false
       - key: DEAL_FINDER_COLLECTION_CONFIG
+        sync: false
+      - key: DEAL_FINDER_AUTOSCOUT24_CONFIG
         sync: false
   - type: cron
     name: deal-finder-weekly-review

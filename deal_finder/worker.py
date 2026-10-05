@@ -35,8 +35,15 @@ def main():
     sub.add_parser('market-status')
     sub.add_parser('market-candidates')
     cycle = sub.add_parser('daily-cycle')
-    cycle.add_argument('--config', default=None, help='Apify task configuration JSON file')
+    cycle.add_argument('--config', default=None, help='Collection configuration JSON: Apify tasks and/or native autoscout24')
     cycle.add_argument('--mode', choices=['initial', 'incremental'], default='incremental')
+    cycle.add_argument('--cycle-id', default=None, help='Stable cycle ID for resuming a previous daily collection')
+    native = sub.add_parser('collect-autoscout24')
+    native.add_argument('--config', default=None, help='Native AutoScout24 configuration JSON')
+    native.add_argument('--mode', choices=['initial', 'incremental'], default='incremental')
+    native.add_argument('--run-id', required=True, help='Reuse this ID to resume after interruptions')
+    native.add_argument('--max-pages', type=int, default=100)
+    native.add_argument('--scan', action='store_true')
     preview = sub.add_parser('publication-preview')
     preview.add_argument('batch_id')
     sub.add_parser('agents')
@@ -51,6 +58,31 @@ def main():
         return
     if args.command == 'migrate':
         print(json.dumps(migrate(args.db), indent=2))
+        return
+    if args.command == 'collect-autoscout24':
+        from .autoscout24 import collect
+        from .archive import Archive
+        if args.config:
+            with open(args.config) as handle:
+                config = json.load(handle)
+        else:
+            config = json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+        archive = Archive(args.db)
+        try:
+            output = collect(config, archive, run_id=args.run_id, mode=args.mode, max_pages=args.max_pages)
+            if args.scan:
+                if not output['complete']:
+                    raise ValueError('Resume collection with the same run-id before screening')
+                from .market import Market
+                market, queue = Market(args.db), Queue(args.db)
+                try:
+                    output = {'collection': output, 'market': market.scan(mode=args.mode, queue=queue)}
+                finally:
+                    market.close()
+                    queue.close()
+            print(json.dumps(output, indent=2))
+        finally:
+            archive.close()
         return
     if args.command == 'collect-file':
         from .archive import Archive
@@ -93,7 +125,21 @@ def main():
                             config = json.load(handle)
                     else:
                         config = json.loads(os.getenv('DEAL_FINDER_COLLECTION_CONFIG', '{}'))
-                    collections = collect_tasks(config, market.archive, mode=args.mode)
+                    native_config = config.get('autoscout24') or json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+                    if set(config) - {'tasks', 'autoscout24'}:
+                        raise ValueError('Unknown collection cycle configuration')
+                    collections = []
+                    if config.get('tasks'):
+                        collections.extend(collect_tasks({'tasks': config['tasks']}, market.archive, mode=args.mode))
+                    if native_config:
+                        from .autoscout24 import collect, cycle_run_id
+                        result = collect(native_config, market.archive, mode=args.mode,
+                            run_id=cycle_run_id(native_config, args.mode, args.cycle_id), max_pages=10000)
+                        collections.append(result)
+                        if not result['complete']:
+                            raise RuntimeError('Native collection incomplete; resume the same cycle before screening')
+                    if not config.get('tasks') and not native_config:
+                        raise ValueError('Configure Apify tasks or native AutoScout24 searches')
                 queue = Queue(args.db)
                 output = market.scan(mode=args.mode, queue=queue)
                 if collections is not None:

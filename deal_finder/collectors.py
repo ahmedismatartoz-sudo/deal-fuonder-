@@ -64,6 +64,10 @@ def sources():
     return [dict(source='export', status='available', modes=['initial', 'incremental']),
             dict(source='apify', status='adapter_available', modes=['initial', 'incremental'],
                  requires=['APIFY_API_TOKEN', 'DEAL_FINDER_COLLECTION_CONFIG'],
-                 collection_schedule='configured_in_apify', live_scraping=False)] + [
+                 collection_schedule='configured_in_apify', live_scraping=False),
+            dict(source='autoscout24', status='native_collector_available', modes=['initial', 'incremental'],
+                 requires=['DEAL_FINDER_AUTOSCOUT24_CONFIG'], live_scraping=True,
+                 paid_actor_required=False, refresh_existing=False,
+                 market_coverage_verified=False)] + [
         dict(source=s, status='adapter_not_configured', live_scraping=False)
-        for s in ('facebook_marketplace', 'subito', 'autoscout24', 'automobile_it')]
+        for s in ('facebook_marketplace', 'subito', 'automobile_it')]

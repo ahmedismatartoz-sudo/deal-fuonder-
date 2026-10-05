@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "auto-deal-finder"
 version = "0.3.0"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "protego>=0.7,<1"]
 
 [tool.setuptools.packages.find]
 include = ["deal_finder*"]

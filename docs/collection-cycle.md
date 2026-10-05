@@ -9,6 +9,10 @@ checkpoint e transazioni brevi; non limita il numero totale di pagine.
 
 ## Collegamento Apify
 
+Alternativa integrata per AutoScout24: [scraper nativo](autoscout24.md).
+`daily-cycle` può ricevere `autoscout24` accanto a `tasks`, oppure
+`DEAL_FINDER_AUTOSCOUT24_CONFIG`, senza task/token Apify per questa fonte.
+
 1. Creare task distinti per base iniziale, ricerca quotidiana e refresh mirato.
    I filtri geografici devono individuare l'Italia; separare le zone per copertura.
    Configurare sul task iniziale anche prezzi superiori a 50.000 €: possono

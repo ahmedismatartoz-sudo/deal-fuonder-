@@ -131,6 +131,22 @@ class PostgresArchiveTests(test_archive.ArchiveTests):
         from deal_finder.archive import Archive
         self.archive=Archive(URL)
 
+    def test_native_autoscout_checkpoint_and_new_only_on_postgres(self):
+        from deal_finder.autoscout24 import collect
+        from test_autoscout24 import FakeClient, config, item
+        provider = FakeClient([[item('car1')], [item('car2')]])
+        first = collect(config(), self.archive, run_id='pg-native', mode='initial', max_pages=1, client=provider)
+        self.assertFalse(first['complete'])
+        resumed = collect(config(), self.archive, run_id='pg-native', mode='initial', client=provider)
+        self.assertTrue(resumed['complete'])
+        self.assertEqual(resumed['accepted'], 2)
+        daily = FakeClient([[item('car1'), item('new')]])
+        result = collect(config(), self.archive, run_id='pg-next-day', client=daily)
+        self.assertEqual(result['accepted'], 1)
+        self.assertEqual([kind for _, kind in daily.calls], ['search', 'listing'])
+        self.assertEqual(len(self.archive.search()['items']), 3)
+        self.assertEqual(self.archive.history('autoscout24', 'car1')[0]['payload']['price_eur'], 8000)
+
     def test_scoped_backend_can_archive_but_not_rewrite_events(self):
         import psycopg
         self.archive.db.execute('SET ROLE deal_finder_backend')
