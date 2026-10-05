@@ -50,6 +50,12 @@ class MarketAgent:
             return Result(self.name, 'blocked', reasons=['Target listing is inactive.'])
         if ctx.as_of - instant(ctx.target.observed_at) > timedelta(days=30):
             return Result(self.name, 'blocked', reasons=['Target listing is stale.'])
+        if ctx.source_asking_candidates is not None:
+            from ..market import asking_benchmark
+            result = asking_benchmark(ctx.target, ctx.source_asking_candidates, ctx.as_of)
+            result['vehicle_identity_verified'] = False
+            status = 'completed' if result['status'] == 'benchmark_available' else 'blocked'
+            return Result(self.name, status, result, result['warnings'])
         vetted = [x for x in ctx.candidates if verified_identity(ctx.identity_evidence.get((*x.identity, x.observed_at)), x, ctx.as_of)]
         result = estimate(ctx.target, vetted, as_of=ctx.as_of)
         if result['status'] != 'benchmark_available':
@@ -204,9 +210,10 @@ def registry():
         for x in AGENTS] + [dict(name='evaluation', version=PIPELINE_VERSION, requires=[], mode='evaluation', purpose=EvaluationAgent.purpose)]
 
 
-def analyze(raw, candidates, as_of, agents=AGENTS, identity_evidence=None):
+def analyze(raw, candidates, as_of, agents=AGENTS, identity_evidence=None, source_asking_candidates=None):
     from .contracts import Context
-    ctx = Context(raw=raw, candidates=candidates, as_of=as_of, identity_evidence=identity_evidence or {})
+    ctx = Context(raw=raw, candidates=candidates, as_of=as_of, identity_evidence=identity_evidence or {},
+                  source_asking_candidates=source_asking_candidates)
     for agent in agents:
         if agent.name in ('condition', 'repair', 'opportunity') and not selection_decision(ctx.target, ctx.results.get('market'))['candidate']:
             result = Result(agent.name, 'blocked', reasons=['Price screening did not select this listing.'])

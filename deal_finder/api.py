@@ -147,6 +147,43 @@ def evaluate_model(request: EvaluationRequest):
 from .archive import Archive
 from .collectors import sources
 from .publication import PublicationAgent
+from .market import Market
+
+
+@app.get('/market/status')
+def market_status():
+    market = Market(database_target())
+    try:
+        return market.status()
+    finally:
+        market.close()
+
+
+@app.post('/market/scan')
+def market_scan(mode: str = 'incremental'):
+    market = Market(database_target())
+    queue = None
+    try:
+        queue = Queue(database_target())
+        return market.scan(mode=mode, queue=queue)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        if queue:
+            queue.close()
+        market.close()
+
+
+@app.get('/market/candidates')
+def market_candidates(city: str | None = None, province: str | None = None,
+                      offset: int = 0, limit: int = 100):
+    market = Market(database_target())
+    try:
+        return market.candidates(city=city, province=province, offset=offset, limit=limit)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        market.close()
 
 @app.get('/collection/sources')
 def collection_sources():

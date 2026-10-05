@@ -160,11 +160,14 @@ class Queue(Store):
                 AND newer.observed_at<=?) ORDER BY s.source, s.source_id"""
         return [Listing.parse(self.db.json_decode(row[0])) for row in self.db.execute(query, params)]
 
-    def finish(self, job, as_of, candidates, outputs, *, at=None, identity_evidence=None):
+    def finish(self, job, as_of, candidates, outputs, *, at=None, identity_evidence=None, source_asking_candidates=None):
         finished = (at or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()
-        inputs = canonical({'raw': job['raw'], 'intake_issue': job['quality_issue'],
+        context = {'raw': job['raw'], 'intake_issue': job['quality_issue'],
                             'candidates': [x.to_dict() for x in candidates],
-                            'identity_evidence': [dict(key=list(k), proof=v) for k,v in (identity_evidence or {}).items()]})
+                            'identity_evidence': [dict(key=list(k), proof=v) for k,v in (identity_evidence or {}).items()]}
+        if source_asking_candidates is not None:
+            context['source_asking_candidates'] = [x.to_dict() for x in source_asking_candidates]
+        inputs = canonical(context)
         checksum = hashlib.sha256(inputs.encode()).hexdigest()
         self.db.begin()
         try:
@@ -194,16 +197,30 @@ class Queue(Store):
             if job['quality_issue']:
                 raw['_intake_error'] = job['quality_issue']
             candidates = []
+            source_pool = None
             if not job['quality_issue']:
-                candidates = self.candidates(Listing.parse(raw['listing']), as_of)
+                target = Listing.parse(raw['listing'])
+                candidates = self.candidates(target, as_of)
+                table = (self.db.execute("SELECT to_regclass('deal_finder.market_observations')").fetchone()[0]
+                         if self.db.dialect == 'postgres' else self.db.execute(
+                             "SELECT name FROM sqlite_master WHERE type='table' AND name='market_observations'").fetchone())
+                if table:
+                    from .market import Market
+                    try:
+                        source_pool = Market(db=self.db).queue_context(target, as_of)
+                    except ValueError as error:
+                        raw['_intake_error'] = str(error)
             proofs = {}
             for item in candidates:
                 key = (*item.identity, item.observed_at)
                 row = self.db.execute('SELECT payload FROM identity_attestations WHERE source=? AND source_id=? AND observed_at=?', key).fetchone()
                 if row:
                     proofs[key] = self.db.json_decode(row[0])
-            outputs = analyze(raw, candidates, as_of, identity_evidence=proofs)
-            self.finish(job, as_of, candidates, outputs, identity_evidence=proofs)
+            outputs = analyze(raw, candidates, as_of, identity_evidence=proofs, source_asking_candidates=source_pool)
+            # Persist the effective intake error as well as the archived benchmark
+            # pool so the analysis can be reproduced independently of future data.
+            job = dict(job, raw=raw)
+            self.finish(job, as_of, candidates, outputs, identity_evidence=proofs, source_asking_candidates=source_pool)
             return dict(job_id=job['id'], state='done', analysis=outputs['validation']['data'])
         except Exception as error:
             self.fail(job, error)

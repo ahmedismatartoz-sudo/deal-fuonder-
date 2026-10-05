@@ -1,4 +1,4 @@
-"""Resumable collection boundary. Live marketplace adapters are not configured."""
+"""Resumable collection boundary for exports and authorized provider datasets."""
 import hashlib
 from dataclasses import dataclass
 from typing import Protocol
@@ -61,6 +61,9 @@ class CollectionAgent:
 
 
 def sources():
-    return [dict(source='export', status='available', modes=['initial', 'incremental'])] + [
+    return [dict(source='export', status='available', modes=['initial', 'incremental']),
+            dict(source='apify', status='adapter_available', modes=['initial', 'incremental'],
+                 requires=['APIFY_API_TOKEN', 'DEAL_FINDER_COLLECTION_CONFIG'],
+                 collection_schedule='configured_in_apify', live_scraping=False)] + [
         dict(source=s, status='adapter_not_configured', live_scraping=False)
         for s in ('facebook_marketplace', 'subito', 'autoscout24', 'automobile_it')]

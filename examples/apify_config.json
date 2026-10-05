@@ -1,0 +1,42 @@
+{
+  "tasks": [
+    {
+      "task_id": "REPLACE_INITIAL_TASK_ID",
+      "source": "facebook_marketplace",
+      "mode": "initial",
+      "scope": {"country": "IT"},
+      "page_size": 500,
+      "mapping": {
+        "source_id": "id",
+        "url": "itemUrl",
+        "title": "listingTitle",
+        "price_eur": {"path": "listingPrice.amount", "require": {"path": "listingPrice.currency", "value": "EUR"}},
+        "description": "description",
+        "city": "location.reverse_geocode.city",
+        "province": "location.reverse_geocode.state",
+        "latitude": "latitude",
+        "longitude": "longitude",
+        "make": "vehicle.make",
+        "model": "vehicle.model",
+        "trim": "vehicle.trim",
+        "year": "vehicle.year",
+        "mileage_km": {"path": "vehicle.odometer.value", "require": {"path": "vehicle.odometer.unit", "value": "KM"}},
+        "fuel": "vehicle.fuelType",
+        "transmission": "vehicle.transmission",
+        "seller_type": {
+          "path": "vehicle.sellerType",
+          "values": {"PRIVATE_SELLER": "private", "DEALER": "dealer"}
+        },
+        "active": {"path": "isLive", "values": {"True": true, "False": false}}
+      }
+    },
+    {
+      "task_id": "REPLACE_DAILY_TASK_ID",
+      "source": "facebook_marketplace",
+      "mode": "incremental",
+      "scope": {"country": "IT"},
+      "page_size": 500,
+      "mapping": {"source_id": "id", "url": "itemUrl", "title": "listingTitle", "price_eur": {"path": "listingPrice.amount", "require": {"path": "listingPrice.currency", "value": "EUR"}}}
+    }
+  ]
+}

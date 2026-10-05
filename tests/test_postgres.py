@@ -39,7 +39,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 3)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 4)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -54,7 +54,7 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 11)
+        self.assertEqual(len(rows), 13)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(
@@ -144,3 +144,39 @@ class PostgresArchiveTests(test_archive.ArchiveTests):
                 self.archive.db.execute('DELETE FROM collection_pages')
         finally:
             self.archive.db.execute('RESET ROLE')
+
+
+import test_market
+
+@unittest.skipUnless(URL, 'Disposable PostgreSQL test database not configured')
+class PostgresMarketTests(test_market.MarketTests):
+    def setUp(self):
+        parsed=urlparse(URL)
+        if parsed.hostname not in ('127.0.0.1','localhost') or parsed.path != '/deal_finder_test':
+            raise RuntimeError('Market tests require disposable loopback PostgreSQL')
+        db=Database(URL)
+        db.execute('DROP SCHEMA IF EXISTS deal_finder CASCADE')
+        db.close()
+        migrate(URL)
+        from deal_finder.market import Market
+        self.path=URL
+        self.market=Market(URL)
+        self.queue=Queue(URL)
+    def tearDown(self):
+        self.queue.close()
+        self.market.close()
+
+    def test_backend_can_screen_but_not_rewrite_reviews(self):
+        import psycopg
+        self.market.db.execute('SET ROLE deal_finder_backend')
+        self.queue.db.execute('SET ROLE deal_finder_backend')
+        try:
+            self.base()
+            self.ingest([test_market.complete('cheap',price_eur=7000)],run='cheap')
+            self.assertEqual(self.scan()['queued'],1)
+            self.assertEqual(self.market.candidates(as_of=test_market.NOW)['count'],1)
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                self.market.db.execute('UPDATE market_reviews SET payload=payload')
+        finally:
+            self.market.db.execute('RESET ROLE')
+            self.queue.db.execute('RESET ROLE')
