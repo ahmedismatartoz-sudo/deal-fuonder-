@@ -4,3 +4,7 @@ __pycache__/
 .env
 *.db
 *.egg-info/
+.env.*
+!.env.example
+build/
+dist/

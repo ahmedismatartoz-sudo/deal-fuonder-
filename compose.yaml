@@ -1,0 +1,33 @@
+# Uses an existing central PostgreSQL/Supabase database; no database is created here.
+services:
+  migrate:
+    build: .
+    command: ["python", "-m", "deal_finder.worker", "migrate"]
+    environment:
+      DEAL_FINDER_DATABASE_URL: ${DEAL_FINDER_DATABASE_URL:?Configure database URL}
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DEAL_FINDER_DATABASE_URL: ${DEAL_FINDER_DATABASE_URL:?Configure database URL}
+      DEAL_FINDER_API_TOKEN: ${DEAL_FINDER_API_TOKEN:?Configure API bearer token}
+      DEAL_FINDER_MODE: production
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  worker:
+    build: .
+    command: ["python", "-m", "deal_finder.worker", "run", "--poll-seconds", "2"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DEAL_FINDER_DATABASE_URL: ${DEAL_FINDER_DATABASE_URL:?Configure database URL}

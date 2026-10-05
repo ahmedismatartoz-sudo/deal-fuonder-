@@ -1,17 +1,32 @@
 import csv
 import io
 import json
-import sqlite3
 from .models import Listing
+from .database import Database, database_target
 
 
 class Store:
-    """Local development persistence. All imports validate before any write."""
-    def __init__(self, path='deal-finder.db'):
-        self.db = sqlite3.connect(path)
-        self.db.execute('''CREATE TABLE IF NOT EXISTS snapshots (
-            source TEXT NOT NULL, source_id TEXT NOT NULL, observed_at TEXT NOT NULL,
-            payload TEXT NOT NULL, PRIMARY KEY(source, source_id, observed_at))''')
+    """Shared snapshot persistence; entire CSV/JSON imports remain atomic."""
+    def __init__(self, path=None):
+        self.db = Database(path if path is not None else database_target())
+        if self.db.dialect == 'sqlite':
+            self.db.execute('''CREATE TABLE IF NOT EXISTS snapshots (
+                source TEXT NOT NULL, source_id TEXT NOT NULL, observed_at TEXT NOT NULL,
+                payload TEXT NOT NULL, PRIMARY KEY(source, source_id, observed_at))''')
+        elif not self.db.schema_ready():
+            self.close()
+            raise RuntimeError('PostgreSQL schema missing; run deal-finder migrate first')
+
+    def snapshot(self, listing):
+        payload = json.dumps(listing.to_dict(), sort_keys=True)
+        inserted = self.db.execute('''INSERT INTO snapshots(source, source_id, observed_at, payload)
+            VALUES (?, ?, ?, ?) ON CONFLICT(source, source_id, observed_at) DO NOTHING''',
+            (*listing.identity, listing.observed_at, self.db.json_param(payload))).rowcount
+        previous = self.db.execute('SELECT payload FROM snapshots WHERE source=? AND source_id=? AND observed_at=?',
+                                   (*listing.identity, listing.observed_at)).fetchone()
+        if self.db.json_decode(previous[0]) != listing.to_dict():
+            raise ValueError('Conflicting immutable listing snapshot')
+        return inserted
 
     def import_text(self, content, format='json'):
         if format == 'json':
@@ -26,21 +41,11 @@ class Store:
         inserted = 0
         with self.db:
             for listing in listings:
-                payload = json.dumps(listing.to_dict(), sort_keys=True)
-                previous = self.db.execute(
-                    'SELECT payload FROM snapshots WHERE source=? AND source_id=? AND observed_at=?',
-                    (*listing.identity, listing.observed_at)).fetchone()
-                if previous:
-                    if previous[0] != payload:
-                        raise ValueError('Conflicting snapshot at the same observation time')
-                    continue
-                self.db.execute('INSERT INTO snapshots VALUES (?, ?, ?, ?)',
-                                (*listing.identity, listing.observed_at, payload))
-                inserted += 1
+                inserted += self.snapshot(listing)
         return {'received': len(listings), 'inserted': inserted, 'duplicates': len(listings)-inserted}
 
     def listings(self):
-        return [Listing.parse(json.loads(row[0])) for row in self.db.execute('SELECT payload FROM snapshots')]
+        return [Listing.parse(self.db.json_decode(row[0])) for row in self.db.execute('SELECT payload FROM snapshots')]
 
     def close(self):
         self.db.close()

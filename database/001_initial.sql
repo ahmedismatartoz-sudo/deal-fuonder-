@@ -1,3 +1,4 @@
+-- Historical design draft. Do NOT apply; use deal-finder migrate with packaged migrations.
 -- PostgreSQL target schema. The initial API uses SQLite for local development.
 CREATE TABLE listing_snapshots (
     source text NOT NULL,

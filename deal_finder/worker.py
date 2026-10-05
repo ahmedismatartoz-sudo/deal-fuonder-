@@ -4,11 +4,13 @@ import json
 import time
 from .queue import Queue
 from .agents import registry
+from .database import database_target
+from .migrate import migrate
 
 
 def main():
     parser = argparse.ArgumentParser(description='Deal Finder agents and durable queue')
-    parser.add_argument('--db', default='deal-finder.db')
+    parser.add_argument('--db', default=None, help='SQLite path; PostgreSQL URL should be configured via environment')
     sub = parser.add_subparsers(dest='command', required=True)
     submit = sub.add_parser('submit')
     submit.add_argument('file', help='JSON batch with batch_id and records')
@@ -24,13 +26,21 @@ def main():
     result = sub.add_parser('result')
     result.add_argument('job_id', type=int)
     sub.add_parser('agents')
+    sub.add_parser('migrate')
+    sub.add_parser('check-db')
     args = parser.parse_args()
     if args.command == 'agents':
         print(json.dumps(registry(), indent=2))
         return
+    if args.command == 'migrate':
+        print(json.dumps(migrate(args.db), indent=2))
+        return
     queue = Queue(args.db)
     try:
-        if args.command == 'submit':
+        if args.command == 'check-db':
+            queue.db.execute('SELECT 1')
+            output = {'status': 'ready', 'backend': queue.db.dialect}
+        elif args.command == 'submit':
             with open(args.file) as handle:
                 batch = json.load(handle)
             output = queue.submit(batch['batch_id'], batch['records'])
