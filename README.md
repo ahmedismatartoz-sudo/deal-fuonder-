@@ -93,3 +93,12 @@ versionate si applicano con `python -m deal_finder.worker migrate`; verifica con
 Dockerfile e compose.yaml sono predisposti. Contratto e procedura aggiornati in
 [docs/postgres.md](docs/postgres.md). I file SQL nella cartella database sono
 vecchi draft di design: non applicarli. Le migrazioni operative sono nel pacchetto.
+
+## Database live e avvio dei processi
+
+Il progetto Supabase `deal-finder` è stato creato in `eu-central-1` e le due
+migrazioni operative sono applicate. Stato e verifiche in
+[docs/live-status.md](docs/live-status.md). Questo conferma il database, non
+l'avvio continuativo dell'API o del worker e non la precisione sul mercato reale.
+Le dipendenze verificate sono fissate in `requirements.lock`; installare con
+`pip install -r requirements.lock` e `pip install --no-deps -e .`.

@@ -1,0 +1,8 @@
+{
+  "project_name": "deal-finder",
+  "project_ref": "jfqjtgasmnbiliijdjwo",
+  "region": "eu-central-1",
+  "database_schema": "deal_finder",
+  "backend_permissions_role": "deal_finder_backend",
+  "contains_credentials": false
+}
