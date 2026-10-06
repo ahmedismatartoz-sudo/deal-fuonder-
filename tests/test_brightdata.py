@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 from deal_finder.archive import Archive
 from deal_finder.brightdata import (Client, ProviderError, cycle, event, validate_config,
                                    BackgroundCollection, DETAIL_DATASET, FREE_CONFIRMATION,
-                                   SetupError, paused_diagnostic)
+                                   SetupError, paused_diagnostic, revalidate_quarantine)
 
 NOW = datetime.now(timezone.utc).isoformat()
 URL = 'https://www.facebook.com/marketplace/item/123/'
@@ -246,3 +246,34 @@ class BrightDataTests(unittest.TestCase):
         client = Client(key='test-key-12345')
         with patch.object(client, 'request', return_value={'snapshot_id': 's_job123'}):
             self.assertEqual(client.start(config()), 's_job123')
+
+    def test_observed_vehicle_fields_fallback_requires_all_evidence(self):
+        row = car(); row.update(title='2014 Fiat 500', breadcrumbs=None, transmission='MANUAL', condition='USED')
+        accepted = event(row, NOW)
+        self.assertEqual(accepted['payload']['vehicle_type_basis'], 'inferred_from_known_car_title_and_provider_vehicle_fields')
+        self.assertEqual(accepted['payload']['original'], row)
+        self.assertNotIn('mileage_km', accepted['payload'])
+        for change in ({'transmission': None}, {'car_miles': None}, {'condition': None},
+                       {'title': '2020 BMW R1250'}, {'title': 'Sgomberi'},
+                       {'description': 'Vendo motore Fiat 500'}, {'location': 'Bergamo, Italia'},
+                       {'initial_price': 20000}):
+            invalid = dict(row, **change)
+            with self.assertRaises(ValueError):
+                event(invalid, NOW)
+
+    def test_revalidation_reuses_archived_data_once_without_provider(self):
+        archive = Archive(':memory:'); client = FakeClient(); client.state = 'ready'
+        row = car(); row.update(title='2014 Fiat 500', breadcrumbs=None, transmission='MANUAL', condition='USED')
+        outside = dict(row, product_id='456', url=URL.replace('123', '456'), location='Bergamo, Italia')
+        client.rows = [row, outside]
+        try:
+            with patch('deal_finder.brightdata.event', side_effect=ValueError('old validation')):
+                cycle(config(), archive, client=client, free_confirmed=True)
+            result = revalidate_quarantine(archive, 'sd_test123')
+            self.assertEqual(result['accepted'], 1)
+            revalidate_quarantine(archive, 'sd_test123')
+            self.assertEqual(len(archive.history(SOURCE := 'facebook_marketplace', '123')), 1)
+            self.assertEqual(client.starts, 1)
+            self.assertEqual(archive.run_status(SOURCE, 'brightdata-sd_test123')['quarantined'], 2)
+        finally:
+            archive.close()

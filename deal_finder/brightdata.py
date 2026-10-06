@@ -202,8 +202,25 @@ def event(row, observed_at):
     breadcrumbs = row.get('breadcrumbs', [])
     labels = [x.get('name', '') if isinstance(x, dict) else x for x in breadcrumbs] if isinstance(breadcrumbs, list) else []
     car_categories = {'cars', 'cars & trucks', 'cars and trucks', 'auto', 'automobili', 'auto e furgoni'}
-    if not any(isinstance(x, str) and x.strip().casefold() in car_categories for x in labels):
-        raise ValueError('Car category is not verified; retain in quarantine')
+    category_verified = any(isinstance(x, str) and x.strip().casefold() in car_categories for x in labels)
+    vehicle_basis = 'provider_car_category'
+    if not category_verified:
+        # The observed provider output omits breadcrumbs even for cars. Use
+        # conservative model/title + automobile-field evidence; never infer
+        # a car from the discovery URL, a price or a title alone.
+        title = row.get('title', '')
+        description = row.get('description') or ''
+        model = re.fullmatch(r'(19\d{2}|20\d{2}) (?:Fiat (?:500[XL]?|Panda|Punto|Tipo)|Audi (?:A[1-8]|Q[2-8])|BMW (?:[1-8]\d{2}[a-z]*|(?:BMW )?SERIE [1-8](?: [A-Za-z0-9]+)?))',
+                             title, re.IGNORECASE) if isinstance(title, str) else None
+        parts_or_other_vehicle = re.search(r'\b(?:ricambi|motore in vendita|vendo motore|smembro|monopattino|scooter|motocicletta)\b',
+                                          description, re.IGNORECASE) if isinstance(description, str) else True
+        miles = row.get('car_miles')
+        if (not model or int(model.group(1)) > datetime.now(timezone.utc).year + 1
+                or type(miles) not in (int, float) or not 0 <= miles <= 2_000_000
+                or row.get('transmission') not in ('MANUAL', 'AUTOMATIC')
+                or row.get('condition') not in ('USED', 'NEW') or parts_or_other_vehicle):
+            raise ValueError('Car category is not verified; retain in quarantine')
+        vehicle_basis = 'inferred_from_known_car_title_and_provider_vehicle_fields'
     url = item_url(row.get('url'))
     identifier = row.get('product_id')
     if type(identifier) is int:
@@ -231,6 +248,7 @@ def event(row, observed_at):
     payload = dict(country='IT', city='Milano', province='MI', title=title,
                    description=description, price_eur=int(amount), price_kind='unknown',
                    adapter=VERSION, original=row, location_basis='provider_published_country_and_city')
+    payload['vehicle_type_basis'] = vehicle_basis
     images = row.get('images') or []
     if not isinstance(images, list) or len(images) > 1000:
         raise ValueError('Unsupported images')
@@ -325,6 +343,37 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
     return dict(status='complete', snapshot_id=snapshot_id, collection=result)
 
 
+def revalidate_quarantine(archive, snapshot_id):
+    snapshot_resource(snapshot_id)
+    origin_run = 'brightdata-' + snapshot_id
+    replay_run = 'brightdata-revalidate-v1-' + snapshot_id
+    try:
+        return archive.run_status(SOURCE, replay_run)
+    except KeyError:
+        pass
+    origin = archive.run_status(SOURCE, origin_run)
+    if not origin['complete']:
+        raise ValueError('Revalidation requires a completed archived snapshot')
+    # Replay only existing archived evidence, with its original observation
+    # time. This consumes no provider credits and preserves the quarantine.
+    observed_at = archive.db.execute('SELECT received_at FROM collection_pages WHERE source=? AND run_id=? AND page_id=?',
+        (CONTROL, 'brightdata-' + origin['scope']['configuration']['cycle_id'], 'reservation')).fetchone()[0]
+    if isinstance(observed_at, datetime):
+        observed_at = observed_at.isoformat()
+    records = []
+    for (stored,) in archive.db.execute('SELECT payload FROM collection_quarantine WHERE source=? AND run_id=? ORDER BY ordinal',
+                                       (SOURCE, origin_run)).fetchall():
+        envelope = archive.db.json_decode(stored)
+        try:
+            records.append(event(envelope['payload']['original'], observed_at))
+        except (ValueError, TypeError, KeyError):
+            continue
+    return archive.ingest(dict(source=SOURCE, run_id=replay_run, page_id='revalidated', mode='initial',
+        scope=dict(country='IT', city='Milano', origin_run=origin_run, snapshot_id=snapshot_id,
+                   validation_revision='vehicle-fields-v1', market_coverage_verified=False),
+        input_cursor=None, next_cursor=None, complete=True, records=records))
+
+
 class BackgroundCollection:
     def __init__(self, path, config):
         self.path, self.config = path, validate_config(config)
@@ -340,6 +389,8 @@ class BackgroundCollection:
         try:
             try:
                 result = cycle(self.config, archive)
+                if result['status'] == 'complete':
+                    result['revalidation'] = revalidate_quarantine(archive, result['snapshot_id'])
             except (ValueError, ProviderError) as error:
                 self.finished = True
                 return paused_diagnostic(error)
