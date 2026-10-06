@@ -2,7 +2,7 @@ import copy
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from test_core import NOW, row
 from test_archive import page, event
 from test_market import complete
@@ -153,3 +153,34 @@ class RuntimeTests(unittest.TestCase):
         self.market.archive.ingest(page([complete('cheap',active=False,observed_at=now.isoformat())],run='remove-candidate'),as_of=now)
         self.assertEqual(search(self.queue,as_of=now)['count'],0)
         with self.assertRaises(ValueError): search(self.queue,min_price_eur=-1,as_of=now)
+
+
+class WorkerDrainTests(unittest.TestCase):
+    def run_worker(self, queue, max_jobs, *, bootstrap=None, clock=None):
+        import io
+        from contextlib import redirect_stdout
+        from deal_finder.worker import main
+        env=dict(DEAL_FINDER_MODE='',DEAL_FINDER_BRIGHTDATA_CAMPAIGN='',DEAL_FINDER_BRIGHTDATA_CONFIG='',
+                 DEAL_FINDER_AGENT_SCHEDULER_ENABLED='')
+        with patch.dict('os.environ',env), patch('sys.argv',['worker','--db',':memory:','run','--max-jobs',str(max_jobs)]):
+            with patch('deal_finder.worker.Queue',return_value=queue), patch('deal_finder.bootstrap.bootstrap_config',return_value={} if bootstrap is None else {'configured':True}):
+                with patch('deal_finder.bootstrap.Bootstrap',return_value=bootstrap), patch('deal_finder.worker.time.monotonic',side_effect=clock or (lambda:0)):
+                    with redirect_stdout(io.StringIO()): main()
+
+    def test_worker_obeys_job_limit_while_draining_several_fast_jobs(self):
+        queue=Mock();queue.work_one.return_value=dict(state='done')
+        self.run_worker(queue,3)
+        self.assertEqual(queue.work_one.call_count,3)
+        queue.close.assert_called_once()
+
+    def test_long_job_returns_control_to_collection_before_next_claim(self):
+        elapsed=[0]
+        queue=Mock()
+        def work():
+            elapsed[0]+=15
+            return dict(state='done')
+        queue.work_one.side_effect=work
+        bootstrap=Mock();bootstrap.step.return_value=None
+        self.run_worker(queue,2,bootstrap=bootstrap,clock=lambda:elapsed[0])
+        self.assertEqual(bootstrap.step.call_count,2)
+        self.assertEqual(queue.work_one.call_count,2)

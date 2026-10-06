@@ -35,6 +35,14 @@ def execute(raw, db, as_of):
                     'mileage_km', 'province', 'seller_type')
         value['missing_fields'] = [key for key in required if listing.get(key) is None
                                   or str(listing[key]).strip().casefold() in ('', 'unknown', 'n/a', '-')]
+        value['invalid_fields'] = []
+        for key in required:
+            if key in value['missing_fields']:
+                continue
+            field = listing[key]
+            valid = (not isinstance(field, bool) and str(field).isdigit()) if key in ('year', 'mileage_km') else isinstance(field, str)
+            if not valid:
+                value['invalid_fields'].append(key)
         if listing.get('price_kind') != 'total':
             value['missing_fields'].append('total_asking_price')
         if listing.get('condition', 'unknown') == 'unknown':
@@ -44,7 +52,7 @@ def execute(raw, db, as_of):
         except (ValueError, TypeError, AttributeError):
             value['identity_plan'] = None
             value['missing_fields'].append('valid_photo_or_identity_sources')
-        value['tasks'] = [dict(name='resolve_source_fields', requires=[], fields=value['missing_fields']),
+        value['tasks'] = [dict(name='resolve_source_fields', requires=[], fields=value['missing_fields']+value['invalid_fields']),
                           dict(name='rescreen_market', requires=['resolve_source_fields']),
                           dict(name='verify_identity_and_damage', requires=['price_selection']),
                           dict(name='research_parts_web', requires=['price_selection', 'identified_variant', 'required_parts'])]

@@ -254,12 +254,22 @@ def main():
                             print(json.dumps(progress), flush=True)
                         if stopping:
                             break
-                    result = queue.work_one()
-                    if result is None:
+                    worked = 0
+                    drain_started = time.monotonic()
+                    # Cheap enrichment plans should not wait one collection
+                    # page each. Stop claiming when count/time/job budget ends.
+                    while not stopping and worked < 10 and time.monotonic()-drain_started < 10:
+                        if args.max_jobs and processed >= args.max_jobs:
+                            break
+                        result = queue.work_one()
+                        if result is None:
+                            break
+                        print(json.dumps(result), flush=True)
+                        processed += 1
+                        worked += 1
+                    if worked == 0:
                         time.sleep(args.poll_seconds)
                         continue
-                    print(json.dumps(result), flush=True)
-                    processed += 1
             except KeyboardInterrupt:
                 pass
             finally:

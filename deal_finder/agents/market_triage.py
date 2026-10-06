@@ -33,7 +33,9 @@ def review(listing, db, as_of):
         if kind != 'total' and re.search(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*/\s*mese', text, re.I):
             continue
         # Known contradictions are not silently pooled into the family analogy.
-        if listing.get('fuel') and payload.get('fuel') and normalize(listing['fuel']) != normalize(payload['fuel']):
+        if (isinstance(listing.get('fuel'), str) and isinstance(payload.get('fuel'), str)
+                and listing['fuel'].strip() and payload['fuel'].strip()
+                and normalize(listing['fuel']) != normalize(payload['fuel'])):
             continue
         if listing.get('condition') in ('damaged', 'undamaged') and payload.get('condition') in ('damaged', 'undamaged') and listing['condition'] != payload['condition']:
             continue
