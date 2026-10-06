@@ -45,6 +45,9 @@ def main():
     native.add_argument('--run-id', required=True, help='Reuse this ID to resume after interruptions')
     native.add_argument('--max-pages', type=int, default=100)
     native.add_argument('--scan', action='store_true')
+    facebook = sub.add_parser('collect-facebook-trial')
+    facebook.add_argument('--run-id', required=True)
+    facebook.add_argument('--limit', type=int, default=10, help='Bounded Milan sample: 1..50 listings')
     preview = sub.add_parser('publication-preview')
     preview.add_argument('batch_id')
     sub.add_parser('agents')
@@ -59,6 +62,21 @@ def main():
         return
     if args.command == 'migrate':
         print(json.dumps(migrate(args.db), indent=2))
+        return
+    if args.command == 'collect-facebook-trial':
+        from .facebook import collect_trial, FacebookBlocked
+        from .archive import Archive
+        archive = Archive(args.db)
+        try:
+            try:
+                output = collect_trial(archive, run_id=args.run_id, limit=args.limit)
+            except FacebookBlocked as error:
+                print(json.dumps({'source': 'facebook_marketplace', 'status': 'blocked',
+                                  'reason': str(error), 'checkpoint_retained': True}))
+                raise SystemExit(2)
+            print(json.dumps(output, indent=2))
+        finally:
+            archive.close()
         return
     if args.command == 'collect-autoscout24':
         from .autoscout24 import collect
