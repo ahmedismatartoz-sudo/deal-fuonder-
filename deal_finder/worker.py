@@ -235,6 +235,8 @@ def main():
                          if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             from .price_memory import BackgroundPriceMemory
             price_memory = BackgroundPriceMemory(args.db)
+            from .photo_archive import BackgroundPhotoArchive
+            photo_archive = BackgroundPhotoArchive(args.db)
             first_test_id = os.getenv('DEAL_FINDER_FIRST_ARCHIVE_TEST')
             brightdata = None
             from .brightdata import BackgroundArchiveRevalidation
@@ -251,11 +253,32 @@ def main():
                 except (ValueError, TypeError):
                     print(json.dumps({'brightdata': 'paused', 'error_code': 'backend_configuration_invalid', 'reason': 'Invalid backend collection configuration'}), flush=True)
             stopping = False
+            import threading
+            analysis_stop = threading.Event()
+            analysis_thread = None
+            def analyze_archive():
+                while not analysis_stop.is_set():
+                    try:
+                        progress = price_memory.step(first_test_id)
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if analysis_stop.is_set():
+                            break
+                        progress = photo_archive.step(first_test_id)
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                    except Exception as error:
+                        print(json.dumps({'archive_analysis':'retry_later','error_type':type(error).__name__}),flush=True)
+                    analysis_stop.wait(2)
             def stop(signum, frame):
                 nonlocal stopping
                 stopping = True
+                analysis_stop.set()
             old_handler = signal.signal(signal.SIGTERM, stop)
             try:
+                if os.getenv('DEAL_FINDER_MODE') == 'production':
+                    analysis_thread = threading.Thread(target=analyze_archive, name='archive-analysis', daemon=True)
+                    analysis_thread.start()
                 while not stopping and (args.max_jobs == 0 or processed < args.max_jobs):
                     progress = archive_revalidation.step()
                     if progress:
@@ -266,9 +289,13 @@ def main():
                             print(json.dumps(progress), flush=True)
                         if stopping:
                             break
-                    memory_progress = price_memory.step(first_test_id)
-                    if memory_progress:
-                        print(json.dumps(memory_progress), flush=True)
+                    if analysis_thread is None:
+                        memory_progress = price_memory.step(first_test_id)
+                        if memory_progress:
+                            print(json.dumps(memory_progress), flush=True)
+                        photo_progress = photo_archive.step(first_test_id)
+                        if photo_progress:
+                            print(json.dumps(photo_progress), flush=True)
                     if screening and price_memory.ready and not first_test_id:
                         progress = screening.step()
                         if progress:
@@ -301,6 +328,9 @@ def main():
             except KeyboardInterrupt:
                 pass
             finally:
+                analysis_stop.set()
+                if analysis_thread is not None:
+                    analysis_thread.join(timeout=5)
                 signal.signal(signal.SIGTERM, old_handler)
             output = {'processed': processed}
         elif args.command == 'batch':

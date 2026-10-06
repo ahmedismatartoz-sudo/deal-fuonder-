@@ -31,6 +31,24 @@ class PostgresQueueTests(test_queue.QueueTests):
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())
+    def test_retained_photo_bytes_and_provenance_under_private_role(self):
+        from deal_finder.archive import Archive
+        from deal_finder.photo_archive import PhotoArchive
+        from test_market import complete
+        from test_archive import page
+        from test_core import NOW
+        from test_photo_archive import JPEG, URL_IMAGE
+        archive=Archive(URL)
+        archive.db.execute('SET ROLE deal_finder_backend')
+        try:
+            record=complete('photo',image_urls=[URL_IMAGE])
+            archive.ingest(page([record]),as_of=NOW)
+            photos=PhotoArchive(archive.db)
+            result=photos.retain('export','photo',record['observed_at'],0,URL_IMAGE,fetch=lambda u:(JPEG,'image/jpeg'),as_of=NOW)
+            self.assertTrue(result['saved'])
+            self.assertEqual(bytes(archive.db.execute('SELECT content FROM photo_assets').fetchone()[0]),JPEG)
+            self.assertTrue(photos.manifest('export','photo',record['observed_at'])[0]['archived'])
+        finally: archive.close()
     def test_price_memory_backend_bulk_insert_and_priority_report(self):
         from deal_finder.archive import Archive
         from deal_finder.price_memory import PriceMemory
@@ -101,7 +119,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 6)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 7)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -116,7 +134,7 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 17)
+        self.assertEqual(len(rows), 19)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(

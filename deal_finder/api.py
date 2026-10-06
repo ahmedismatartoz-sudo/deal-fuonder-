@@ -198,7 +198,31 @@ def price_test_report(run_id: str):
         row = archive.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?', (run_id,)).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail='Price test not completed')
-        return archive.db.json_decode(row[0])
+        result = archive.db.json_decode(row[0])
+        from .photo_archive import PhotoArchive
+        photos = PhotoArchive(archive.db)
+        for candidate in result.get('candidates', []):
+            candidate['archived_photos'] = photos.manifest(candidate['source'], candidate['source_id'], candidate['observed_at'])
+            candidate['retained_cover_available'] = any(p['index']==0 for p in candidate['archived_photos'])
+        return result
+    finally:
+        archive.close()
+
+
+@app.get('/archive/photos/{sha}')
+def retained_photo(sha: str):
+    import re
+    from fastapi.responses import Response
+    from .archive import Archive
+    if not re.fullmatch(r'[0-9a-f]{64}', sha):
+        raise HTTPException(status_code=404, detail='Retained photo not found')
+    archive = Archive(database_target())
+    try:
+        row = archive.db.execute('SELECT mime,content FROM photo_assets WHERE sha=?', (sha,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail='Retained photo not found')
+        return Response(content=bytes(row[1]), media_type=row[0],
+                        headers={'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'})
     finally:
         archive.close()
 
