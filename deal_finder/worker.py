@@ -55,6 +55,21 @@ def main():
     sub.add_parser('migrate')
     sub.add_parser('check-db')
     args = parser.parse_args()
+    if os.getenv('DEAL_FINDER_WORKER_PAUSED') == '1' and args.command in ('run', 'daily-cycle', 'market-scan'):
+        print(json.dumps({'worker': 'paused', 'command': args.command,
+                          'collection': False, 'analysis': False, 'photo_downloads': False}), flush=True)
+        if args.command == 'run':
+            import threading
+            pause_stop = threading.Event()
+            previous = signal.signal(signal.SIGTERM, lambda *args: pause_stop.set())
+            try:
+                while not pause_stop.wait(5):
+                    pass
+            except KeyboardInterrupt:
+                pass
+            finally:
+                signal.signal(signal.SIGTERM, previous)
+        return
     if os.getenv('DEAL_FINDER_MODE') == 'production' and args.command != 'agents':
         if not (args.db or database_target()).startswith(('postgresql://', 'postgres://')):
             raise RuntimeError('Production workers require the shared PostgreSQL database')
@@ -264,7 +279,8 @@ def main():
                             print(json.dumps(progress), flush=True)
                         if analysis_stop.is_set():
                             break
-                        progress = photo_archive.step(first_test_id)
+                        progress = (photo_archive.step(first_test_id)
+                                    if os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
                         if progress:
                             print(json.dumps(progress), flush=True)
                     except Exception as error:
@@ -293,7 +309,8 @@ def main():
                         memory_progress = price_memory.step(first_test_id)
                         if memory_progress:
                             print(json.dumps(memory_progress), flush=True)
-                        photo_progress = photo_archive.step(first_test_id)
+                        photo_progress = (photo_archive.step(first_test_id)
+                                    if os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
                         if photo_progress:
                             print(json.dumps(photo_progress), flush=True)
                     if screening and price_memory.ready and not first_test_id:
