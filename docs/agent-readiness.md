@@ -56,6 +56,10 @@ Le letture per arricchimento e contesto famiglia usano pagine da 100 righe:
 gli originali vengono caricati solo per il singolo lavoro. Il catalogo delle
 schede usa pagine da 50 e proiezioni JSON, evitando di caricare tutti gli input
 con i loro confronti. I limiti sono per pagina; non troncano la base.
+Prima dell'analisi in coda, le osservazioni raccolte dopo lo screening vengono
+proiettate con le stesse letture limitate: i confronti si aggiornano senza
+scartare la candidatura per un semplice ritardo della proiezione. Uno snapshot
+del veicolo effettivamente superato rimane bloccato.
 
 Foto/web: `OPENAI_API_KEY`, `DEAL_FINDER_VISION_MODEL` e
 `DEAL_FINDER_PHOTO_IDENTITY_ENABLED=1`.

@@ -230,7 +230,12 @@ class Queue(Store):
                 if table:
                     from .market import Market
                     try:
-                        source_pool = Market(db=self.db).queue_context(target, as_of)
+                        market = Market(db=self.db)
+                        # Collection can append observations after screening and
+                        # before this claim. Project them before checking the
+                        # target snapshot and loading the current comparables.
+                        market.sync(as_of)
+                        source_pool = market.queue_context(target, as_of)
                     except ValueError as error:
                         raw['_intake_error'] = str(error)
             proofs = {}
