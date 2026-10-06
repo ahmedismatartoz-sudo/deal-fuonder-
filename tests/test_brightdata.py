@@ -5,7 +5,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from deal_finder.archive import Archive
 from deal_finder.brightdata import (Client, ProviderError, cycle, event, validate_config,
-                                   BackgroundCollection, DETAIL_DATASET)
+                                   BackgroundCollection, DETAIL_DATASET, FREE_CONFIRMATION,
+                                   SetupError, paused_diagnostic)
 
 NOW = datetime.now(timezone.utc).isoformat()
 URL = 'https://www.facebook.com/marketplace/item/123/'
@@ -41,6 +42,9 @@ class FakeClient:
         self.downloads += 1
         return self.rows
 
+    def snapshots(self, dataset_id, since):
+        return []
+
 
 class BrightDataTests(unittest.TestCase):
     def test_persistence_resume_no_duplicate_job_or_ads(self):
@@ -65,6 +69,8 @@ class BrightDataTests(unittest.TestCase):
                     cycle(config(), archive, client=client, free_confirmed=True)
                 result = cycle(config(), archive, client=client, free_confirmed=True)
                 self.assertEqual(result['status'], 'recovery_required')
+                self.assertTrue(result['provider_auth_verified'])
+                self.assertEqual(result['snapshot_candidates'], [])
                 self.assertEqual(start.call_count, 1)
         finally:
             archive.close()
@@ -187,3 +193,56 @@ class BrightDataTests(unittest.TestCase):
             self.assertEqual(background.step()['brightdata'], 'running')
             self.assertIsNone(background.step())
             self.assertEqual(run.call_count, 1)
+
+    def test_setup_diagnostics_identify_failure_before_request(self):
+        cases = [({}, 'free_confirmation_missing'),
+                 ({'DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED': 'wrong'}, 'free_confirmation_invalid'),
+                 ({'DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED': FREE_CONFIRMATION}, 'api_key_missing'),
+                 ({'DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED': FREE_CONFIRMATION,
+                   'BRIGHTDATA_API_KEY': 'secret invalid key'}, 'api_key_invalid_format')]
+        for env, expected in cases:
+            with self.subTest(expected=expected), patch.dict('os.environ', env, clear=True), \
+                    patch('deal_finder.brightdata.build_opener') as opener:
+                background = BackgroundCollection(':memory:', config())
+                result = background.step()
+                self.assertEqual(result['error_code'], expected)
+                self.assertIsNone(background.step())
+                opener.assert_not_called()
+                self.assertNotIn('secret invalid key', str(result))
+
+    def test_copied_key_surrounding_whitespace_is_removed(self):
+        client = Client(key=' \ntest-key-12345\t ')
+        self.assertEqual(client.key, 'test-key-12345')
+        with self.assertRaises(SetupError):
+            Client(key='test-key-12345\nInjected: value')
+
+    def test_http_diagnostic_redacts_secrets_and_reports_phase(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client.opener, 'open', side_effect=HTTPError('secret-url', 401, 'secret-message', {}, None)):
+            with self.assertRaises(ProviderError) as ctx:
+                client.progress('sd_test123')
+        result = paused_diagnostic(ctx.exception)
+        self.assertEqual(result['http_status'], 401)
+        self.assertEqual(result['phase'], 'progress')
+        for secret in ('test-key-12345', 'secret-url', 'secret-message'):
+            self.assertNotIn(secret, str(result))
+
+    def test_arbitrary_exception_details_never_logged(self):
+        for error in (ValueError('secret-config'), ProviderError('secret-body', phase='secret-key'), SetupError('secret-code')):
+            result = paused_diagnostic(error)
+            self.assertNotIn('secret', str(result))
+
+    def test_recovery_uses_only_readonly_snapshot_list(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client, 'request', return_value=[{'id': 'sd_job123'}, {'id': 's_job456'}]) as request:
+            self.assertEqual(client.snapshots(DETAIL_DATASET, NOW), ['sd_job123', 's_job456'])
+            self.assertEqual(request.call_args.args, ('/datasets/v3/snapshots',))
+            self.assertNotIn('body', request.call_args.kwargs)
+        with patch.object(client, 'request', return_value=[{'id': 'secret-invalid'}]):
+            with self.assertRaises(ProviderError):
+                client.snapshots(DETAIL_DATASET, NOW)
+
+    def test_published_short_snapshot_prefix_supported(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client, 'request', return_value={'snapshot_id': 's_job123'}):
+            self.assertEqual(client.start(config()), 's_job123')

@@ -220,7 +220,7 @@ def main():
                 try:
                     brightdata = BackgroundCollection(args.db, json.loads(os.environ['DEAL_FINDER_BRIGHTDATA_CONFIG']))
                 except (ValueError, TypeError):
-                    print(json.dumps({'brightdata': 'paused', 'reason': 'Invalid backend collection configuration'}), flush=True)
+                    print(json.dumps({'brightdata': 'paused', 'error_code': 'backend_configuration_invalid', 'reason': 'Invalid backend collection configuration'}), flush=True)
             stopping = False
             def stop(signum, frame):
                 nonlocal stopping
