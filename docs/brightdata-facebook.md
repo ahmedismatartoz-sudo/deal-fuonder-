@@ -57,7 +57,8 @@ If the POST's outcome is uncertain, it is not repeated: inspect Bright Data
 and reconcile the snapshot before re-enabling a new cycle. Provider metadata
 is stored under source=brightdata_control with zero listing records.
 
-Only country_code=IT, explicit Milano/Milan city, car breadcrumb or conservative
+Only country_code=IT, a published municipality in an approved nearby province,
+car breadcrumb or conservative
 known model-family title with corroborating provider vehicle fields,
 EUR numeric asking amount strictly below 20,000, matching item ID/URL and
 is_sold=false are accepted. A provider search cap must also be set in the
@@ -65,7 +66,7 @@ verified discovery input: post-filtering cannot prevent credits consumed by
 out-of-scope results. The current guard prevents those results entering the
 usable catalogue, retaining raw evidence in private quarantine.
 Other rows and provider errors go to private quarantine for later enrichment.
-No inference from search location. Nearby cities are excluded. Descriptions,
+No inference from search location. Descriptions,
 all supplied photo URLs and original output are retained. Images are links,
 not downloaded copies. Model family and model year copied from the published
 title remain coarse evidence, never an exact variant or registration year.
@@ -76,6 +77,30 @@ records are archived but not asserted ready for market valuation.
 
 Synthetic tests cover provider contract and persistence, not real Marketplace
 accuracy or discovery compatibility. Full catalogue coverage is never claimed.
+
+### Expanded nearby geography, 6 October 2026
+
+The user enabled MI, MB, BG, BS, CO, LC, VA, PV, LO, CR and NO: Milano,
+Monza e della Brianza, Bergamo, Brescia, Como, Lecco, Varese, Pavia, Lodi,
+Cremona and Novara. Every one of their 1,447 current municipalities is matched
+against the bundled ISTAT register (reference 21 February 2026), including
+names with accents. Published conflicting provinces/regions and nationally
+ambiguous names without a province remain excluded. The actual city/province
+is retained, never rewritten to Milano/MI; comparisons still use the target's
+local province. All price, availability, identity and professional margin
+checks remain in effect.
+
+Source: https://www.istat.it/classificazione/codici-dei-comuni-delle-province-e-delle-regioni/
+Dataset: https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx
+The bundled JSON includes provenance, download date and source SHA256.
+
+The worker revalidates one archived Facebook snapshot per iteration under
+`brightdata-revalidate-v3-SNAPSHOT`. This uses only existing original rows,
+preserves observation timestamps and the old quarantine, and sends no provider
+requests. Completed replay markers survive restarts. Old in-flight v2 control
+scopes resume their identical request without repeating a trigger or altering
+its budget. The existing campaign search URLs and credit ceiling are retained;
+the broader acceptance applies to their returned data and future snapshots.
 
 ## Market sample coverage
 

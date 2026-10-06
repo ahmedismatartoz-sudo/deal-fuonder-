@@ -255,7 +255,7 @@ class BrightDataTests(unittest.TestCase):
         self.assertNotIn('mileage_km', accepted['payload'])
         for change in ({'transmission': None}, {'car_miles': None}, {'condition': None},
                        {'title': '2020 BMW R1250'}, {'title': 'Sgomberi'},
-                       {'description': 'Vendo motore Fiat 500'}, {'location': 'Bergamo, Italia'},
+                       {'description': 'Vendo motore Fiat 500'}, {'location': 'Roma, Italia'},
                        {'initial_price': 20000}):
             invalid = dict(row, **change)
             with self.assertRaises(ValueError):
@@ -264,7 +264,7 @@ class BrightDataTests(unittest.TestCase):
     def test_revalidation_reuses_archived_data_once_without_provider(self):
         archive = Archive(':memory:'); client = FakeClient(); client.state = 'ready'
         row = car(); row.update(title='2014 Fiat 500', breadcrumbs=None, transmission='MANUAL', condition='USED')
-        outside = dict(row, product_id='456', url=URL.replace('123', '456'), location='Bergamo, Italia')
+        outside = dict(row, product_id='456', url=URL.replace('123', '456'), location='Roma, Italia')
         client.rows = [row, outside]
         try:
             with patch('deal_finder.brightdata.event', side_effect=ValueError('old validation')):

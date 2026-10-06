@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from deal_finder.archive import Archive
-from deal_finder.brightdata import cycle, FREE_CONFIRMATION, ProviderError
+from deal_finder.brightdata import (cycle, FREE_CONFIRMATION, ProviderError,
+                                   BackgroundArchiveRevalidation, LEGACY_VERSION, CONTROL)
 from deal_finder.brightdata_campaign import (BackgroundCampaign, credit_ledger, config_for,
                                            search_plan, validate_spec, PLAN_VERSION)
 from test_brightdata import FakeClient, car, config
@@ -37,6 +38,43 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(result['brightdata'], 'campaign_batch_complete')
         self.assertEqual(result['new_unique'], 1)
         self.assertEqual(client.downloads, 1)
+
+    def test_legacy_inflight_reservation_resumes_with_new_geography_without_trigger(self):
+        archive = Archive(self.path)
+        cfg = config()
+        scope = dict(country='IT', city='Milano', adapter=LEGACY_VERSION, configuration=cfg,
+                     max_price_exclusive_eur=20000, available_only=True)
+        archive.ingest(dict(source=CONTROL, run_id='brightdata-trial1', page_id='reservation',
+            mode='initial', scope=scope, input_cursor=None, next_cursor='reserved', complete=False, records=[]))
+        archive.ingest(dict(source=CONTROL, run_id='brightdata-trial1', page_id='sd_test123',
+            mode='initial', scope=scope, input_cursor='reserved', next_cursor=None, complete=True, records=[]))
+        client = FakeClient(); client.state = 'ready'; client.rows = [dict(car(), location='Bergamo, Italia')]
+        result = cycle(cfg, archive, client=client, free_confirmed=True)
+        self.assertEqual(result['collection']['accepted'], 1)
+        self.assertEqual(client.starts, 0)
+        self.assertEqual(archive.history('facebook_marketplace', '123')[0]['payload']['province'], 'BG')
+        changed = dict(cfg, limit=9)
+        with self.assertRaises(ValueError):
+            cycle(changed, archive, client=client, free_confirmed=True)
+        archive.close()
+
+    def test_background_replay_recovers_existing_snapshots_once_and_keeps_freshness(self):
+        archive = Archive(self.path); client = FakeClient(); client.state = 'ready'
+        client.rows = [dict(car(), location='Brescia, Italia')]
+        with patch('deal_finder.brightdata.event', side_effect=ValueError('old geography')):
+            cycle(config(), archive, client=client, free_confirmed=True)
+        stamp = archive.db.execute("SELECT received_at FROM collection_pages WHERE page_id='reservation'").fetchone()[0]
+        replay = BackgroundArchiveRevalidation(self.path)
+        result = replay.step()
+        self.assertEqual((result['new_unique'], result['total_unique'], result['provider_requests']), (1, 1, 0))
+        saved = archive.history('facebook_marketplace', '123')[0]
+        self.assertEqual((saved['observed_at'], saved['payload']['province']), (stamp, 'BS'))
+        self.assertEqual(client.starts, 1)
+        self.assertEqual(credit_ledger(archive), 1)
+        self.assertEqual(BackgroundArchiveRevalidation(self.path).step()['brightdata'], 'archive_revalidation_complete')
+        self.assertEqual(len(archive.history('facebook_marketplace', '123')), 1)
+        self.assertEqual(archive.run_status('facebook_marketplace', 'brightdata-sd_test123')['quarantined'], 1)
+        archive.close()
 
     def test_credit_ceiling_includes_previous_trials_and_final_batch(self):
         archive = Archive(self.path); trial = FakeClient(); trial.state = 'ready'; trial.rows *= 3

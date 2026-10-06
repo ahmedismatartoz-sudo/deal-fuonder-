@@ -31,6 +31,30 @@ class PostgresQueueTests(test_queue.QueueTests):
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())
+    def test_regional_facebook_replay_under_private_backend_role(self):
+        from unittest.mock import patch
+        from deal_finder.archive import Archive
+        from deal_finder.brightdata import cycle, BackgroundArchiveRevalidation
+        from test_brightdata import FakeClient, config, car
+        archive = Archive(URL)
+        archive.db.execute('SET ROLE deal_finder_backend')
+        client = FakeClient(); client.state = 'ready'
+        client.rows = [dict(car(), location='Monza, Monza e Brianza')]
+        try:
+            with patch('deal_finder.brightdata.event', side_effect=ValueError('old geography')):
+                cycle(config(), archive, client=client, free_confirmed=True)
+            def backend_archive(path):
+                instance = Archive(path)
+                instance.db.execute('SET ROLE deal_finder_backend')
+                return instance
+            with patch('deal_finder.archive.Archive', side_effect=backend_archive):
+                replay = BackgroundArchiveRevalidation(URL)
+                self.assertEqual(replay.step()['new_unique'], 1)
+                self.assertEqual(replay.step()['brightdata'], 'archive_revalidation_complete')
+            self.assertEqual(archive.history('facebook_marketplace', '123')[0]['payload']['province'], 'MB')
+            self.assertEqual(client.starts, 1)
+        finally:
+            archive.close()
     def test_collector_lock_across_connections_and_latest_quality_with_rls(self):
         from deal_finder.archive import Archive
         from deal_finder.autoscout24 import collect, CollectionBusy

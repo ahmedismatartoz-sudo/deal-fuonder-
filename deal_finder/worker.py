@@ -218,6 +218,8 @@ def main():
             screening = (BackgroundScreening(args.db)
                          if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             brightdata = None
+            from .brightdata import BackgroundArchiveRevalidation
+            archive_revalidation = BackgroundArchiveRevalidation(args.db)
             campaign_raw = os.getenv('DEAL_FINDER_BRIGHTDATA_CAMPAIGN')
             if campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
                 from .brightdata import BackgroundCollection
@@ -236,6 +238,9 @@ def main():
             old_handler = signal.signal(signal.SIGTERM, stop)
             try:
                 while not stopping and (args.max_jobs == 0 or processed < args.max_jobs):
+                    progress = archive_revalidation.step()
+                    if progress:
+                        print(json.dumps(progress), flush=True)
                     if brightdata:
                         progress = brightdata.step()
                         if progress:

@@ -19,4 +19,4 @@ test = ["httpx>=0.27,<1"]
 deal-finder = "deal_finder.worker:main"
 
 [tool.setuptools.package-data]
-deal_finder = ["migrations/*.sql"]
+deal_finder = ["migrations/*.sql", "data/*.json"]

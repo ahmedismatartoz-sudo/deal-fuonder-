@@ -1,0 +1,6259 @@
+{
+  "source_url": "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx",
+  "reference_date": "2026-02-21",
+  "downloaded_at": "2026-10-06",
+  "source_sha256": "83842076860450f7e482daecea6b7a769f5f93d0bf5b0d48802b44896d7a26d5",
+  "allowed_provinces": [
+    "BG",
+    "BS",
+    "CO",
+    "CR",
+    "LC",
+    "LO",
+    "MB",
+    "MI",
+    "NO",
+    "PV",
+    "VA"
+  ],
+  "provinces": {
+    "TO": [
+      "Torino",
+      "Piemonte"
+    ],
+    "VC": [
+      "Vercelli",
+      "Piemonte"
+    ],
+    "NO": [
+      "Novara",
+      "Piemonte"
+    ],
+    "CN": [
+      "Cuneo",
+      "Piemonte"
+    ],
+    "AT": [
+      "Asti",
+      "Piemonte"
+    ],
+    "AL": [
+      "Alessandria",
+      "Piemonte"
+    ],
+    "AO": [
+      "Valle d'Aosta/Vallée d'Aoste",
+      "Valle d'Aosta/Vallée d'Aoste"
+    ],
+    "IM": [
+      "Imperia",
+      "Liguria"
+    ],
+    "SV": [
+      "Savona",
+      "Liguria"
+    ],
+    "GE": [
+      "Genova",
+      "Liguria"
+    ],
+    "SP": [
+      "La Spezia",
+      "Liguria"
+    ],
+    "VA": [
+      "Varese",
+      "Lombardia"
+    ],
+    "CO": [
+      "Como",
+      "Lombardia"
+    ],
+    "SO": [
+      "Sondrio",
+      "Lombardia"
+    ],
+    "MI": [
+      "Milano",
+      "Lombardia"
+    ],
+    "BG": [
+      "Bergamo",
+      "Lombardia"
+    ],
+    "BS": [
+      "Brescia",
+      "Lombardia"
+    ],
+    "PV": [
+      "Pavia",
+      "Lombardia"
+    ],
+    "CR": [
+      "Cremona",
+      "Lombardia"
+    ],
+    "MN": [
+      "Mantova",
+      "Lombardia"
+    ],
+    "BZ": [
+      "Bolzano/Bozen",
+      "Trentino-Alto Adige/Südtirol"
+    ],
+    "TN": [
+      "Trento",
+      "Trentino-Alto Adige/Südtirol"
+    ],
+    "VR": [
+      "Verona",
+      "Veneto"
+    ],
+    "VI": [
+      "Vicenza",
+      "Veneto"
+    ],
+    "BL": [
+      "Belluno",
+      "Veneto"
+    ],
+    "TV": [
+      "Treviso",
+      "Veneto"
+    ],
+    "VE": [
+      "Venezia",
+      "Veneto"
+    ],
+    "PD": [
+      "Padova",
+      "Veneto"
+    ],
+    "RO": [
+      "Rovigo",
+      "Veneto"
+    ],
+    "UD": [
+      "Udine",
+      "Friuli-Venezia Giulia"
+    ],
+    "GO": [
+      "Gorizia",
+      "Friuli-Venezia Giulia"
+    ],
+    "TS": [
+      "Trieste",
+      "Friuli-Venezia Giulia"
+    ],
+    "PC": [
+      "Piacenza",
+      "Emilia-Romagna"
+    ],
+    "PR": [
+      "Parma",
+      "Emilia-Romagna"
+    ],
+    "RE": [
+      "Reggio nell'Emilia",
+      "Emilia-Romagna"
+    ],
+    "MO": [
+      "Modena",
+      "Emilia-Romagna"
+    ],
+    "BO": [
+      "Bologna",
+      "Emilia-Romagna"
+    ],
+    "FE": [
+      "Ferrara",
+      "Emilia-Romagna"
+    ],
+    "RA": [
+      "Ravenna",
+      "Emilia-Romagna"
+    ],
+    "FC": [
+      "Forlì-Cesena",
+      "Emilia-Romagna"
+    ],
+    "PU": [
+      "Pesaro e Urbino",
+      "Marche"
+    ],
+    "AN": [
+      "Ancona",
+      "Marche"
+    ],
+    "MC": [
+      "Macerata",
+      "Marche"
+    ],
+    "AP": [
+      "Ascoli Piceno",
+      "Marche"
+    ],
+    "MS": [
+      "Massa-Carrara",
+      "Toscana"
+    ],
+    "LU": [
+      "Lucca",
+      "Toscana"
+    ],
+    "PT": [
+      "Pistoia",
+      "Toscana"
+    ],
+    "FI": [
+      "Firenze",
+      "Toscana"
+    ],
+    "LI": [
+      "Livorno",
+      "Toscana"
+    ],
+    "PI": [
+      "Pisa",
+      "Toscana"
+    ],
+    "AR": [
+      "Arezzo",
+      "Toscana"
+    ],
+    "SI": [
+      "Siena",
+      "Toscana"
+    ],
+    "GR": [
+      "Grosseto",
+      "Toscana"
+    ],
+    "PG": [
+      "Perugia",
+      "Umbria"
+    ],
+    "TR": [
+      "Terni",
+      "Umbria"
+    ],
+    "VT": [
+      "Viterbo",
+      "Lazio"
+    ],
+    "RI": [
+      "Rieti",
+      "Lazio"
+    ],
+    "RM": [
+      "Roma",
+      "Lazio"
+    ],
+    "LT": [
+      "Latina",
+      "Lazio"
+    ],
+    "FR": [
+      "Frosinone",
+      "Lazio"
+    ],
+    "CE": [
+      "Caserta",
+      "Campania"
+    ],
+    "BN": [
+      "Benevento",
+      "Campania"
+    ],
+    "NA": [
+      "Napoli",
+      "Campania"
+    ],
+    "AV": [
+      "Avellino",
+      "Campania"
+    ],
+    "SA": [
+      "Salerno",
+      "Campania"
+    ],
+    "AQ": [
+      "L'Aquila",
+      "Abruzzo"
+    ],
+    "TE": [
+      "Teramo",
+      "Abruzzo"
+    ],
+    "PE": [
+      "Pescara",
+      "Abruzzo"
+    ],
+    "CH": [
+      "Chieti",
+      "Abruzzo"
+    ],
+    "CB": [
+      "Campobasso",
+      "Molise"
+    ],
+    "FG": [
+      "Foggia",
+      "Puglia"
+    ],
+    "BA": [
+      "Bari",
+      "Puglia"
+    ],
+    "TA": [
+      "Taranto",
+      "Puglia"
+    ],
+    "BR": [
+      "Brindisi",
+      "Puglia"
+    ],
+    "LE": [
+      "Lecce",
+      "Puglia"
+    ],
+    "PZ": [
+      "Potenza",
+      "Basilicata"
+    ],
+    "MT": [
+      "Matera",
+      "Basilicata"
+    ],
+    "CS": [
+      "Cosenza",
+      "Calabria"
+    ],
+    "CZ": [
+      "Catanzaro",
+      "Calabria"
+    ],
+    "RC": [
+      "Reggio Calabria",
+      "Calabria"
+    ],
+    "TP": [
+      "Trapani",
+      "Sicilia"
+    ],
+    "PA": [
+      "Palermo",
+      "Sicilia"
+    ],
+    "ME": [
+      "Messina",
+      "Sicilia"
+    ],
+    "AG": [
+      "Agrigento",
+      "Sicilia"
+    ],
+    "CL": [
+      "Caltanissetta",
+      "Sicilia"
+    ],
+    "EN": [
+      "Enna",
+      "Sicilia"
+    ],
+    "CT": [
+      "Catania",
+      "Sicilia"
+    ],
+    "RG": [
+      "Ragusa",
+      "Sicilia"
+    ],
+    "SR": [
+      "Siracusa",
+      "Sicilia"
+    ],
+    "PN": [
+      "Pordenone",
+      "Friuli-Venezia Giulia"
+    ],
+    "IS": [
+      "Isernia",
+      "Molise"
+    ],
+    "BI": [
+      "Biella",
+      "Piemonte"
+    ],
+    "LC": [
+      "Lecco",
+      "Lombardia"
+    ],
+    "LO": [
+      "Lodi",
+      "Lombardia"
+    ],
+    "RN": [
+      "Rimini",
+      "Emilia-Romagna"
+    ],
+    "PO": [
+      "Prato",
+      "Toscana"
+    ],
+    "KR": [
+      "Crotone",
+      "Calabria"
+    ],
+    "VV": [
+      "Vibo Valentia",
+      "Calabria"
+    ],
+    "VB": [
+      "Verbano-Cusio-Ossola",
+      "Piemonte"
+    ],
+    "MB": [
+      "Monza e della Brianza",
+      "Lombardia"
+    ],
+    "FM": [
+      "Fermo",
+      "Marche"
+    ],
+    "BT": [
+      "Barletta-Andria-Trani",
+      "Puglia"
+    ],
+    "SS": [
+      "Sassari",
+      "Sardegna"
+    ],
+    "OT": [
+      "Gallura Nord-Est Sardegna",
+      "Sardegna"
+    ],
+    "NU": [
+      "Nuoro",
+      "Sardegna"
+    ],
+    "OR": [
+      "Oristano",
+      "Sardegna"
+    ],
+    "OG": [
+      "Ogliastra",
+      "Sardegna"
+    ],
+    "VS": [
+      "Medio Campidano",
+      "Sardegna"
+    ],
+    "CA": [
+      "Cagliari",
+      "Sardegna"
+    ],
+    "CI": [
+      "Sulcis Iglesiente",
+      "Sardegna"
+    ]
+  },
+  "ambiguous_names": [
+    "castro",
+    "livo",
+    "paterno",
+    "peglio",
+    "samone",
+    "san teodoro"
+  ],
+  "municipalities": [
+    [
+      "Abbadia Cerreto",
+      "LO"
+    ],
+    [
+      "Abbadia Lariana",
+      "LC"
+    ],
+    [
+      "Abbiategrasso",
+      "MI"
+    ],
+    [
+      "Acquafredda",
+      "BS"
+    ],
+    [
+      "Acquanegra Cremonese",
+      "CR"
+    ],
+    [
+      "Adrara San Martino",
+      "BG"
+    ],
+    [
+      "Adrara San Rocco",
+      "BG"
+    ],
+    [
+      "Adro",
+      "BS"
+    ],
+    [
+      "Agnadello",
+      "CR"
+    ],
+    [
+      "Agnosine",
+      "BS"
+    ],
+    [
+      "Agra",
+      "VA"
+    ],
+    [
+      "Agrate Brianza",
+      "MB"
+    ],
+    [
+      "Agrate Conturbia",
+      "NO"
+    ],
+    [
+      "Aicurzio",
+      "MB"
+    ],
+    [
+      "Airuno",
+      "LC"
+    ],
+    [
+      "Alagna",
+      "PV"
+    ],
+    [
+      "Albairate",
+      "MI"
+    ],
+    [
+      "Albano Sant'Alessandro",
+      "BG"
+    ],
+    [
+      "Albavilla",
+      "CO"
+    ],
+    [
+      "Albese con Cassano",
+      "CO"
+    ],
+    [
+      "Albiate",
+      "MB"
+    ],
+    [
+      "Albino",
+      "BG"
+    ],
+    [
+      "Albiolo",
+      "CO"
+    ],
+    [
+      "Albizzate",
+      "VA"
+    ],
+    [
+      "Albonese",
+      "PV"
+    ],
+    [
+      "Albuzzano",
+      "PV"
+    ],
+    [
+      "Alfianello",
+      "BS"
+    ],
+    [
+      "Algua",
+      "BG"
+    ],
+    [
+      "Almenno San Bartolomeo",
+      "BG"
+    ],
+    [
+      "Almenno San Salvatore",
+      "BG"
+    ],
+    [
+      "Almè",
+      "BG"
+    ],
+    [
+      "Alserio",
+      "CO"
+    ],
+    [
+      "Alta Valle Intelvi",
+      "CO"
+    ],
+    [
+      "Alzano Lombardo",
+      "BG"
+    ],
+    [
+      "Alzate Brianza",
+      "CO"
+    ],
+    [
+      "Ambivere",
+      "BG"
+    ],
+    [
+      "Ameno",
+      "NO"
+    ],
+    [
+      "Anfo",
+      "BS"
+    ],
+    [
+      "Angera",
+      "VA"
+    ],
+    [
+      "Angolo Terme",
+      "BS"
+    ],
+    [
+      "Annicco",
+      "CR"
+    ],
+    [
+      "Annone di Brianza",
+      "LC"
+    ],
+    [
+      "Antegnate",
+      "BG"
+    ],
+    [
+      "Anzano del Parco",
+      "CO"
+    ],
+    [
+      "Appiano Gentile",
+      "CO"
+    ],
+    [
+      "Arcene",
+      "BG"
+    ],
+    [
+      "Arcisate",
+      "VA"
+    ],
+    [
+      "Arconate",
+      "MI"
+    ],
+    [
+      "Arcore",
+      "MB"
+    ],
+    [
+      "Ardesio",
+      "BG"
+    ],
+    [
+      "Arena Po",
+      "PV"
+    ],
+    [
+      "Arese",
+      "MI"
+    ],
+    [
+      "Argegno",
+      "CO"
+    ],
+    [
+      "Arluno",
+      "MI"
+    ],
+    [
+      "Armeno",
+      "NO"
+    ],
+    [
+      "Arona",
+      "NO"
+    ],
+    [
+      "Arosio",
+      "CO"
+    ],
+    [
+      "Arsago Seprio",
+      "VA"
+    ],
+    [
+      "Artogne",
+      "BS"
+    ],
+    [
+      "Arzago d'Adda",
+      "BG"
+    ],
+    [
+      "Assago",
+      "MI"
+    ],
+    [
+      "Asso",
+      "CO"
+    ],
+    [
+      "Averara",
+      "BG"
+    ],
+    [
+      "Aviatico",
+      "BG"
+    ],
+    [
+      "Azzanello",
+      "CR"
+    ],
+    [
+      "Azzano Mella",
+      "BS"
+    ],
+    [
+      "Azzano San Paolo",
+      "BG"
+    ],
+    [
+      "Azzate",
+      "VA"
+    ],
+    [
+      "Azzio",
+      "VA"
+    ],
+    [
+      "Azzone",
+      "BG"
+    ],
+    [
+      "Badia Pavese",
+      "PV"
+    ],
+    [
+      "Bagnaria",
+      "PV"
+    ],
+    [
+      "Bagnatica",
+      "BG"
+    ],
+    [
+      "Bagnolo Cremasco",
+      "CR"
+    ],
+    [
+      "Bagnolo Mella",
+      "BS"
+    ],
+    [
+      "Bagolino",
+      "BS"
+    ],
+    [
+      "Ballabio",
+      "LC"
+    ],
+    [
+      "Baranzate",
+      "MI"
+    ],
+    [
+      "Barasso",
+      "VA"
+    ],
+    [
+      "Barbariga",
+      "BS"
+    ],
+    [
+      "Barbata",
+      "BG"
+    ],
+    [
+      "Barbianello",
+      "PV"
+    ],
+    [
+      "Bardello con Malgesso e Bregano",
+      "VA"
+    ],
+    [
+      "Bareggio",
+      "MI"
+    ],
+    [
+      "Barengo",
+      "NO"
+    ],
+    [
+      "Barghe",
+      "BS"
+    ],
+    [
+      "Bariano",
+      "BG"
+    ],
+    [
+      "Barlassina",
+      "MB"
+    ],
+    [
+      "Barni",
+      "CO"
+    ],
+    [
+      "Barzago",
+      "LC"
+    ],
+    [
+      "Barzana",
+      "BG"
+    ],
+    [
+      "Barzanò",
+      "LC"
+    ],
+    [
+      "Barzio",
+      "LC"
+    ],
+    [
+      "Bascapè",
+      "PV"
+    ],
+    [
+      "Basiano",
+      "MI"
+    ],
+    [
+      "Basiglio",
+      "MI"
+    ],
+    [
+      "Bassano Bresciano",
+      "BS"
+    ],
+    [
+      "Bastida Pancarana",
+      "PV"
+    ],
+    [
+      "Battuda",
+      "PV"
+    ],
+    [
+      "Bedero Valcuvia",
+      "VA"
+    ],
+    [
+      "Bedizzole",
+      "BS"
+    ],
+    [
+      "Bedulita",
+      "BG"
+    ],
+    [
+      "Belgioioso",
+      "PV"
+    ],
+    [
+      "Bellagio",
+      "CO"
+    ],
+    [
+      "Bellano",
+      "LC"
+    ],
+    [
+      "Bellinzago Lombardo",
+      "MI"
+    ],
+    [
+      "Bellinzago Novarese",
+      "NO"
+    ],
+    [
+      "Bellusco",
+      "MB"
+    ],
+    [
+      "Bene Lario",
+      "CO"
+    ],
+    [
+      "Berbenno",
+      "BG"
+    ],
+    [
+      "Beregazzo con Figliaro",
+      "CO"
+    ],
+    [
+      "Bereguardo",
+      "PV"
+    ],
+    [
+      "Bergamo",
+      "BG"
+    ],
+    [
+      "Berlingo",
+      "BS"
+    ],
+    [
+      "Bernareggio",
+      "MB"
+    ],
+    [
+      "Bernate Ticino",
+      "MI"
+    ],
+    [
+      "Bertonico",
+      "LO"
+    ],
+    [
+      "Berzo Demo",
+      "BS"
+    ],
+    [
+      "Berzo Inferiore",
+      "BS"
+    ],
+    [
+      "Berzo San Fermo",
+      "BG"
+    ],
+    [
+      "Besana in Brianza",
+      "MB"
+    ],
+    [
+      "Besano",
+      "VA"
+    ],
+    [
+      "Besate",
+      "MI"
+    ],
+    [
+      "Besnate",
+      "VA"
+    ],
+    [
+      "Besozzo",
+      "VA"
+    ],
+    [
+      "Biandrate",
+      "NO"
+    ],
+    [
+      "Biandronno",
+      "VA"
+    ],
+    [
+      "Bianzano",
+      "BG"
+    ],
+    [
+      "Biassono",
+      "MB"
+    ],
+    [
+      "Bienno",
+      "BS"
+    ],
+    [
+      "Binago",
+      "CO"
+    ],
+    [
+      "Binasco",
+      "MI"
+    ],
+    [
+      "Bione",
+      "BS"
+    ],
+    [
+      "Bisuschio",
+      "VA"
+    ],
+    [
+      "Bizzarone",
+      "CO"
+    ],
+    [
+      "Blello",
+      "BG"
+    ],
+    [
+      "Blessagno",
+      "CO"
+    ],
+    [
+      "Blevio",
+      "CO"
+    ],
+    [
+      "Boca",
+      "NO"
+    ],
+    [
+      "Bodio Lomnago",
+      "VA"
+    ],
+    [
+      "Boffalora d'Adda",
+      "LO"
+    ],
+    [
+      "Boffalora sopra Ticino",
+      "MI"
+    ],
+    [
+      "Bogogno",
+      "NO"
+    ],
+    [
+      "Bolgare",
+      "BG"
+    ],
+    [
+      "Bollate",
+      "MI"
+    ],
+    [
+      "Boltiere",
+      "BG"
+    ],
+    [
+      "Bolzano Novarese",
+      "NO"
+    ],
+    [
+      "Bonate Sopra",
+      "BG"
+    ],
+    [
+      "Bonate Sotto",
+      "BG"
+    ],
+    [
+      "Bonemerse",
+      "CR"
+    ],
+    [
+      "Bordolano",
+      "CR"
+    ],
+    [
+      "Borgarello",
+      "PV"
+    ],
+    [
+      "Borghetto Lodigiano",
+      "LO"
+    ],
+    [
+      "Borgo Priolo",
+      "PV"
+    ],
+    [
+      "Borgo San Giacomo",
+      "BS"
+    ],
+    [
+      "Borgo San Giovanni",
+      "LO"
+    ],
+    [
+      "Borgo San Siro",
+      "PV"
+    ],
+    [
+      "Borgo Ticino",
+      "NO"
+    ],
+    [
+      "Borgo di Terzo",
+      "BG"
+    ],
+    [
+      "Borgolavezzaro",
+      "NO"
+    ],
+    [
+      "Borgomanero",
+      "NO"
+    ],
+    [
+      "Borgoratto Mormorolo",
+      "PV"
+    ],
+    [
+      "Borgosatollo",
+      "BS"
+    ],
+    [
+      "Bornasco",
+      "PV"
+    ],
+    [
+      "Borno",
+      "BS"
+    ],
+    [
+      "Bosisio Parini",
+      "LC"
+    ],
+    [
+      "Bosnasco",
+      "PV"
+    ],
+    [
+      "Bossico",
+      "BG"
+    ],
+    [
+      "Bottanuco",
+      "BG"
+    ],
+    [
+      "Botticino",
+      "BS"
+    ],
+    [
+      "Bovegno",
+      "BS"
+    ],
+    [
+      "Bovezzo",
+      "BS"
+    ],
+    [
+      "Bovisio-Masciago",
+      "MB"
+    ],
+    [
+      "Bracca",
+      "BG"
+    ],
+    [
+      "Brallo di Pregola",
+      "PV"
+    ],
+    [
+      "Brandico",
+      "BS"
+    ],
+    [
+      "Branzi",
+      "BG"
+    ],
+    [
+      "Braone",
+      "BS"
+    ],
+    [
+      "Brebbia",
+      "VA"
+    ],
+    [
+      "Bregnano",
+      "CO"
+    ],
+    [
+      "Brembate",
+      "BG"
+    ],
+    [
+      "Brembate di Sopra",
+      "BG"
+    ],
+    [
+      "Brembio",
+      "LO"
+    ],
+    [
+      "Breme",
+      "PV"
+    ],
+    [
+      "Brenna",
+      "CO"
+    ],
+    [
+      "Breno",
+      "BS"
+    ],
+    [
+      "Brenta",
+      "VA"
+    ],
+    [
+      "Brescia",
+      "BS"
+    ],
+    [
+      "Bressana Bottarone",
+      "PV"
+    ],
+    [
+      "Bresso",
+      "MI"
+    ],
+    [
+      "Brezzo di Bedero",
+      "VA"
+    ],
+    [
+      "Brienno",
+      "CO"
+    ],
+    [
+      "Briga Novarese",
+      "NO"
+    ],
+    [
+      "Brignano Gera d'Adda",
+      "BG"
+    ],
+    [
+      "Brinzio",
+      "VA"
+    ],
+    [
+      "Briona",
+      "NO"
+    ],
+    [
+      "Brione",
+      "BS"
+    ],
+    [
+      "Briosco",
+      "MB"
+    ],
+    [
+      "Brissago-Valtravaglia",
+      "VA"
+    ],
+    [
+      "Brivio",
+      "LC"
+    ],
+    [
+      "Broni",
+      "PV"
+    ],
+    [
+      "Brugherio",
+      "MB"
+    ],
+    [
+      "Brumano",
+      "BG"
+    ],
+    [
+      "Brunate",
+      "CO"
+    ],
+    [
+      "Brunello",
+      "VA"
+    ],
+    [
+      "Brusaporto",
+      "BG"
+    ],
+    [
+      "Brusimpiano",
+      "VA"
+    ],
+    [
+      "Bubbiano",
+      "MI"
+    ],
+    [
+      "Buccinasco",
+      "MI"
+    ],
+    [
+      "Buguggiate",
+      "VA"
+    ],
+    [
+      "Bulciago",
+      "LC"
+    ],
+    [
+      "Bulgarograsso",
+      "CO"
+    ],
+    [
+      "Burago di Molgora",
+      "MB"
+    ],
+    [
+      "Buscate",
+      "MI"
+    ],
+    [
+      "Busnago",
+      "MB"
+    ],
+    [
+      "Bussero",
+      "MI"
+    ],
+    [
+      "Busto Arsizio",
+      "VA"
+    ],
+    [
+      "Busto Garolfo",
+      "MI"
+    ],
+    [
+      "Cabiate",
+      "CO"
+    ],
+    [
+      "Cadegliano-Viconago",
+      "VA"
+    ],
+    [
+      "Cadorago",
+      "CO"
+    ],
+    [
+      "Cadrezzate con Osmate",
+      "VA"
+    ],
+    [
+      "Caglio",
+      "CO"
+    ],
+    [
+      "Caino",
+      "BS"
+    ],
+    [
+      "Cairate",
+      "VA"
+    ],
+    [
+      "Calcinate",
+      "BG"
+    ],
+    [
+      "Calcinato",
+      "BS"
+    ],
+    [
+      "Calcio",
+      "BG"
+    ],
+    [
+      "Calco",
+      "LC"
+    ],
+    [
+      "Calolziocorte",
+      "LC"
+    ],
+    [
+      "Caltignaga",
+      "NO"
+    ],
+    [
+      "Calusco d'Adda",
+      "BG"
+    ],
+    [
+      "Calvagese della Riviera",
+      "BS"
+    ],
+    [
+      "Calvatone",
+      "CR"
+    ],
+    [
+      "Calvenzano",
+      "BG"
+    ],
+    [
+      "Calvignano",
+      "PV"
+    ],
+    [
+      "Calvignasco",
+      "MI"
+    ],
+    [
+      "Calvisano",
+      "BS"
+    ],
+    [
+      "Cambiago",
+      "MI"
+    ],
+    [
+      "Camerata Cornello",
+      "BG"
+    ],
+    [
+      "Cameri",
+      "NO"
+    ],
+    [
+      "Camisano",
+      "CR"
+    ],
+    [
+      "Campagnola Cremasca",
+      "CR"
+    ],
+    [
+      "Camparada",
+      "MB"
+    ],
+    [
+      "Campione d'Italia",
+      "CO"
+    ],
+    [
+      "Campospinoso Albaredo",
+      "PV"
+    ],
+    [
+      "Candia Lomellina",
+      "PV"
+    ],
+    [
+      "Canegrate",
+      "MI"
+    ],
+    [
+      "Canneto Pavese",
+      "PV"
+    ],
+    [
+      "Canonica d'Adda",
+      "BG"
+    ],
+    [
+      "Cantello",
+      "VA"
+    ],
+    [
+      "Cantù",
+      "CO"
+    ],
+    [
+      "Canzo",
+      "CO"
+    ],
+    [
+      "Capergnanica",
+      "CR"
+    ],
+    [
+      "Capiago Intimiano",
+      "CO"
+    ],
+    [
+      "Capizzone",
+      "BG"
+    ],
+    [
+      "Capo di Ponte",
+      "BS"
+    ],
+    [
+      "Caponago",
+      "MB"
+    ],
+    [
+      "Capovalle",
+      "BS"
+    ],
+    [
+      "Cappella Cantone",
+      "CR"
+    ],
+    [
+      "Cappella de' Picenardi",
+      "CR"
+    ],
+    [
+      "Capralba",
+      "CR"
+    ],
+    [
+      "Capriano del Colle",
+      "BS"
+    ],
+    [
+      "Capriate San Gervasio",
+      "BG"
+    ],
+    [
+      "Caprino Bergamasco",
+      "BG"
+    ],
+    [
+      "Capriolo",
+      "BS"
+    ],
+    [
+      "Carate Brianza",
+      "MB"
+    ],
+    [
+      "Carate Urio",
+      "CO"
+    ],
+    [
+      "Caravaggio",
+      "BG"
+    ],
+    [
+      "Caravate",
+      "VA"
+    ],
+    [
+      "Carbonara al Ticino",
+      "PV"
+    ],
+    [
+      "Carbonate",
+      "CO"
+    ],
+    [
+      "Cardano al Campo",
+      "VA"
+    ],
+    [
+      "Carenno",
+      "LC"
+    ],
+    [
+      "Carimate",
+      "CO"
+    ],
+    [
+      "Carlazzo",
+      "CO"
+    ],
+    [
+      "Carnago",
+      "VA"
+    ],
+    [
+      "Carnate",
+      "MB"
+    ],
+    [
+      "Carobbio degli Angeli",
+      "BG"
+    ],
+    [
+      "Carona",
+      "BG"
+    ],
+    [
+      "Caronno Pertusella",
+      "VA"
+    ],
+    [
+      "Caronno Varesino",
+      "VA"
+    ],
+    [
+      "Carpenedolo",
+      "BS"
+    ],
+    [
+      "Carpiano",
+      "MI"
+    ],
+    [
+      "Carpignano Sesia",
+      "NO"
+    ],
+    [
+      "Carugate",
+      "MI"
+    ],
+    [
+      "Carugo",
+      "CO"
+    ],
+    [
+      "Carvico",
+      "BG"
+    ],
+    [
+      "Casalbeltrame",
+      "NO"
+    ],
+    [
+      "Casalbuttano ed Uniti",
+      "CR"
+    ],
+    [
+      "Casale Cremasco-Vidolasco",
+      "CR"
+    ],
+    [
+      "Casale Litta",
+      "VA"
+    ],
+    [
+      "Casaleggio Novara",
+      "NO"
+    ],
+    [
+      "Casaletto Ceredano",
+      "CR"
+    ],
+    [
+      "Casaletto Lodigiano",
+      "LO"
+    ],
+    [
+      "Casaletto Vaprio",
+      "CR"
+    ],
+    [
+      "Casaletto di Sopra",
+      "CR"
+    ],
+    [
+      "Casalino",
+      "NO"
+    ],
+    [
+      "Casalmaggiore",
+      "CR"
+    ],
+    [
+      "Casalmaiocco",
+      "LO"
+    ],
+    [
+      "Casalmorano",
+      "CR"
+    ],
+    [
+      "Casalpusterlengo",
+      "LO"
+    ],
+    [
+      "Casalvolone",
+      "NO"
+    ],
+    [
+      "Casalzuigno",
+      "VA"
+    ],
+    [
+      "Casanova Lonati",
+      "PV"
+    ],
+    [
+      "Casargo",
+      "LC"
+    ],
+    [
+      "Casarile",
+      "MI"
+    ],
+    [
+      "Casatenovo",
+      "LC"
+    ],
+    [
+      "Casatisma",
+      "PV"
+    ],
+    [
+      "Casazza",
+      "BG"
+    ],
+    [
+      "Casciago",
+      "VA"
+    ],
+    [
+      "Casei Gerola",
+      "PV"
+    ],
+    [
+      "Caselle Landi",
+      "LO"
+    ],
+    [
+      "Caselle Lurani",
+      "LO"
+    ],
+    [
+      "Casirate d'Adda",
+      "BG"
+    ],
+    [
+      "Caslino d'Erba",
+      "CO"
+    ],
+    [
+      "Casnate con Bernate",
+      "CO"
+    ],
+    [
+      "Casnigo",
+      "BG"
+    ],
+    [
+      "Casorate Primo",
+      "PV"
+    ],
+    [
+      "Casorate Sempione",
+      "VA"
+    ],
+    [
+      "Casorezzo",
+      "MI"
+    ],
+    [
+      "Cassago Brianza",
+      "LC"
+    ],
+    [
+      "Cassano Magnago",
+      "VA"
+    ],
+    [
+      "Cassano Valcuvia",
+      "VA"
+    ],
+    [
+      "Cassano d'Adda",
+      "MI"
+    ],
+    [
+      "Cassiglio",
+      "BG"
+    ],
+    [
+      "Cassina Rizzardi",
+      "CO"
+    ],
+    [
+      "Cassina Valsassina",
+      "LC"
+    ],
+    [
+      "Cassina de' Pecchi",
+      "MI"
+    ],
+    [
+      "Cassinetta di Lugagnano",
+      "MI"
+    ],
+    [
+      "Cassolnovo",
+      "PV"
+    ],
+    [
+      "Castana",
+      "PV"
+    ],
+    [
+      "Castano Primo",
+      "MI"
+    ],
+    [
+      "Casteggio",
+      "PV"
+    ],
+    [
+      "Castegnato",
+      "BS"
+    ],
+    [
+      "Castel Gabbiano",
+      "CR"
+    ],
+    [
+      "Castel Mella",
+      "BS"
+    ],
+    [
+      "Castel Rozzone",
+      "BG"
+    ],
+    [
+      "Castelcovati",
+      "BS"
+    ],
+    [
+      "Casteldidone",
+      "CR"
+    ],
+    [
+      "Castelgerundo",
+      "LO"
+    ],
+    [
+      "Castellanza",
+      "VA"
+    ],
+    [
+      "Castellazzo Novarese",
+      "NO"
+    ],
+    [
+      "Castelleone",
+      "CR"
+    ],
+    [
+      "Castelletto di Branduzzo",
+      "PV"
+    ],
+    [
+      "Castelletto sopra Ticino",
+      "NO"
+    ],
+    [
+      "Castelli Calepio",
+      "BG"
+    ],
+    [
+      "Castello Cabiaglio",
+      "VA"
+    ],
+    [
+      "Castello d'Agogna",
+      "PV"
+    ],
+    [
+      "Castello di Brianza",
+      "LC"
+    ],
+    [
+      "Castelmarte",
+      "CO"
+    ],
+    [
+      "Castelnovetto",
+      "PV"
+    ],
+    [
+      "Castelnuovo Bocca d'Adda",
+      "LO"
+    ],
+    [
+      "Castelnuovo Bozzente",
+      "CO"
+    ],
+    [
+      "Castelseprio",
+      "VA"
+    ],
+    [
+      "Castelveccana",
+      "VA"
+    ],
+    [
+      "Castelverde",
+      "CR"
+    ],
+    [
+      "Castelvisconti",
+      "CR"
+    ],
+    [
+      "Castenedolo",
+      "BS"
+    ],
+    [
+      "Castiglione Olona",
+      "VA"
+    ],
+    [
+      "Castiglione d'Adda",
+      "LO"
+    ],
+    [
+      "Castione della Presolana",
+      "BG"
+    ],
+    [
+      "Castiraga Vidardo",
+      "LO"
+    ],
+    [
+      "Casto",
+      "BS"
+    ],
+    [
+      "Castrezzato",
+      "BS"
+    ],
+    [
+      "Castro",
+      "BG"
+    ],
+    [
+      "Castronno",
+      "VA"
+    ],
+    [
+      "Cava Manara",
+      "PV"
+    ],
+    [
+      "Cavaglietto",
+      "NO"
+    ],
+    [
+      "Cavaglio d'Agogna",
+      "NO"
+    ],
+    [
+      "Cavallirio",
+      "NO"
+    ],
+    [
+      "Cavargna",
+      "CO"
+    ],
+    [
+      "Cavaria con Premezzo",
+      "VA"
+    ],
+    [
+      "Cavenago d'Adda",
+      "LO"
+    ],
+    [
+      "Cavenago di Brianza",
+      "MB"
+    ],
+    [
+      "Cavernago",
+      "BG"
+    ],
+    [
+      "Cazzago Brabbia",
+      "VA"
+    ],
+    [
+      "Cazzago San Martino",
+      "BS"
+    ],
+    [
+      "Cazzano Sant'Andrea",
+      "BG"
+    ],
+    [
+      "Cecima",
+      "PV"
+    ],
+    [
+      "Cedegolo",
+      "BS"
+    ],
+    [
+      "Cella Dati",
+      "CR"
+    ],
+    [
+      "Cellatica",
+      "BS"
+    ],
+    [
+      "Cenate Sopra",
+      "BG"
+    ],
+    [
+      "Cenate Sotto",
+      "BG"
+    ],
+    [
+      "Cene",
+      "BG"
+    ],
+    [
+      "Centro Valle Intelvi",
+      "CO"
+    ],
+    [
+      "Cerano",
+      "NO"
+    ],
+    [
+      "Cerano d'Intelvi",
+      "CO"
+    ],
+    [
+      "Ceranova",
+      "PV"
+    ],
+    [
+      "Cerete",
+      "BG"
+    ],
+    [
+      "Ceretto Lomellina",
+      "PV"
+    ],
+    [
+      "Cergnago",
+      "PV"
+    ],
+    [
+      "Ceriano Laghetto",
+      "MB"
+    ],
+    [
+      "Cermenate",
+      "CO"
+    ],
+    [
+      "Cernobbio",
+      "CO"
+    ],
+    [
+      "Cernusco Lombardone",
+      "LC"
+    ],
+    [
+      "Cernusco sul Naviglio",
+      "MI"
+    ],
+    [
+      "Cerro Maggiore",
+      "MI"
+    ],
+    [
+      "Cerro al Lambro",
+      "MI"
+    ],
+    [
+      "Certosa di Pavia",
+      "PV"
+    ],
+    [
+      "Cerveno",
+      "BS"
+    ],
+    [
+      "Cervesina",
+      "PV"
+    ],
+    [
+      "Cervignano d'Adda",
+      "LO"
+    ],
+    [
+      "Cesana Brianza",
+      "LC"
+    ],
+    [
+      "Cesano Boscone",
+      "MI"
+    ],
+    [
+      "Cesano Maderno",
+      "MB"
+    ],
+    [
+      "Cesate",
+      "MI"
+    ],
+    [
+      "Ceto",
+      "BS"
+    ],
+    [
+      "Cevo",
+      "BS"
+    ],
+    [
+      "Chiari",
+      "BS"
+    ],
+    [
+      "Chieve",
+      "CR"
+    ],
+    [
+      "Chignolo Po",
+      "PV"
+    ],
+    [
+      "Chignolo d'Isola",
+      "BG"
+    ],
+    [
+      "Chiuduno",
+      "BG"
+    ],
+    [
+      "Cicognolo",
+      "CR"
+    ],
+    [
+      "Cigognola",
+      "PV"
+    ],
+    [
+      "Cigole",
+      "BS"
+    ],
+    [
+      "Cilavegna",
+      "PV"
+    ],
+    [
+      "Cimbergo",
+      "BS"
+    ],
+    [
+      "Cingia de' Botti",
+      "CR"
+    ],
+    [
+      "Cinisello Balsamo",
+      "MI"
+    ],
+    [
+      "Cirimido",
+      "CO"
+    ],
+    [
+      "Cisano Bergamasco",
+      "BG"
+    ],
+    [
+      "Ciserano",
+      "BG"
+    ],
+    [
+      "Cislago",
+      "VA"
+    ],
+    [
+      "Cisliano",
+      "MI"
+    ],
+    [
+      "Cittiglio",
+      "VA"
+    ],
+    [
+      "Civate",
+      "LC"
+    ],
+    [
+      "Cividate Camuno",
+      "BS"
+    ],
+    [
+      "Cividate al Piano",
+      "BG"
+    ],
+    [
+      "Claino con Osteno",
+      "CO"
+    ],
+    [
+      "Clivio",
+      "VA"
+    ],
+    [
+      "Clusone",
+      "BG"
+    ],
+    [
+      "Coccaglio",
+      "BS"
+    ],
+    [
+      "Cocquio-Trevisago",
+      "VA"
+    ],
+    [
+      "Codevilla",
+      "PV"
+    ],
+    [
+      "Codogno",
+      "LO"
+    ],
+    [
+      "Cogliate",
+      "MB"
+    ],
+    [
+      "Colazza",
+      "NO"
+    ],
+    [
+      "Colere",
+      "BG"
+    ],
+    [
+      "Colico",
+      "LC"
+    ],
+    [
+      "Colle Brianza",
+      "LC"
+    ],
+    [
+      "Collebeato",
+      "BS"
+    ],
+    [
+      "Colli Verdi",
+      "PV"
+    ],
+    [
+      "Collio",
+      "BS"
+    ],
+    [
+      "Cologne",
+      "BS"
+    ],
+    [
+      "Cologno Monzese",
+      "MI"
+    ],
+    [
+      "Cologno al Serio",
+      "BG"
+    ],
+    [
+      "Colonno",
+      "CO"
+    ],
+    [
+      "Colturano",
+      "MI"
+    ],
+    [
+      "Colverde",
+      "CO"
+    ],
+    [
+      "Colzate",
+      "BG"
+    ],
+    [
+      "Comabbio",
+      "VA"
+    ],
+    [
+      "Comazzo",
+      "LO"
+    ],
+    [
+      "Comerio",
+      "VA"
+    ],
+    [
+      "Comezzano-Cizzago",
+      "BS"
+    ],
+    [
+      "Comignago",
+      "NO"
+    ],
+    [
+      "Como",
+      "CO"
+    ],
+    [
+      "Comun Nuovo",
+      "BG"
+    ],
+    [
+      "Concesio",
+      "BS"
+    ],
+    [
+      "Concorezzo",
+      "MB"
+    ],
+    [
+      "Confienza",
+      "PV"
+    ],
+    [
+      "Copiano",
+      "PV"
+    ],
+    [
+      "Corana",
+      "PV"
+    ],
+    [
+      "Corbetta",
+      "MI"
+    ],
+    [
+      "Cormano",
+      "MI"
+    ],
+    [
+      "Corna Imagna",
+      "BG"
+    ],
+    [
+      "Cornalba",
+      "BG"
+    ],
+    [
+      "Cornale e Bastida",
+      "PV"
+    ],
+    [
+      "Cornaredo",
+      "MI"
+    ],
+    [
+      "Cornate d'Adda",
+      "MB"
+    ],
+    [
+      "Cornegliano Laudense",
+      "LO"
+    ],
+    [
+      "Corno Giovine",
+      "LO"
+    ],
+    [
+      "Cornovecchio",
+      "LO"
+    ],
+    [
+      "Correzzana",
+      "MB"
+    ],
+    [
+      "Corrido",
+      "CO"
+    ],
+    [
+      "Corsico",
+      "MI"
+    ],
+    [
+      "Corte Franca",
+      "BS"
+    ],
+    [
+      "Corte Palasio",
+      "LO"
+    ],
+    [
+      "Corte de' Cortesi con Cignone",
+      "CR"
+    ],
+    [
+      "Corte de' Frati",
+      "CR"
+    ],
+    [
+      "Corteno Golgi",
+      "BS"
+    ],
+    [
+      "Cortenova",
+      "LC"
+    ],
+    [
+      "Cortenuova",
+      "BG"
+    ],
+    [
+      "Corteolona e Genzone",
+      "PV"
+    ],
+    [
+      "Corvino San Quirico",
+      "PV"
+    ],
+    [
+      "Corzano",
+      "BS"
+    ],
+    [
+      "Costa Masnaga",
+      "LC"
+    ],
+    [
+      "Costa Serina",
+      "BG"
+    ],
+    [
+      "Costa Valle Imagna",
+      "BG"
+    ],
+    [
+      "Costa Volpino",
+      "BG"
+    ],
+    [
+      "Costa de' Nobili",
+      "PV"
+    ],
+    [
+      "Costa di Mezzate",
+      "BG"
+    ],
+    [
+      "Covo",
+      "BG"
+    ],
+    [
+      "Cozzo",
+      "PV"
+    ],
+    [
+      "Crandola Valsassina",
+      "LC"
+    ],
+    [
+      "Credaro",
+      "BG"
+    ],
+    [
+      "Credera Rubbiano",
+      "CR"
+    ],
+    [
+      "Crema",
+      "CR"
+    ],
+    [
+      "Cremella",
+      "LC"
+    ],
+    [
+      "Cremenaga",
+      "VA"
+    ],
+    [
+      "Cremeno",
+      "LC"
+    ],
+    [
+      "Cremia",
+      "CO"
+    ],
+    [
+      "Cremona",
+      "CR"
+    ],
+    [
+      "Cremosano",
+      "CR"
+    ],
+    [
+      "Crespiatica",
+      "LO"
+    ],
+    [
+      "Cressa",
+      "NO"
+    ],
+    [
+      "Crosio della Valle",
+      "VA"
+    ],
+    [
+      "Crotta d'Adda",
+      "CR"
+    ],
+    [
+      "Cuasso al Monte",
+      "VA"
+    ],
+    [
+      "Cucciago",
+      "CO"
+    ],
+    [
+      "Cuggiono",
+      "MI"
+    ],
+    [
+      "Cugliate-Fabiasco",
+      "VA"
+    ],
+    [
+      "Cumignano sul Naviglio",
+      "CR"
+    ],
+    [
+      "Cunardo",
+      "VA"
+    ],
+    [
+      "Cura Carpignano",
+      "PV"
+    ],
+    [
+      "Cureggio",
+      "NO"
+    ],
+    [
+      "Curiglia con Monteviasco",
+      "VA"
+    ],
+    [
+      "Curno",
+      "BG"
+    ],
+    [
+      "Cusago",
+      "MI"
+    ],
+    [
+      "Cusano Milanino",
+      "MI"
+    ],
+    [
+      "Cusino",
+      "CO"
+    ],
+    [
+      "Cusio",
+      "BG"
+    ],
+    [
+      "Cuveglio",
+      "VA"
+    ],
+    [
+      "Cuvio",
+      "VA"
+    ],
+    [
+      "Dairago",
+      "MI"
+    ],
+    [
+      "Dalmine",
+      "BG"
+    ],
+    [
+      "Darfo Boario Terme",
+      "BS"
+    ],
+    [
+      "Daverio",
+      "VA"
+    ],
+    [
+      "Dello",
+      "BS"
+    ],
+    [
+      "Derovere",
+      "CR"
+    ],
+    [
+      "Dervio",
+      "LC"
+    ],
+    [
+      "Desenzano del Garda",
+      "BS"
+    ],
+    [
+      "Desio",
+      "MB"
+    ],
+    [
+      "Divignano",
+      "NO"
+    ],
+    [
+      "Dizzasco",
+      "CO"
+    ],
+    [
+      "Dolzago",
+      "LC"
+    ],
+    [
+      "Domaso",
+      "CO"
+    ],
+    [
+      "Dongo",
+      "CO"
+    ],
+    [
+      "Dorio",
+      "LC"
+    ],
+    [
+      "Dormelletto",
+      "NO"
+    ],
+    [
+      "Dorno",
+      "PV"
+    ],
+    [
+      "Dossena",
+      "BG"
+    ],
+    [
+      "Dosso del Liro",
+      "CO"
+    ],
+    [
+      "Dovera",
+      "CR"
+    ],
+    [
+      "Dresano",
+      "MI"
+    ],
+    [
+      "Dumenza",
+      "VA"
+    ],
+    [
+      "Duno",
+      "VA"
+    ],
+    [
+      "Edolo",
+      "BS"
+    ],
+    [
+      "Ello",
+      "LC"
+    ],
+    [
+      "Endine Gaiano",
+      "BG"
+    ],
+    [
+      "Entratico",
+      "BG"
+    ],
+    [
+      "Erba",
+      "CO"
+    ],
+    [
+      "Erbusco",
+      "BS"
+    ],
+    [
+      "Erve",
+      "LC"
+    ],
+    [
+      "Esine",
+      "BS"
+    ],
+    [
+      "Esino Lario",
+      "LC"
+    ],
+    [
+      "Eupilio",
+      "CO"
+    ],
+    [
+      "Faggeto Lario",
+      "CO"
+    ],
+    [
+      "Fagnano Olona",
+      "VA"
+    ],
+    [
+      "Faloppio",
+      "CO"
+    ],
+    [
+      "Fara Gera d'Adda",
+      "BG"
+    ],
+    [
+      "Fara Novarese",
+      "NO"
+    ],
+    [
+      "Fara Olivana con Sola",
+      "BG"
+    ],
+    [
+      "Fenegrò",
+      "CO"
+    ],
+    [
+      "Ferno",
+      "VA"
+    ],
+    [
+      "Ferrera Erbognone",
+      "PV"
+    ],
+    [
+      "Ferrera di Varese",
+      "VA"
+    ],
+    [
+      "Fiesco",
+      "CR"
+    ],
+    [
+      "Fiesse",
+      "BS"
+    ],
+    [
+      "Figino Serenza",
+      "CO"
+    ],
+    [
+      "Filago",
+      "BG"
+    ],
+    [
+      "Filighera",
+      "PV"
+    ],
+    [
+      "Fino Mornasco",
+      "CO"
+    ],
+    [
+      "Fino del Monte",
+      "BG"
+    ],
+    [
+      "Fiorano al Serio",
+      "BG"
+    ],
+    [
+      "Flero",
+      "BS"
+    ],
+    [
+      "Fombio",
+      "LO"
+    ],
+    [
+      "Fontanella",
+      "BG"
+    ],
+    [
+      "Fontaneto d'Agogna",
+      "NO"
+    ],
+    [
+      "Fonteno",
+      "BG"
+    ],
+    [
+      "Foppolo",
+      "BG"
+    ],
+    [
+      "Foresto Sparso",
+      "BG"
+    ],
+    [
+      "Formigara",
+      "CR"
+    ],
+    [
+      "Fornovo San Giovanni",
+      "BG"
+    ],
+    [
+      "Fortunago",
+      "PV"
+    ],
+    [
+      "Frascarolo",
+      "PV"
+    ],
+    [
+      "Fuipiano Valle Imagna",
+      "BG"
+    ],
+    [
+      "Gabbioneta-Binanuova",
+      "CR"
+    ],
+    [
+      "Gadesco-Pieve Delmona",
+      "CR"
+    ],
+    [
+      "Gaggiano",
+      "MI"
+    ],
+    [
+      "Galbiate",
+      "LC"
+    ],
+    [
+      "Galgagnano",
+      "LO"
+    ],
+    [
+      "Gallarate",
+      "VA"
+    ],
+    [
+      "Galliate",
+      "NO"
+    ],
+    [
+      "Galliate Lombardo",
+      "VA"
+    ],
+    [
+      "Galliavola",
+      "PV"
+    ],
+    [
+      "Gambara",
+      "BS"
+    ],
+    [
+      "Gambarana",
+      "PV"
+    ],
+    [
+      "Gambolò",
+      "PV"
+    ],
+    [
+      "Gandellino",
+      "BG"
+    ],
+    [
+      "Gandino",
+      "BG"
+    ],
+    [
+      "Gandosso",
+      "BG"
+    ],
+    [
+      "Garbagna Novarese",
+      "NO"
+    ],
+    [
+      "Garbagnate Milanese",
+      "MI"
+    ],
+    [
+      "Garbagnate Monastero",
+      "LC"
+    ],
+    [
+      "Gardone Riviera",
+      "BS"
+    ],
+    [
+      "Gardone Val Trompia",
+      "BS"
+    ],
+    [
+      "Gargallo",
+      "NO"
+    ],
+    [
+      "Gargnano",
+      "BS"
+    ],
+    [
+      "Garlasco",
+      "PV"
+    ],
+    [
+      "Garlate",
+      "LC"
+    ],
+    [
+      "Garzeno",
+      "CO"
+    ],
+    [
+      "Gattico-Veruno",
+      "NO"
+    ],
+    [
+      "Gavardo",
+      "BS"
+    ],
+    [
+      "Gaverina Terme",
+      "BG"
+    ],
+    [
+      "Gavirate",
+      "VA"
+    ],
+    [
+      "Gazzada Schianno",
+      "VA"
+    ],
+    [
+      "Gazzaniga",
+      "BG"
+    ],
+    [
+      "Gemonio",
+      "VA"
+    ],
+    [
+      "Genivolta",
+      "CR"
+    ],
+    [
+      "Gera Lario",
+      "CO"
+    ],
+    [
+      "Gerenzago",
+      "PV"
+    ],
+    [
+      "Gerenzano",
+      "VA"
+    ],
+    [
+      "Germignaga",
+      "VA"
+    ],
+    [
+      "Gerre de' Caprioli",
+      "CR"
+    ],
+    [
+      "Gessate",
+      "MI"
+    ],
+    [
+      "Ghedi",
+      "BS"
+    ],
+    [
+      "Ghemme",
+      "NO"
+    ],
+    [
+      "Ghisalba",
+      "BG"
+    ],
+    [
+      "Gianico",
+      "BS"
+    ],
+    [
+      "Giussago",
+      "PV"
+    ],
+    [
+      "Giussano",
+      "MB"
+    ],
+    [
+      "Godiasco Salice Terme",
+      "PV"
+    ],
+    [
+      "Golasecca",
+      "VA"
+    ],
+    [
+      "Golferenzo",
+      "PV"
+    ],
+    [
+      "Gombito",
+      "CR"
+    ],
+    [
+      "Gorgonzola",
+      "MI"
+    ],
+    [
+      "Gorla Maggiore",
+      "VA"
+    ],
+    [
+      "Gorla Minore",
+      "VA"
+    ],
+    [
+      "Gorlago",
+      "BG"
+    ],
+    [
+      "Gorle",
+      "BG"
+    ],
+    [
+      "Gornate Olona",
+      "VA"
+    ],
+    [
+      "Gorno",
+      "BG"
+    ],
+    [
+      "Gottolengo",
+      "BS"
+    ],
+    [
+      "Gozzano",
+      "NO"
+    ],
+    [
+      "Graffignana",
+      "LO"
+    ],
+    [
+      "Grandate",
+      "CO"
+    ],
+    [
+      "Grandola ed Uniti",
+      "CO"
+    ],
+    [
+      "Granozzo con Monticello",
+      "NO"
+    ],
+    [
+      "Grantola",
+      "VA"
+    ],
+    [
+      "Grassobbio",
+      "BG"
+    ],
+    [
+      "Gravedona ed Uniti",
+      "CO"
+    ],
+    [
+      "Gravellona Lomellina",
+      "PV"
+    ],
+    [
+      "Grezzago",
+      "MI"
+    ],
+    [
+      "Griante",
+      "CO"
+    ],
+    [
+      "Grignasco",
+      "NO"
+    ],
+    [
+      "Gromo",
+      "BG"
+    ],
+    [
+      "Grone",
+      "BG"
+    ],
+    [
+      "Grontardo",
+      "CR"
+    ],
+    [
+      "Gropello Cairoli",
+      "PV"
+    ],
+    [
+      "Grumello Cremonese ed Uniti",
+      "CR"
+    ],
+    [
+      "Grumello del Monte",
+      "BG"
+    ],
+    [
+      "Guanzate",
+      "CO"
+    ],
+    [
+      "Guardamiglio",
+      "LO"
+    ],
+    [
+      "Gudo Visconti",
+      "MI"
+    ],
+    [
+      "Gussago",
+      "BS"
+    ],
+    [
+      "Gussola",
+      "CR"
+    ],
+    [
+      "Idro",
+      "BS"
+    ],
+    [
+      "Imbersago",
+      "LC"
+    ],
+    [
+      "Inarzo",
+      "VA"
+    ],
+    [
+      "Incudine",
+      "BS"
+    ],
+    [
+      "Induno Olona",
+      "VA"
+    ],
+    [
+      "Introbio",
+      "LC"
+    ],
+    [
+      "Inverigo",
+      "CO"
+    ],
+    [
+      "Inverno e Monteleone",
+      "PV"
+    ],
+    [
+      "Inveruno",
+      "MI"
+    ],
+    [
+      "Invorio",
+      "NO"
+    ],
+    [
+      "Inzago",
+      "MI"
+    ],
+    [
+      "Irma",
+      "BS"
+    ],
+    [
+      "Iseo",
+      "BS"
+    ],
+    [
+      "Isola Dovarese",
+      "CR"
+    ],
+    [
+      "Isola di Fondra",
+      "BG"
+    ],
+    [
+      "Isorella",
+      "BS"
+    ],
+    [
+      "Ispra",
+      "VA"
+    ],
+    [
+      "Isso",
+      "BG"
+    ],
+    [
+      "Izano",
+      "CR"
+    ],
+    [
+      "Jerago con Orago",
+      "VA"
+    ],
+    [
+      "La Valletta Brianza",
+      "LC"
+    ],
+    [
+      "Lacchiarella",
+      "MI"
+    ],
+    [
+      "Laglio",
+      "CO"
+    ],
+    [
+      "Lainate",
+      "MI"
+    ],
+    [
+      "Laino",
+      "CO"
+    ],
+    [
+      "Lallio",
+      "BG"
+    ],
+    [
+      "Lambrugo",
+      "CO"
+    ],
+    [
+      "Landiona",
+      "NO"
+    ],
+    [
+      "Landriano",
+      "PV"
+    ],
+    [
+      "Langosco",
+      "PV"
+    ],
+    [
+      "Lardirago",
+      "PV"
+    ],
+    [
+      "Lasnigo",
+      "CO"
+    ],
+    [
+      "Lavena Ponte Tresa",
+      "VA"
+    ],
+    [
+      "Laveno-Mombello",
+      "VA"
+    ],
+    [
+      "Lavenone",
+      "BS"
+    ],
+    [
+      "Lazzate",
+      "MB"
+    ],
+    [
+      "Lecco",
+      "LC"
+    ],
+    [
+      "Leffe",
+      "BG"
+    ],
+    [
+      "Leggiuno",
+      "VA"
+    ],
+    [
+      "Legnano",
+      "MI"
+    ],
+    [
+      "Lenna",
+      "BG"
+    ],
+    [
+      "Leno",
+      "BS"
+    ],
+    [
+      "Lentate sul Seveso",
+      "MB"
+    ],
+    [
+      "Lesa",
+      "NO"
+    ],
+    [
+      "Lesmo",
+      "MB"
+    ],
+    [
+      "Levate",
+      "BG"
+    ],
+    [
+      "Lezzeno",
+      "CO"
+    ],
+    [
+      "Lierna",
+      "LC"
+    ],
+    [
+      "Limbiate",
+      "MB"
+    ],
+    [
+      "Limido Comasco",
+      "CO"
+    ],
+    [
+      "Limone sul Garda",
+      "BS"
+    ],
+    [
+      "Linarolo",
+      "PV"
+    ],
+    [
+      "Lipomo",
+      "CO"
+    ],
+    [
+      "Liscate",
+      "MI"
+    ],
+    [
+      "Lissone",
+      "MB"
+    ],
+    [
+      "Livo",
+      "CO"
+    ],
+    [
+      "Livraga",
+      "LO"
+    ],
+    [
+      "Locate Varesino",
+      "CO"
+    ],
+    [
+      "Locate di Triulzi",
+      "MI"
+    ],
+    [
+      "Locatello",
+      "BG"
+    ],
+    [
+      "Lodi",
+      "LO"
+    ],
+    [
+      "Lodi Vecchio",
+      "LO"
+    ],
+    [
+      "Lodrino",
+      "BS"
+    ],
+    [
+      "Lograto",
+      "BS"
+    ],
+    [
+      "Lomagna",
+      "LC"
+    ],
+    [
+      "Lomazzo",
+      "CO"
+    ],
+    [
+      "Lomello",
+      "PV"
+    ],
+    [
+      "Lonate Ceppino",
+      "VA"
+    ],
+    [
+      "Lonate Pozzolo",
+      "VA"
+    ],
+    [
+      "Lonato del Garda",
+      "BS"
+    ],
+    [
+      "Longhena",
+      "BS"
+    ],
+    [
+      "Longone al Segrino",
+      "CO"
+    ],
+    [
+      "Losine",
+      "BS"
+    ],
+    [
+      "Lovere",
+      "BG"
+    ],
+    [
+      "Lozio",
+      "BS"
+    ],
+    [
+      "Lozza",
+      "VA"
+    ],
+    [
+      "Luino",
+      "VA"
+    ],
+    [
+      "Luisago",
+      "CO"
+    ],
+    [
+      "Lumezzane",
+      "BS"
+    ],
+    [
+      "Lungavilla",
+      "PV"
+    ],
+    [
+      "Lurago Marinone",
+      "CO"
+    ],
+    [
+      "Lurago d'Erba",
+      "CO"
+    ],
+    [
+      "Lurano",
+      "BG"
+    ],
+    [
+      "Lurate Caccivio",
+      "CO"
+    ],
+    [
+      "Luvinate",
+      "VA"
+    ],
+    [
+      "Luzzana",
+      "BG"
+    ],
+    [
+      "Maccagno con Pino e Veddasca",
+      "VA"
+    ],
+    [
+      "Maccastorna",
+      "LO"
+    ],
+    [
+      "Macherio",
+      "MB"
+    ],
+    [
+      "Maclodio",
+      "BS"
+    ],
+    [
+      "Madignano",
+      "CR"
+    ],
+    [
+      "Madone",
+      "BG"
+    ],
+    [
+      "Magasa",
+      "BS"
+    ],
+    [
+      "Magenta",
+      "MI"
+    ],
+    [
+      "Maggiora",
+      "NO"
+    ],
+    [
+      "Magherno",
+      "PV"
+    ],
+    [
+      "Magnago",
+      "MI"
+    ],
+    [
+      "Magreglio",
+      "CO"
+    ],
+    [
+      "Mairago",
+      "LO"
+    ],
+    [
+      "Mairano",
+      "BS"
+    ],
+    [
+      "Malagnino",
+      "CR"
+    ],
+    [
+      "Malegno",
+      "BS"
+    ],
+    [
+      "Maleo",
+      "LO"
+    ],
+    [
+      "Malgrate",
+      "LC"
+    ],
+    [
+      "Malnate",
+      "VA"
+    ],
+    [
+      "Malonno",
+      "BS"
+    ],
+    [
+      "Mandello Vitta",
+      "NO"
+    ],
+    [
+      "Mandello del Lario",
+      "LC"
+    ],
+    [
+      "Manerba del Garda",
+      "BS"
+    ],
+    [
+      "Manerbio",
+      "BS"
+    ],
+    [
+      "Mapello",
+      "BG"
+    ],
+    [
+      "Marano Ticino",
+      "NO"
+    ],
+    [
+      "Marcallo con Casone",
+      "MI"
+    ],
+    [
+      "Marcheno",
+      "BS"
+    ],
+    [
+      "Marchirolo",
+      "VA"
+    ],
+    [
+      "Marcignago",
+      "PV"
+    ],
+    [
+      "Margno",
+      "LC"
+    ],
+    [
+      "Mariano Comense",
+      "CO"
+    ],
+    [
+      "Marmentino",
+      "BS"
+    ],
+    [
+      "Marnate",
+      "VA"
+    ],
+    [
+      "Marone",
+      "BS"
+    ],
+    [
+      "Martignana di Po",
+      "CR"
+    ],
+    [
+      "Martinengo",
+      "BG"
+    ],
+    [
+      "Marudo",
+      "LO"
+    ],
+    [
+      "Marzano",
+      "PV"
+    ],
+    [
+      "Marzio",
+      "VA"
+    ],
+    [
+      "Masate",
+      "MI"
+    ],
+    [
+      "Masciago Primo",
+      "VA"
+    ],
+    [
+      "Maslianico",
+      "CO"
+    ],
+    [
+      "Massalengo",
+      "LO"
+    ],
+    [
+      "Massino Visconti",
+      "NO"
+    ],
+    [
+      "Mazzano",
+      "BS"
+    ],
+    [
+      "Meda",
+      "MB"
+    ],
+    [
+      "Mede",
+      "PV"
+    ],
+    [
+      "Mediglia",
+      "MI"
+    ],
+    [
+      "Medolago",
+      "BG"
+    ],
+    [
+      "Meina",
+      "NO"
+    ],
+    [
+      "Melegnano",
+      "MI"
+    ],
+    [
+      "Meleti",
+      "LO"
+    ],
+    [
+      "Melzo",
+      "MI"
+    ],
+    [
+      "Menaggio",
+      "CO"
+    ],
+    [
+      "Menconico",
+      "PV"
+    ],
+    [
+      "Merate",
+      "LC"
+    ],
+    [
+      "Mercallo",
+      "VA"
+    ],
+    [
+      "Merlino",
+      "LO"
+    ],
+    [
+      "Merone",
+      "CO"
+    ],
+    [
+      "Mesenzana",
+      "VA"
+    ],
+    [
+      "Mesero",
+      "MI"
+    ],
+    [
+      "Mezzago",
+      "MB"
+    ],
+    [
+      "Mezzana Bigli",
+      "PV"
+    ],
+    [
+      "Mezzana Rabattone",
+      "PV"
+    ],
+    [
+      "Mezzanino",
+      "PV"
+    ],
+    [
+      "Mezzoldo",
+      "BG"
+    ],
+    [
+      "Mezzomerico",
+      "NO"
+    ],
+    [
+      "Miasino",
+      "NO"
+    ],
+    [
+      "Milano",
+      "MI"
+    ],
+    [
+      "Milzano",
+      "BS"
+    ],
+    [
+      "Miradolo Terme",
+      "PV"
+    ],
+    [
+      "Misano di Gera d'Adda",
+      "BG"
+    ],
+    [
+      "Misinto",
+      "MB"
+    ],
+    [
+      "Missaglia",
+      "LC"
+    ],
+    [
+      "Moggio",
+      "LC"
+    ],
+    [
+      "Moio de' Calvi",
+      "BG"
+    ],
+    [
+      "Molteno",
+      "LC"
+    ],
+    [
+      "Moltrasio",
+      "CO"
+    ],
+    [
+      "Momo",
+      "NO"
+    ],
+    [
+      "Monasterolo del Castello",
+      "BG"
+    ],
+    [
+      "Monguzzo",
+      "CO"
+    ],
+    [
+      "Moniga del Garda",
+      "BS"
+    ],
+    [
+      "Monno",
+      "BS"
+    ],
+    [
+      "Montalto Pavese",
+      "PV"
+    ],
+    [
+      "Montanaso Lombardo",
+      "LO"
+    ],
+    [
+      "Montano Lucino",
+      "CO"
+    ],
+    [
+      "Monte Cremasco",
+      "CR"
+    ],
+    [
+      "Monte Isola",
+      "BS"
+    ],
+    [
+      "Monte Marenzo",
+      "LC"
+    ],
+    [
+      "Montebello della Battaglia",
+      "PV"
+    ],
+    [
+      "Montecalvo Versiggia",
+      "PV"
+    ],
+    [
+      "Montegrino Valtravaglia",
+      "VA"
+    ],
+    [
+      "Montello",
+      "BG"
+    ],
+    [
+      "Montemezzo",
+      "CO"
+    ],
+    [
+      "Montescano",
+      "PV"
+    ],
+    [
+      "Montesegale",
+      "PV"
+    ],
+    [
+      "Montevecchia",
+      "LC"
+    ],
+    [
+      "Monticelli Brusati",
+      "BS"
+    ],
+    [
+      "Monticelli Pavese",
+      "PV"
+    ],
+    [
+      "Monticello Brianza",
+      "LC"
+    ],
+    [
+      "Montichiari",
+      "BS"
+    ],
+    [
+      "Montirone",
+      "BS"
+    ],
+    [
+      "Montodine",
+      "CR"
+    ],
+    [
+      "Montorfano",
+      "CO"
+    ],
+    [
+      "Montù Beccaria",
+      "PV"
+    ],
+    [
+      "Monvalle",
+      "VA"
+    ],
+    [
+      "Monza",
+      "MB"
+    ],
+    [
+      "Morazzone",
+      "VA"
+    ],
+    [
+      "Morengo",
+      "BG"
+    ],
+    [
+      "Morimondo",
+      "MI"
+    ],
+    [
+      "Mornago",
+      "VA"
+    ],
+    [
+      "Mornico Losana",
+      "PV"
+    ],
+    [
+      "Mornico al Serio",
+      "BG"
+    ],
+    [
+      "Mortara",
+      "PV"
+    ],
+    [
+      "Morterone",
+      "LC"
+    ],
+    [
+      "Moscazzano",
+      "CR"
+    ],
+    [
+      "Motta Baluffi",
+      "CR"
+    ],
+    [
+      "Motta Visconti",
+      "MI"
+    ],
+    [
+      "Mozzanica",
+      "BG"
+    ],
+    [
+      "Mozzate",
+      "CO"
+    ],
+    [
+      "Mozzo",
+      "BG"
+    ],
+    [
+      "Muggiò",
+      "MB"
+    ],
+    [
+      "Mulazzano",
+      "LO"
+    ],
+    [
+      "Mura",
+      "BS"
+    ],
+    [
+      "Muscoline",
+      "BS"
+    ],
+    [
+      "Musso",
+      "CO"
+    ],
+    [
+      "Nave",
+      "BS"
+    ],
+    [
+      "Nebbiuno",
+      "NO"
+    ],
+    [
+      "Nembro",
+      "BG"
+    ],
+    [
+      "Nerviano",
+      "MI"
+    ],
+    [
+      "Nesso",
+      "CO"
+    ],
+    [
+      "Niardo",
+      "BS"
+    ],
+    [
+      "Nibbiola",
+      "NO"
+    ],
+    [
+      "Nibionno",
+      "LC"
+    ],
+    [
+      "Nicorvo",
+      "PV"
+    ],
+    [
+      "Nosate",
+      "MI"
+    ],
+    [
+      "Nova Milanese",
+      "MB"
+    ],
+    [
+      "Novara",
+      "NO"
+    ],
+    [
+      "Novate Milanese",
+      "MI"
+    ],
+    [
+      "Novedrate",
+      "CO"
+    ],
+    [
+      "Noviglio",
+      "MI"
+    ],
+    [
+      "Nuvolento",
+      "BS"
+    ],
+    [
+      "Nuvolera",
+      "BS"
+    ],
+    [
+      "Odolo",
+      "BS"
+    ],
+    [
+      "Offanengo",
+      "CR"
+    ],
+    [
+      "Offlaga",
+      "BS"
+    ],
+    [
+      "Oggiona con Santo Stefano",
+      "VA"
+    ],
+    [
+      "Oggiono",
+      "LC"
+    ],
+    [
+      "Oleggio",
+      "NO"
+    ],
+    [
+      "Oleggio Castello",
+      "NO"
+    ],
+    [
+      "Olevano di Lomellina",
+      "PV"
+    ],
+    [
+      "Olgiate Comasco",
+      "CO"
+    ],
+    [
+      "Olgiate Molgora",
+      "LC"
+    ],
+    [
+      "Olgiate Olona",
+      "VA"
+    ],
+    [
+      "Olginate",
+      "LC"
+    ],
+    [
+      "Oliva Gessi",
+      "PV"
+    ],
+    [
+      "Oliveto Lario",
+      "LC"
+    ],
+    [
+      "Olmeneta",
+      "CR"
+    ],
+    [
+      "Olmo al Brembo",
+      "BG"
+    ],
+    [
+      "Oltre il Colle",
+      "BG"
+    ],
+    [
+      "Oltressenda Alta",
+      "BG"
+    ],
+    [
+      "Oltrona di San Mamette",
+      "CO"
+    ],
+    [
+      "Ome",
+      "BS"
+    ],
+    [
+      "Oneta",
+      "BG"
+    ],
+    [
+      "Ono San Pietro",
+      "BS"
+    ],
+    [
+      "Onore",
+      "BG"
+    ],
+    [
+      "Opera",
+      "MI"
+    ],
+    [
+      "Origgio",
+      "VA"
+    ],
+    [
+      "Orino",
+      "VA"
+    ],
+    [
+      "Orio Litta",
+      "LO"
+    ],
+    [
+      "Orio al Serio",
+      "BG"
+    ],
+    [
+      "Ornago",
+      "MB"
+    ],
+    [
+      "Ornica",
+      "BG"
+    ],
+    [
+      "Orsenigo",
+      "CO"
+    ],
+    [
+      "Orta San Giulio",
+      "NO"
+    ],
+    [
+      "Orzinuovi",
+      "BS"
+    ],
+    [
+      "Orzivecchi",
+      "BS"
+    ],
+    [
+      "Osio Sopra",
+      "BG"
+    ],
+    [
+      "Osio Sotto",
+      "BG"
+    ],
+    [
+      "Osnago",
+      "LC"
+    ],
+    [
+      "Ospedaletto Lodigiano",
+      "LO"
+    ],
+    [
+      "Ospitaletto",
+      "BS"
+    ],
+    [
+      "Ossago Lodigiano",
+      "LO"
+    ],
+    [
+      "Ossimo",
+      "BS"
+    ],
+    [
+      "Ossona",
+      "MI"
+    ],
+    [
+      "Ostiano",
+      "CR"
+    ],
+    [
+      "Ottobiano",
+      "PV"
+    ],
+    [
+      "Ozzero",
+      "MI"
+    ],
+    [
+      "Padenghe sul Garda",
+      "BS"
+    ],
+    [
+      "Paderno Dugnano",
+      "MI"
+    ],
+    [
+      "Paderno Franciacorta",
+      "BS"
+    ],
+    [
+      "Paderno Ponchielli",
+      "CR"
+    ],
+    [
+      "Paderno d'Adda",
+      "LC"
+    ],
+    [
+      "Pagazzano",
+      "BG"
+    ],
+    [
+      "Pagnona",
+      "LC"
+    ],
+    [
+      "Paisco Loveno",
+      "BS"
+    ],
+    [
+      "Paitone",
+      "BS"
+    ],
+    [
+      "Paladina",
+      "BG"
+    ],
+    [
+      "Palazzago",
+      "BG"
+    ],
+    [
+      "Palazzo Pignano",
+      "CR"
+    ],
+    [
+      "Palazzolo sull'Oglio",
+      "BS"
+    ],
+    [
+      "Palestro",
+      "PV"
+    ],
+    [
+      "Palosco",
+      "BG"
+    ],
+    [
+      "Pancarana",
+      "PV"
+    ],
+    [
+      "Pandino",
+      "CR"
+    ],
+    [
+      "Pantigliate",
+      "MI"
+    ],
+    [
+      "Parabiago",
+      "MI"
+    ],
+    [
+      "Paratico",
+      "BS"
+    ],
+    [
+      "Parlasco",
+      "LC"
+    ],
+    [
+      "Parona",
+      "PV"
+    ],
+    [
+      "Parre",
+      "BG"
+    ],
+    [
+      "Paruzzaro",
+      "NO"
+    ],
+    [
+      "Parzanica",
+      "BG"
+    ],
+    [
+      "Paspardo",
+      "BS"
+    ],
+    [
+      "Passirano",
+      "BS"
+    ],
+    [
+      "Pasturo",
+      "LC"
+    ],
+    [
+      "Paullo",
+      "MI"
+    ],
+    [
+      "Pavia",
+      "PV"
+    ],
+    [
+      "Pavone del Mella",
+      "BS"
+    ],
+    [
+      "Pedrengo",
+      "BG"
+    ],
+    [
+      "Peglio",
+      "CO"
+    ],
+    [
+      "Peia",
+      "BG"
+    ],
+    [
+      "Pella",
+      "NO"
+    ],
+    [
+      "Perledo",
+      "LC"
+    ],
+    [
+      "Pero",
+      "MI"
+    ],
+    [
+      "Persico Dosimo",
+      "CR"
+    ],
+    [
+      "Pertica Alta",
+      "BS"
+    ],
+    [
+      "Pertica Bassa",
+      "BS"
+    ],
+    [
+      "Pescarolo ed Uniti",
+      "CR"
+    ],
+    [
+      "Pescate",
+      "LC"
+    ],
+    [
+      "Peschiera Borromeo",
+      "MI"
+    ],
+    [
+      "Pessano con Bornago",
+      "MI"
+    ],
+    [
+      "Pessina Cremonese",
+      "CR"
+    ],
+    [
+      "Pettenasco",
+      "NO"
+    ],
+    [
+      "Pezzaze",
+      "BS"
+    ],
+    [
+      "Piadena Drizzona",
+      "CR"
+    ],
+    [
+      "Pian Camuno",
+      "BS"
+    ],
+    [
+      "Piancogno",
+      "BS"
+    ],
+    [
+      "Pianello del Lario",
+      "CO"
+    ],
+    [
+      "Pianengo",
+      "CR"
+    ],
+    [
+      "Pianico",
+      "BG"
+    ],
+    [
+      "Piario",
+      "BG"
+    ],
+    [
+      "Piazza Brembana",
+      "BG"
+    ],
+    [
+      "Piazzatorre",
+      "BG"
+    ],
+    [
+      "Piazzolo",
+      "BG"
+    ],
+    [
+      "Pieranica",
+      "CR"
+    ],
+    [
+      "Pietra de' Giorgi",
+      "PV"
+    ],
+    [
+      "Pieve Albignola",
+      "PV"
+    ],
+    [
+      "Pieve Emanuele",
+      "MI"
+    ],
+    [
+      "Pieve Fissiraga",
+      "LO"
+    ],
+    [
+      "Pieve Porto Morone",
+      "PV"
+    ],
+    [
+      "Pieve San Giacomo",
+      "CR"
+    ],
+    [
+      "Pieve d'Olmi",
+      "CR"
+    ],
+    [
+      "Pieve del Cairo",
+      "PV"
+    ],
+    [
+      "Pigra",
+      "CO"
+    ],
+    [
+      "Pinarolo Po",
+      "PV"
+    ],
+    [
+      "Pioltello",
+      "MI"
+    ],
+    [
+      "Pisano",
+      "NO"
+    ],
+    [
+      "Pisogne",
+      "BS"
+    ],
+    [
+      "Pizzale",
+      "PV"
+    ],
+    [
+      "Pizzighettone",
+      "CR"
+    ],
+    [
+      "Plesio",
+      "CO"
+    ],
+    [
+      "Pogliano Milanese",
+      "MI"
+    ],
+    [
+      "Pognana Lario",
+      "CO"
+    ],
+    [
+      "Pognano",
+      "BG"
+    ],
+    [
+      "Pogno",
+      "NO"
+    ],
+    [
+      "Polaveno",
+      "BS"
+    ],
+    [
+      "Polpenazze del Garda",
+      "BS"
+    ],
+    [
+      "Pombia",
+      "NO"
+    ],
+    [
+      "Pompiano",
+      "BS"
+    ],
+    [
+      "Poncarale",
+      "BS"
+    ],
+    [
+      "Ponna",
+      "CO"
+    ],
+    [
+      "Ponte Lambro",
+      "CO"
+    ],
+    [
+      "Ponte Nizza",
+      "PV"
+    ],
+    [
+      "Ponte Nossa",
+      "BG"
+    ],
+    [
+      "Ponte San Pietro",
+      "BG"
+    ],
+    [
+      "Ponte di Legno",
+      "BS"
+    ],
+    [
+      "Ponteranica",
+      "BG"
+    ],
+    [
+      "Pontevico",
+      "BS"
+    ],
+    [
+      "Pontida",
+      "BG"
+    ],
+    [
+      "Pontirolo Nuovo",
+      "BG"
+    ],
+    [
+      "Pontoglio",
+      "BS"
+    ],
+    [
+      "Porlezza",
+      "CO"
+    ],
+    [
+      "Portalbera",
+      "PV"
+    ],
+    [
+      "Porto Ceresio",
+      "VA"
+    ],
+    [
+      "Porto Valtravaglia",
+      "VA"
+    ],
+    [
+      "Pozzaglio ed Uniti",
+      "CR"
+    ],
+    [
+      "Pozzo d'Adda",
+      "MI"
+    ],
+    [
+      "Pozzolengo",
+      "BS"
+    ],
+    [
+      "Pozzuolo Martesana",
+      "MI"
+    ],
+    [
+      "Pradalunga",
+      "BG"
+    ],
+    [
+      "Pralboino",
+      "BS"
+    ],
+    [
+      "Prato Sesia",
+      "NO"
+    ],
+    [
+      "Predore",
+      "BG"
+    ],
+    [
+      "Pregnana Milanese",
+      "MI"
+    ],
+    [
+      "Premana",
+      "LC"
+    ],
+    [
+      "Premolo",
+      "BG"
+    ],
+    [
+      "Preseglie",
+      "BS"
+    ],
+    [
+      "Presezzo",
+      "BG"
+    ],
+    [
+      "Prevalle",
+      "BS"
+    ],
+    [
+      "Primaluna",
+      "LC"
+    ],
+    [
+      "Proserpio",
+      "CO"
+    ],
+    [
+      "Provaglio Val Sabbia",
+      "BS"
+    ],
+    [
+      "Provaglio d'Iseo",
+      "BS"
+    ],
+    [
+      "Puegnago del Garda",
+      "BS"
+    ],
+    [
+      "Pumenengo",
+      "BG"
+    ],
+    [
+      "Pusiano",
+      "CO"
+    ],
+    [
+      "Quintano",
+      "CR"
+    ],
+    [
+      "Quinzano d'Oglio",
+      "BS"
+    ],
+    [
+      "Rancio Valcuvia",
+      "VA"
+    ],
+    [
+      "Ranco",
+      "VA"
+    ],
+    [
+      "Ranica",
+      "BG"
+    ],
+    [
+      "Ranzanico",
+      "BG"
+    ],
+    [
+      "Rea",
+      "PV"
+    ],
+    [
+      "Recetto",
+      "NO"
+    ],
+    [
+      "Redavalle",
+      "PV"
+    ],
+    [
+      "Remedello",
+      "BS"
+    ],
+    [
+      "Renate",
+      "MB"
+    ],
+    [
+      "Rescaldina",
+      "MI"
+    ],
+    [
+      "Retorbido",
+      "PV"
+    ],
+    [
+      "Rezzago",
+      "CO"
+    ],
+    [
+      "Rezzato",
+      "BS"
+    ],
+    [
+      "Rho",
+      "MI"
+    ],
+    [
+      "Ricengo",
+      "CR"
+    ],
+    [
+      "Ripalta Arpina",
+      "CR"
+    ],
+    [
+      "Ripalta Cremasca",
+      "CR"
+    ],
+    [
+      "Ripalta Guerina",
+      "CR"
+    ],
+    [
+      "Riva di Solto",
+      "BG"
+    ],
+    [
+      "Rivanazzano Terme",
+      "PV"
+    ],
+    [
+      "Rivarolo del Re ed Uniti",
+      "CR"
+    ],
+    [
+      "Rivolta d'Adda",
+      "CR"
+    ],
+    [
+      "Robbiate",
+      "LC"
+    ],
+    [
+      "Robbio",
+      "PV"
+    ],
+    [
+      "Robecchetto con Induno",
+      "MI"
+    ],
+    [
+      "Robecco Pavese",
+      "PV"
+    ],
+    [
+      "Robecco d'Oglio",
+      "CR"
+    ],
+    [
+      "Robecco sul Naviglio",
+      "MI"
+    ],
+    [
+      "Rocca Susella",
+      "PV"
+    ],
+    [
+      "Rocca de' Giorgi",
+      "PV"
+    ],
+    [
+      "Roccafranca",
+      "BS"
+    ],
+    [
+      "Rodano",
+      "MI"
+    ],
+    [
+      "Rodengo Saiano",
+      "BS"
+    ],
+    [
+      "Rodero",
+      "CO"
+    ],
+    [
+      "Rogeno",
+      "LC"
+    ],
+    [
+      "Rognano",
+      "PV"
+    ],
+    [
+      "Rogno",
+      "BG"
+    ],
+    [
+      "Romagnano Sesia",
+      "NO"
+    ],
+    [
+      "Romagnese",
+      "PV"
+    ],
+    [
+      "Romanengo",
+      "CR"
+    ],
+    [
+      "Romano di Lombardia",
+      "BG"
+    ],
+    [
+      "Romentino",
+      "NO"
+    ],
+    [
+      "Roncadelle",
+      "BS"
+    ],
+    [
+      "Roncaro",
+      "PV"
+    ],
+    [
+      "Roncello",
+      "MB"
+    ],
+    [
+      "Ronco Briantino",
+      "MB"
+    ],
+    [
+      "Roncobello",
+      "BG"
+    ],
+    [
+      "Roncola",
+      "BG"
+    ],
+    [
+      "Rosasco",
+      "PV"
+    ],
+    [
+      "Rosate",
+      "MI"
+    ],
+    [
+      "Rota d'Imagna",
+      "BG"
+    ],
+    [
+      "Rovato",
+      "BS"
+    ],
+    [
+      "Rovellasca",
+      "CO"
+    ],
+    [
+      "Rovello Porro",
+      "CO"
+    ],
+    [
+      "Rovescala",
+      "PV"
+    ],
+    [
+      "Rovetta",
+      "BG"
+    ],
+    [
+      "Rozzano",
+      "MI"
+    ],
+    [
+      "Roè Volciano",
+      "BS"
+    ],
+    [
+      "Rudiano",
+      "BS"
+    ],
+    [
+      "Sabbio Chiese",
+      "BS"
+    ],
+    [
+      "Sala Comacina",
+      "CO"
+    ],
+    [
+      "Sale Marasino",
+      "BS"
+    ],
+    [
+      "Salerano sul Lambro",
+      "LO"
+    ],
+    [
+      "Saltrio",
+      "VA"
+    ],
+    [
+      "Salvirola",
+      "CR"
+    ],
+    [
+      "Salò",
+      "BS"
+    ],
+    [
+      "Samarate",
+      "VA"
+    ],
+    [
+      "San Bartolomeo Val Cavargna",
+      "CO"
+    ],
+    [
+      "San Bassano",
+      "CR"
+    ],
+    [
+      "San Cipriano Po",
+      "PV"
+    ],
+    [
+      "San Colombano al Lambro",
+      "MI"
+    ],
+    [
+      "San Damiano al Colle",
+      "PV"
+    ],
+    [
+      "San Daniele Po",
+      "CR"
+    ],
+    [
+      "San Donato Milanese",
+      "MI"
+    ],
+    [
+      "San Felice del Benaco",
+      "BS"
+    ],
+    [
+      "San Fermo della Battaglia",
+      "CO"
+    ],
+    [
+      "San Fiorano",
+      "LO"
+    ],
+    [
+      "San Genesio ed Uniti",
+      "PV"
+    ],
+    [
+      "San Gervasio Bresciano",
+      "BS"
+    ],
+    [
+      "San Giorgio di Lomellina",
+      "PV"
+    ],
+    [
+      "San Giorgio su Legnano",
+      "MI"
+    ],
+    [
+      "San Giovanni Bianco",
+      "BG"
+    ],
+    [
+      "San Giovanni in Croce",
+      "CR"
+    ],
+    [
+      "San Giuliano Milanese",
+      "MI"
+    ],
+    [
+      "San Martino Siccomario",
+      "PV"
+    ],
+    [
+      "San Martino del Lago",
+      "CR"
+    ],
+    [
+      "San Martino in Strada",
+      "LO"
+    ],
+    [
+      "San Maurizio d'Opaglio",
+      "NO"
+    ],
+    [
+      "San Nazzaro Sesia",
+      "NO"
+    ],
+    [
+      "San Nazzaro Val Cavargna",
+      "CO"
+    ],
+    [
+      "San Paolo",
+      "BS"
+    ],
+    [
+      "San Paolo d'Argon",
+      "BG"
+    ],
+    [
+      "San Pellegrino Terme",
+      "BG"
+    ],
+    [
+      "San Pietro Mosezzo",
+      "NO"
+    ],
+    [
+      "San Rocco al Porto",
+      "LO"
+    ],
+    [
+      "San Siro",
+      "CO"
+    ],
+    [
+      "San Vittore Olona",
+      "MI"
+    ],
+    [
+      "San Zeno Naviglio",
+      "BS"
+    ],
+    [
+      "San Zenone al Lambro",
+      "MI"
+    ],
+    [
+      "San Zenone al Po",
+      "PV"
+    ],
+    [
+      "Sangiano",
+      "VA"
+    ],
+    [
+      "Sannazzaro de' Burgondi",
+      "PV"
+    ],
+    [
+      "Sant'Alessio con Vialone",
+      "PV"
+    ],
+    [
+      "Sant'Angelo Lodigiano",
+      "LO"
+    ],
+    [
+      "Sant'Angelo Lomellina",
+      "PV"
+    ],
+    [
+      "Sant'Omobono Terme",
+      "BG"
+    ],
+    [
+      "Santa Brigida",
+      "BG"
+    ],
+    [
+      "Santa Cristina e Bissone",
+      "PV"
+    ],
+    [
+      "Santa Giuletta",
+      "PV"
+    ],
+    [
+      "Santa Margherita di Staffora",
+      "PV"
+    ],
+    [
+      "Santa Maria Hoè",
+      "LC"
+    ],
+    [
+      "Santa Maria della Versa",
+      "PV"
+    ],
+    [
+      "Santo Stefano Lodigiano",
+      "LO"
+    ],
+    [
+      "Santo Stefano Ticino",
+      "MI"
+    ],
+    [
+      "Sarezzo",
+      "BS"
+    ],
+    [
+      "Sarnico",
+      "BG"
+    ],
+    [
+      "Saronno",
+      "VA"
+    ],
+    [
+      "Sartirana Lomellina",
+      "PV"
+    ],
+    [
+      "Saviore dell'Adamello",
+      "BS"
+    ],
+    [
+      "Scaldasole",
+      "PV"
+    ],
+    [
+      "Scandolara Ravara",
+      "CR"
+    ],
+    [
+      "Scandolara Ripa d'Oglio",
+      "CR"
+    ],
+    [
+      "Scanzorosciate",
+      "BG"
+    ],
+    [
+      "Schignano",
+      "CO"
+    ],
+    [
+      "Schilpario",
+      "BG"
+    ],
+    [
+      "Secugnago",
+      "LO"
+    ],
+    [
+      "Sedriano",
+      "MI"
+    ],
+    [
+      "Sedrina",
+      "BG"
+    ],
+    [
+      "Segrate",
+      "MI"
+    ],
+    [
+      "Sellero",
+      "BS"
+    ],
+    [
+      "Selvino",
+      "BG"
+    ],
+    [
+      "Semiana",
+      "PV"
+    ],
+    [
+      "Senago",
+      "MI"
+    ],
+    [
+      "Seniga",
+      "BS"
+    ],
+    [
+      "Senna Comasco",
+      "CO"
+    ],
+    [
+      "Senna Lodigiana",
+      "LO"
+    ],
+    [
+      "Seregno",
+      "MB"
+    ],
+    [
+      "Sergnano",
+      "CR"
+    ],
+    [
+      "Seriate",
+      "BG"
+    ],
+    [
+      "Serina",
+      "BG"
+    ],
+    [
+      "Serle",
+      "BS"
+    ],
+    [
+      "Sesto Calende",
+      "VA"
+    ],
+    [
+      "Sesto San Giovanni",
+      "MI"
+    ],
+    [
+      "Sesto ed Uniti",
+      "CR"
+    ],
+    [
+      "Settala",
+      "MI"
+    ],
+    [
+      "Settimo Milanese",
+      "MI"
+    ],
+    [
+      "Seveso",
+      "MB"
+    ],
+    [
+      "Sillavengo",
+      "NO"
+    ],
+    [
+      "Silvano Pietra",
+      "PV"
+    ],
+    [
+      "Sirmione",
+      "BS"
+    ],
+    [
+      "Sirone",
+      "LC"
+    ],
+    [
+      "Sirtori",
+      "LC"
+    ],
+    [
+      "Siziano",
+      "PV"
+    ],
+    [
+      "Sizzano",
+      "NO"
+    ],
+    [
+      "Soiano del Lago",
+      "BS"
+    ],
+    [
+      "Solaro",
+      "MI"
+    ],
+    [
+      "Solarolo Rainerio",
+      "CR"
+    ],
+    [
+      "Solbiate Arno",
+      "VA"
+    ],
+    [
+      "Solbiate Olona",
+      "VA"
+    ],
+    [
+      "Solbiate con Cagno",
+      "CO"
+    ],
+    [
+      "Solto Collina",
+      "BG"
+    ],
+    [
+      "Solza",
+      "BG"
+    ],
+    [
+      "Somaglia",
+      "LO"
+    ],
+    [
+      "Somma Lombardo",
+      "VA"
+    ],
+    [
+      "Sommo",
+      "PV"
+    ],
+    [
+      "Soncino",
+      "CR"
+    ],
+    [
+      "Songavazzo",
+      "BG"
+    ],
+    [
+      "Sonico",
+      "BS"
+    ],
+    [
+      "Sordio",
+      "LO"
+    ],
+    [
+      "Soresina",
+      "CR"
+    ],
+    [
+      "Sorico",
+      "CO"
+    ],
+    [
+      "Soriso",
+      "NO"
+    ],
+    [
+      "Sorisole",
+      "BG"
+    ],
+    [
+      "Sormano",
+      "CO"
+    ],
+    [
+      "Sospiro",
+      "CR"
+    ],
+    [
+      "Sotto il Monte Giovanni XXIII",
+      "BG"
+    ],
+    [
+      "Sovere",
+      "BG"
+    ],
+    [
+      "Sovico",
+      "MB"
+    ],
+    [
+      "Sozzago",
+      "NO"
+    ],
+    [
+      "Spessa",
+      "PV"
+    ],
+    [
+      "Spinadesco",
+      "CR"
+    ],
+    [
+      "Spineda",
+      "CR"
+    ],
+    [
+      "Spino d'Adda",
+      "CR"
+    ],
+    [
+      "Spinone al Lago",
+      "BG"
+    ],
+    [
+      "Spirano",
+      "BG"
+    ],
+    [
+      "Stagno Lombardo",
+      "CR"
+    ],
+    [
+      "Stazzona",
+      "CO"
+    ],
+    [
+      "Stezzano",
+      "BG"
+    ],
+    [
+      "Stradella",
+      "PV"
+    ],
+    [
+      "Strozza",
+      "BG"
+    ],
+    [
+      "Suardi",
+      "PV"
+    ],
+    [
+      "Sueglio",
+      "LC"
+    ],
+    [
+      "Suello",
+      "LC"
+    ],
+    [
+      "Suisio",
+      "BG"
+    ],
+    [
+      "Sulbiate",
+      "MB"
+    ],
+    [
+      "Sulzano",
+      "BS"
+    ],
+    [
+      "Sumirago",
+      "VA"
+    ],
+    [
+      "Suno",
+      "NO"
+    ],
+    [
+      "Taceno",
+      "LC"
+    ],
+    [
+      "Taino",
+      "VA"
+    ],
+    [
+      "Taleggio",
+      "BG"
+    ],
+    [
+      "Tavazzano con Villavesco",
+      "LO"
+    ],
+    [
+      "Tavernerio",
+      "CO"
+    ],
+    [
+      "Tavernola Bergamasca",
+      "BG"
+    ],
+    [
+      "Tavernole sul Mella",
+      "BS"
+    ],
+    [
+      "Telgate",
+      "BG"
+    ],
+    [
+      "Temù",
+      "BS"
+    ],
+    [
+      "Terdobbiate",
+      "NO"
+    ],
+    [
+      "Ternate",
+      "VA"
+    ],
+    [
+      "Terno d'Isola",
+      "BG"
+    ],
+    [
+      "Terranova dei Passerini",
+      "LO"
+    ],
+    [
+      "Ticengo",
+      "CR"
+    ],
+    [
+      "Tignale",
+      "BS"
+    ],
+    [
+      "Torbole Casaglia",
+      "BS"
+    ],
+    [
+      "Torlino Vimercati",
+      "CR"
+    ],
+    [
+      "Tornaco",
+      "NO"
+    ],
+    [
+      "Tornata",
+      "CR"
+    ],
+    [
+      "Torno",
+      "CO"
+    ],
+    [
+      "Torrazza Coste",
+      "PV"
+    ],
+    [
+      "Torre Beretti e Castellaro",
+      "PV"
+    ],
+    [
+      "Torre Boldone",
+      "BG"
+    ],
+    [
+      "Torre Pallavicina",
+      "BG"
+    ],
+    [
+      "Torre d'Arese",
+      "PV"
+    ],
+    [
+      "Torre d'Isola",
+      "PV"
+    ],
+    [
+      "Torre de' Busi",
+      "BG"
+    ],
+    [
+      "Torre de' Negri",
+      "PV"
+    ],
+    [
+      "Torre de' Picenardi",
+      "CR"
+    ],
+    [
+      "Torre de' Roveri",
+      "BG"
+    ],
+    [
+      "Torrevecchia Pia",
+      "PV"
+    ],
+    [
+      "Torricella Verzate",
+      "PV"
+    ],
+    [
+      "Torricella del Pizzo",
+      "CR"
+    ],
+    [
+      "Toscolano-Maderno",
+      "BS"
+    ],
+    [
+      "Tradate",
+      "VA"
+    ],
+    [
+      "Travacò Siccomario",
+      "PV"
+    ],
+    [
+      "Travagliato",
+      "BS"
+    ],
+    [
+      "Travedona-Monate",
+      "VA"
+    ],
+    [
+      "Trecate",
+      "NO"
+    ],
+    [
+      "Tremezzina",
+      "CO"
+    ],
+    [
+      "Tremosine sul Garda",
+      "BS"
+    ],
+    [
+      "Trenzano",
+      "BS"
+    ],
+    [
+      "Trescore Balneario",
+      "BG"
+    ],
+    [
+      "Trescore Cremasco",
+      "CR"
+    ],
+    [
+      "Treviglio",
+      "BG"
+    ],
+    [
+      "Treviolo",
+      "BG"
+    ],
+    [
+      "Treviso Bresciano",
+      "BS"
+    ],
+    [
+      "Trezzano Rosa",
+      "MI"
+    ],
+    [
+      "Trezzano sul Naviglio",
+      "MI"
+    ],
+    [
+      "Trezzo sull'Adda",
+      "MI"
+    ],
+    [
+      "Trezzone",
+      "CO"
+    ],
+    [
+      "Tribiano",
+      "MI"
+    ],
+    [
+      "Trigolo",
+      "CR"
+    ],
+    [
+      "Triuggio",
+      "MB"
+    ],
+    [
+      "Trivolzio",
+      "PV"
+    ],
+    [
+      "Tromello",
+      "PV"
+    ],
+    [
+      "Tronzano Lago Maggiore",
+      "VA"
+    ],
+    [
+      "Trovo",
+      "PV"
+    ],
+    [
+      "Truccazzano",
+      "MI"
+    ],
+    [
+      "Turano Lodigiano",
+      "LO"
+    ],
+    [
+      "Turate",
+      "CO"
+    ],
+    [
+      "Turbigo",
+      "MI"
+    ],
+    [
+      "Ubiale Clanezzo",
+      "BG"
+    ],
+    [
+      "Uboldo",
+      "VA"
+    ],
+    [
+      "Uggiate con Ronago",
+      "CO"
+    ],
+    [
+      "Urago d'Oglio",
+      "BS"
+    ],
+    [
+      "Urgnano",
+      "BG"
+    ],
+    [
+      "Usmate Velate",
+      "MB"
+    ],
+    [
+      "Vaiano Cremasco",
+      "CR"
+    ],
+    [
+      "Vailate",
+      "CR"
+    ],
+    [
+      "Val Brembilla",
+      "BG"
+    ],
+    [
+      "Val Rezzo",
+      "CO"
+    ],
+    [
+      "Val di Nizza",
+      "PV"
+    ],
+    [
+      "Valbondione",
+      "BG"
+    ],
+    [
+      "Valbrembo",
+      "BG"
+    ],
+    [
+      "Valbrona",
+      "CO"
+    ],
+    [
+      "Valeggio",
+      "PV"
+    ],
+    [
+      "Valera Fratta",
+      "LO"
+    ],
+    [
+      "Valganna",
+      "VA"
+    ],
+    [
+      "Valgoglio",
+      "BG"
+    ],
+    [
+      "Valgreghentino",
+      "LC"
+    ],
+    [
+      "Valle Lomellina",
+      "PV"
+    ],
+    [
+      "Valle Salimbene",
+      "PV"
+    ],
+    [
+      "Valleve",
+      "BG"
+    ],
+    [
+      "Vallio Terme",
+      "BS"
+    ],
+    [
+      "Valmadrera",
+      "LC"
+    ],
+    [
+      "Valmorea",
+      "CO"
+    ],
+    [
+      "Valnegra",
+      "BG"
+    ],
+    [
+      "Valsolda",
+      "CO"
+    ],
+    [
+      "Valtorta",
+      "BG"
+    ],
+    [
+      "Valvarrone",
+      "LC"
+    ],
+    [
+      "Valvestino",
+      "BS"
+    ],
+    [
+      "Vanzaghello",
+      "MI"
+    ],
+    [
+      "Vanzago",
+      "MI"
+    ],
+    [
+      "Vaprio d'Adda",
+      "MI"
+    ],
+    [
+      "Vaprio d'Agogna",
+      "NO"
+    ],
+    [
+      "Varallo Pombia",
+      "NO"
+    ],
+    [
+      "Varano Borghi",
+      "VA"
+    ],
+    [
+      "Varedo",
+      "MB"
+    ],
+    [
+      "Varenna",
+      "LC"
+    ],
+    [
+      "Varese",
+      "VA"
+    ],
+    [
+      "Varzi",
+      "PV"
+    ],
+    [
+      "Vedano Olona",
+      "VA"
+    ],
+    [
+      "Vedano al Lambro",
+      "MB"
+    ],
+    [
+      "Vedeseta",
+      "BG"
+    ],
+    [
+      "Veduggio con Colzano",
+      "MB"
+    ],
+    [
+      "Veleso",
+      "CO"
+    ],
+    [
+      "Velezzo Lomellina",
+      "PV"
+    ],
+    [
+      "Vellezzo Bellini",
+      "PV"
+    ],
+    [
+      "Venegono Inferiore",
+      "VA"
+    ],
+    [
+      "Venegono Superiore",
+      "VA"
+    ],
+    [
+      "Veniano",
+      "CO"
+    ],
+    [
+      "Verano Brianza",
+      "MB"
+    ],
+    [
+      "Vercana",
+      "CO"
+    ],
+    [
+      "Vercurago",
+      "LC"
+    ],
+    [
+      "Verdellino",
+      "BG"
+    ],
+    [
+      "Verdello",
+      "BG"
+    ],
+    [
+      "Verderio",
+      "LC"
+    ],
+    [
+      "Vergiate",
+      "VA"
+    ],
+    [
+      "Vermezzo con Zelo",
+      "MI"
+    ],
+    [
+      "Vernate",
+      "MI"
+    ],
+    [
+      "Verolanuova",
+      "BS"
+    ],
+    [
+      "Verolavecchia",
+      "BS"
+    ],
+    [
+      "Verretto",
+      "PV"
+    ],
+    [
+      "Verrua Po",
+      "PV"
+    ],
+    [
+      "Vertemate con Minoprio",
+      "CO"
+    ],
+    [
+      "Vertova",
+      "BG"
+    ],
+    [
+      "Vescovato",
+      "CR"
+    ],
+    [
+      "Vespolate",
+      "NO"
+    ],
+    [
+      "Vestone",
+      "BS"
+    ],
+    [
+      "Vezza d'Oglio",
+      "BS"
+    ],
+    [
+      "Viadanica",
+      "BG"
+    ],
+    [
+      "Vicolungo",
+      "NO"
+    ],
+    [
+      "Vidigulfo",
+      "PV"
+    ],
+    [
+      "Vigano San Martino",
+      "BG"
+    ],
+    [
+      "Viganò",
+      "LC"
+    ],
+    [
+      "Vigevano",
+      "PV"
+    ],
+    [
+      "Viggiù",
+      "VA"
+    ],
+    [
+      "Vignate",
+      "MI"
+    ],
+    [
+      "Vigolo",
+      "BG"
+    ],
+    [
+      "Villa Biscossi",
+      "PV"
+    ],
+    [
+      "Villa Carcina",
+      "BS"
+    ],
+    [
+      "Villa Cortese",
+      "MI"
+    ],
+    [
+      "Villa Guardia",
+      "CO"
+    ],
+    [
+      "Villa d'Adda",
+      "BG"
+    ],
+    [
+      "Villa d'Almè",
+      "BG"
+    ],
+    [
+      "Villa d'Ogna",
+      "BG"
+    ],
+    [
+      "Villa di Serio",
+      "BG"
+    ],
+    [
+      "Villachiara",
+      "BS"
+    ],
+    [
+      "Villanova d'Ardenghi",
+      "PV"
+    ],
+    [
+      "Villanova del Sillaro",
+      "LO"
+    ],
+    [
+      "Villanterio",
+      "PV"
+    ],
+    [
+      "Villanuova sul Clisi",
+      "BS"
+    ],
+    [
+      "Villasanta",
+      "MB"
+    ],
+    [
+      "Villongo",
+      "BG"
+    ],
+    [
+      "Vilminore di Scalve",
+      "BG"
+    ],
+    [
+      "Vimercate",
+      "MB"
+    ],
+    [
+      "Vimodrone",
+      "MI"
+    ],
+    [
+      "Vinzaglio",
+      "NO"
+    ],
+    [
+      "Vione",
+      "BS"
+    ],
+    [
+      "Visano",
+      "BS"
+    ],
+    [
+      "Vistarino",
+      "PV"
+    ],
+    [
+      "Vittuone",
+      "MI"
+    ],
+    [
+      "Vizzola Ticino",
+      "VA"
+    ],
+    [
+      "Vizzolo Predabissi",
+      "MI"
+    ],
+    [
+      "Vobarno",
+      "BS"
+    ],
+    [
+      "Voghera",
+      "PV"
+    ],
+    [
+      "Volongo",
+      "CR"
+    ],
+    [
+      "Volpara",
+      "PV"
+    ],
+    [
+      "Voltido",
+      "CR"
+    ],
+    [
+      "Zandobbio",
+      "BG"
+    ],
+    [
+      "Zanica",
+      "BG"
+    ],
+    [
+      "Zavattarello",
+      "PV"
+    ],
+    [
+      "Zeccone",
+      "PV"
+    ],
+    [
+      "Zelbio",
+      "CO"
+    ],
+    [
+      "Zelo Buon Persico",
+      "LO"
+    ],
+    [
+      "Zeme",
+      "PV"
+    ],
+    [
+      "Zenevredo",
+      "PV"
+    ],
+    [
+      "Zerbo",
+      "PV"
+    ],
+    [
+      "Zerbolò",
+      "PV"
+    ],
+    [
+      "Zibido San Giacomo",
+      "MI"
+    ],
+    [
+      "Zinasco",
+      "PV"
+    ],
+    [
+      "Zogno",
+      "BG"
+    ],
+    [
+      "Zone",
+      "BS"
+    ]
+  ]
+}
