@@ -6,7 +6,9 @@ from .contracts import verified_identity
 FILTER_FIELDS = ('make', 'model', 'generation', 'price_eur', 'mileage_km', 'year', 'fuel',
                  'transmission', 'province', 'seller_type', 'condition', 'route',
                  'parts_low_cents', 'parts_high_cents', 'potential_gross_low_cents',
-                 'potential_gross_high_cents', 'potential_gross_low_percent', 'observed_at')
+                 'potential_gross_high_cents', 'potential_gross_low_percent', 'observed_at',
+                 'conservative_margin_low_cents', 'maximum_offer_cents', 'total_investment_cents',
+                 'severe_controls_required', 'professional_policy_ready')
 
 
 def parts_handoff(raw, target, selected, as_of):
@@ -83,7 +85,8 @@ def card(target, decision, market, parts):
 def filter_cards(cards, **filters):
     """Unknown values never satisfy numeric filters. No fabricated zero margins."""
     allowed = set(FILTER_FIELDS) | {'min_price_eur', 'max_price_eur', 'min_mileage_km',
-                                   'max_mileage_km', 'min_potential_gross_low_cents'}
+                                   'max_mileage_km', 'min_potential_gross_low_cents',
+                                   'min_conservative_margin_low_cents'}
     if set(filters)-allowed:
         raise ValueError('Unsupported opportunity filter')
     for key,value in filters.items():

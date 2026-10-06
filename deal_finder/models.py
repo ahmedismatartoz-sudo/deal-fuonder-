@@ -38,6 +38,8 @@ class Listing:
     latitude: float | None = None
     longitude: float | None = None
     price_kind: str = 'total'
+    damage_severity: str = 'unknown'
+    damage_indicators: list[str] | None = None
 
     @classmethod
     def parse(cls, row):
@@ -114,6 +116,13 @@ class Listing:
                 raise ValueError('Coordinates out of bounds')
         if data.get('price_kind', 'total') not in ('total', 'installment', 'deposit', 'unknown'):
             raise ValueError('Invalid price_kind')
+        if data.get('damage_severity','unknown') not in ('unknown','none','minor','moderate','severe'):
+            raise ValueError('Invalid damage_severity')
+        indicators=data.get('damage_indicators')
+        if indicators is not None:
+            if not isinstance(indicators,list) or len(indicators)>30 or any(
+                    x not in ('structural','airbags','flood','fire','high_voltage_battery') for x in indicators):
+                raise ValueError('Invalid damage_indicators')
         return cls(**data)
 
     @property
