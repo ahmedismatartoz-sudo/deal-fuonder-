@@ -14,10 +14,13 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
 from .archive import canonical
 from .vehicle_searches import title_identity
+from .collection_geography import published_location, scope as geography_scope
 
 SOURCE = 'facebook_marketplace'
 CONTROL = 'brightdata_control'
-VERSION = 'brightdata-facebook-milano-v2'
+VERSION = 'brightdata-facebook-nearby-v3'
+LEGACY_VERSION = 'brightdata-facebook-milano-v2'
+REVALIDATION_PREFIX = 'brightdata-revalidate-v3-'
 MAX_PRICE_EXCLUSIVE_EUR = 20_000
 DETAIL_DATASET = 'gd_lvt9iwuh6fbcwmx1a'
 FREE_CONFIRMATION = 'unfunded-no-auto-recharge'
@@ -203,9 +206,7 @@ def event(row, observed_at):
         raise ValueError('Provider error or invalid row')
     if row.get('country_code') != 'IT':
         raise ValueError('Explicit Italy country code required')
-    location = row.get('location')
-    if not isinstance(location, str) or location.split(',')[0].strip().casefold() not in ('milano', 'milan'):
-        raise ValueError('Explicit Milano city required')
+    location = published_location(row.get('location'))
     breadcrumbs = row.get('breadcrumbs', [])
     labels = [x.get('name', '') if isinstance(x, dict) else x for x in breadcrumbs] if isinstance(breadcrumbs, list) else []
     car_categories = {'cars', 'cars & trucks', 'cars and trucks', 'auto', 'automobili', 'auto e furgoni'}
@@ -251,9 +252,9 @@ def event(row, observed_at):
         raise ValueError('Explicit sold status required')
     if row['is_sold']:
         raise ValueError('Sold listings are excluded from this collection')
-    payload = dict(country='IT', city='Milano', province='MI', title=title,
+    payload = dict(country='IT', **location, title=title,
                    description=description, price_eur=int(amount), price_kind='unknown',
-                   adapter=VERSION, original=row, location_basis='provider_published_country_and_city')
+                   adapter=VERSION, original=row)
     payload['vehicle_type_basis'] = vehicle_basis
     if identity:
         payload.update(identity)
@@ -298,13 +299,20 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
     # Check credentials before recording a reservation or making any request.
     client = client or Client()
     control_id = 'brightdata-' + config['cycle_id']
-    scope = dict(country='IT', city='Milano', adapter=VERSION, configuration=config,
+    scope = dict(country='IT', geography=geography_scope(), adapter=VERSION, configuration=config,
                  max_price_exclusive_eur=MAX_PRICE_EXCLUSIVE_EUR, available_only=True)
     try:
         saved = archive.run_status(CONTROL, control_id)
     except KeyError:
         saved = None
     if saved:
+        # An in-flight v2 reservation is immutable. Resume its exact request
+        # instead of changing the saved scope or repeating the paid trigger.
+        legacy_scope = dict(country='IT', city='Milano', adapter=LEGACY_VERSION,
+                            configuration=config, max_price_exclusive_eur=MAX_PRICE_EXCLUSIVE_EUR,
+                            available_only=True)
+        if saved['scope'] == legacy_scope:
+            scope = legacy_scope
         if saved['scope'] != scope:
             raise SetupError('cycle_configuration_changed')
         if not saved['complete']:
@@ -356,9 +364,10 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
             records.append(event(row, observed_at))
         except (ValueError, TypeError, KeyError):
             records.append({'payload': {'original': row}, 'adapter_error':
-                            'Unverified car, Milano location, EUR price below 20000, available listing or provider error'})
+                            'Unverified car, nearby location, EUR price below 20000, available listing or provider error'})
     result = archive.ingest(dict(source=SOURCE, run_id=import_id, page_id='snapshot',
-        mode='initial', scope=dict(scope, snapshot_id=snapshot_id, market_coverage_verified=False),
+        mode='initial', scope=dict(scope, snapshot_id=snapshot_id, validation_adapter=VERSION,
+                                  validation_geography=geography_scope(), market_coverage_verified=False),
         input_cursor=None, next_cursor=None, complete=True, records=records))
     return dict(status='complete', snapshot_id=snapshot_id, collection=result)
 
@@ -366,7 +375,7 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
 def revalidate_quarantine(archive, snapshot_id):
     snapshot_resource(snapshot_id)
     origin_run = 'brightdata-' + snapshot_id
-    replay_run = 'brightdata-revalidate-v2-' + snapshot_id
+    replay_run = REVALIDATION_PREFIX + snapshot_id
     try:
         return archive.run_status(SOURCE, replay_run)
     except KeyError:
@@ -386,15 +395,54 @@ def revalidate_quarantine(archive, snapshot_id):
         envelope = archive.db.json_decode(stored)
         try:
             record = event(envelope['payload']['original'], observed_at)
-            if not archive.db.execute('SELECT 1 FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
-                                      (SOURCE, record['source_id'], observed_at)).fetchone():
+            existing = archive.db.execute('SELECT payload FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
+                                          (SOURCE, record['source_id'], observed_at)).fetchone()
+            # Keep the replay contents stable if two worker instances overlap
+            # during deployment, while preserving old v2 evidence unchanged.
+            if not existing or archive.db.json_decode(existing[0]).get('adapter') == VERSION:
                 records.append(record)
         except (ValueError, TypeError, KeyError):
             continue
     return archive.ingest(dict(source=SOURCE, run_id=replay_run, page_id='revalidated', mode='initial',
-        scope=dict(country='IT', city='Milano', origin_run=origin_run, snapshot_id=snapshot_id,
-                   validation_revision='model-family-v2', market_coverage_verified=False),
+        scope=dict(country='IT', geography=geography_scope(), origin_run=origin_run, snapshot_id=snapshot_id,
+                   validation_revision=VERSION, market_coverage_verified=False),
         input_cursor=None, next_cursor=None, complete=True, records=records))
+
+
+class BackgroundArchiveRevalidation:
+    """Replay one existing snapshot per step, with no provider requests."""
+    def __init__(self, path):
+        self.path, self.finished = path, False
+
+    def step(self):
+        if self.finished:
+            return None
+        from .archive import Archive
+        archive = Archive(self.path)
+        try:
+            row = archive.db.execute('''SELECT p.run_id FROM collection_pages p
+                WHERE p.source=? AND p.run_id LIKE ?
+                AND p.page_id='snapshot' AND p.complete=? AND NOT EXISTS (
+                    SELECT 1 FROM collection_pages r WHERE r.source=p.source
+                    AND r.run_id=? || substr(p.run_id, ?) AND r.complete=?)
+                ORDER BY p.received_at, p.run_id LIMIT 1''',
+                (SOURCE, 'brightdata-s%', True, REVALIDATION_PREFIX, len('brightdata-') + 1, True)).fetchone()
+            if not row:
+                self.finished = True
+                return dict(brightdata='archive_revalidation_complete')
+            snapshot_id = row[0][len('brightdata-'):]
+            before = archive.db.execute('SELECT COUNT(DISTINCT source_id) FROM listing_events WHERE source=?', (SOURCE,)).fetchone()[0]
+            result = revalidate_quarantine(archive, snapshot_id)
+            after = archive.db.execute('SELECT COUNT(DISTINCT source_id) FROM listing_events WHERE source=?', (SOURCE,)).fetchone()[0]
+            return dict(brightdata='archive_snapshot_revalidated', snapshot_id=snapshot_id,
+                        accepted_observations=result['accepted'], new_unique=after-before,
+                        total_unique=after, provider_requests=0)
+        except (ValueError, TypeError, KeyError):
+            self.finished = True
+            return dict(brightdata='archive_revalidation_paused',
+                        reason='Archived snapshot failed validation', provider_requests=0)
+        finally:
+            archive.close()
 
 
 class BackgroundCollection:

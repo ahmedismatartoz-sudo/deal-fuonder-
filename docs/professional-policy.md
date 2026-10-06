@@ -2,7 +2,8 @@
 
 Contratto `professional-opportunity-v1`, 6 ottobre 2026. Il minimo richiesto
 dall'utente è **2.000 EUR nello scenario prudente dopo i costi**. La ricerca
-attuale resta Milano e acquisto strettamente sotto 20.000 EUR. Annuncio valido,
+attuale comprende Milano e le province vicine abilitate nella raccolta
+Facebook; l'acquisto resta strettamente sotto 20.000 EUR. Annuncio valido,
 candidatura sottoprezzo e opportunità approvata sono stati diversi.
 
 ## Tre sottoagenti eseguiti nel workflow
