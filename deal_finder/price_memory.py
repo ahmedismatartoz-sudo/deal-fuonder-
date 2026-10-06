@@ -50,14 +50,18 @@ class PriceMemory:
             def key(field):
                 return "CASE WHEN jsonb_typeof(e.payload->'"+field+"')='string' THEN nullif(lower(regexp_replace(btrim(e.payload->>'"+field+"'), '\\s+', ' ', 'g')),'') END"
             make, model = key('make'), key('model')
-            pairs = ','.join("'"+field+"',e.payload->'"+field+"'" for field in FIELDS)
+            fields = ','.join("'"+field+"'" for field in (*FIELDS,'make','model'))
             sql = """WITH fresh AS MATERIALIZED (
-                SELECT e.* FROM listing_events e WHERE e.observed_at<=?
+                SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload FROM listing_events e WHERE e.observed_at<=?
                 AND NOT EXISTS (SELECT 1 FROM price_observations p WHERE p.source=e.source
                     AND p.source_id=e.source_id AND p.observed_at=e.observed_at)
-                ORDER BY e.source,e.source_id,e.observed_at LIMIT ?)
+                ORDER BY e.source,e.source_id,e.observed_at LIMIT ?),
+                thin AS MATERIALIZED (
+                SELECT e.source,e.source_id,e.observed_at,e.url,e.active,
+                    COALESCE((SELECT jsonb_object_agg(k,v) FROM jsonb_each(e.payload) AS f(k,v)
+                        WHERE k IN ("""+fields+""")), '{}'::jsonb) AS payload FROM fresh e)
                 INSERT INTO price_observations(source,source_id,observed_at,active,make,model,payload)
-                SELECT e.source,e.source_id,e.observed_at,e.active,"""+make+","+model+",jsonb_build_object("+pairs+") || jsonb_build_object('url',e.url,'active',e.active,'make',"+make+",'model',"+model+") FROM fresh e ON CONFLICT(source,source_id,observed_at) DO NOTHING"
+                SELECT e.source,e.source_id,e.observed_at,e.active,"""+make+","+model+",e.payload || jsonb_build_object('url',e.url,'active',e.active,'make',"+make+",'model',"+model+") FROM thin e ON CONFLICT(source,source_id,observed_at) DO NOTHING"
             return self.db.execute(sql,(as_of.isoformat(),limit)).rowcount
         rows = self.db.execute('''SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload
             FROM listing_events e WHERE e.observed_at<=? AND NOT EXISTS (
@@ -227,6 +231,7 @@ class BackgroundPriceMemory:
         self.ready=False
         self.failures=0
         self.last_poll=None
+        self.batch_size=100
 
     def step(self, run_id=None):
         import time
@@ -241,7 +246,7 @@ class BackgroundPriceMemory:
             memory=PriceMemory(archive.db)
             now=datetime.now(timezone.utc)
             stage='project_new_observations'
-            count=memory.sync(now,limit=500)
+            count=memory.sync(now,limit=self.batch_size)
             stage='check_completion'
             self.ready=not memory.pending(now)
             out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
@@ -271,9 +276,13 @@ class BackgroundPriceMemory:
                 out.update(first_test=report['status'],run_id=run_id,candidates=len(report.get('candidates',[])),
                            approved_buys=report.get('approved_buys',0))
             self.failures=0
+            self.batch_size=min(500,self.batch_size*2)
+            out['next_projection_batch']=self.batch_size
             return out if count or run_id else None
         except Exception as error:
             self.ready=False;self.failures+=1
-            return dict(price_memory='retry_later',stage=stage,error_type=type(error).__name__,attempts=self.failures)
+            if stage=='project_new_observations':
+                self.batch_size=max(1,self.batch_size//2)
+            return dict(price_memory='retry_later',stage=stage,error_type=type(error).__name__,attempts=self.failures,next_projection_batch=self.batch_size)
         finally:
             if archive: archive.close()

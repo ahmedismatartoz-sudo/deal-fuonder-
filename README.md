@@ -128,3 +128,24 @@ due auto per famiglia, senza abbassare i requisiti per riempire una fascia.
 La ricerca ricambi richiede prima identità e lavori necessari: confronta codici,
 compatibilità, IVA, consegna, disponibilità e condizioni uniformi. Non si
 inventano ricambi o preventivi per sbloccare un’auto senza ispezione.
+
+## Conservazione fotografie delle candidature
+
+Il worker salva i file originali delle candidature del primo test in tabelle
+private `photo_assets` e `photo_references`, legando SHA-256, URL originale,
+ordine e osservazione dell’annuncio. Le copertine precedono le altre immagini.
+Il report autenticato `/price-tests/{run_id}` espone `archived_photos` e
+`retained_cover_available`; `/archive/photos/{sha}` serve i byte salvati con
+la stessa autenticazione dell’API, senza dipendere dal link esterno.
+
+Sono ammessi solo HTTPS su CDN AutoScout24/Facebook, senza redirect, login o
+aggiramento di rifiuti. Limite 2 MiB per file e 32 MiB totali, deduplica per hash;
+formati JPEG/PNG/WebP. Download falliti non vengono etichettati come salvati;
+retries transitori distanziati, massimo tre per foto. La conservazione è
+attivata sulle candidature, non una copia completa delle foto di tutto l’archivio.
+Il caricamento prezzi usa estrazione JSON una sola volta prima dei campi
+normalizzati e riduce automaticamente i lotti dopo un timeout.
+
+In produzione, memoria prezzi e conservazione foto lavorano su un ciclo
+indipendente con connessioni proprie: i tempi della raccolta non ne limitano
+il progresso. Errori e retry restano isolati; le connessioni vengono chiuse.
