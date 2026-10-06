@@ -2,6 +2,7 @@
 import ipaddress
 import json
 import os
+import re
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
@@ -85,6 +86,8 @@ def research(request):
     model = os.getenv('DEAL_FINDER_VISION_MODEL','').strip()
     if not token or not model or os.getenv('DEAL_FINDER_PHOTO_IDENTITY_ENABLED') != '1':
         return dict(status='configuration_required', reason='Vision/web provider key, model and opt-in missing')
+    if not re.fullmatch(r'[A-Za-z0-9_.-]{10,4096}', token) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,200}', model):
+        return dict(status='configuration_required', reason='Vision provider credential or model format invalid')
     body = dict(model=model, store=False, instructions=PROMPT, max_output_tokens=4000, max_tool_calls=3,
         tools=[dict(type='web_search')], include=['web_search_call.action.sources'],
         input=[dict(role='user',content=[dict(type='input_text',text=json.dumps(request,ensure_ascii=False))]+

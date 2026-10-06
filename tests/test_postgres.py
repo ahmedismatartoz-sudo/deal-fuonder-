@@ -209,6 +209,34 @@ class PostgresArchiveTests(test_archive.ArchiveTests):
 
 
 import test_market
+import test_agent_readiness
+
+@unittest.skipUnless(URL, 'Disposable PostgreSQL test database not configured')
+class PostgresAgentReadinessTests(test_agent_readiness.RuntimeTests):
+    def setUp(self):
+        parsed=urlparse(URL)
+        if parsed.hostname not in ('127.0.0.1','localhost') or parsed.path != '/deal_finder_test':
+            raise RuntimeError('PostgreSQL tests require a disposable loopback deal_finder_test database')
+        db=Database(URL)
+        db.execute('DROP SCHEMA IF EXISTS deal_finder CASCADE')
+        db.close()
+        migrate(URL)
+        from deal_finder.market import Market
+        self.path=URL
+        self.market,self.queue=Market(URL),Queue(URL)
+
+    def tearDown(self):
+        self.queue.close()
+        self.market.close()
+
+    def test_private_backend_can_organize_enrichment(self):
+        self.market.db.execute('SET ROLE deal_finder_backend')
+        self.queue.db.execute('SET ROLE deal_finder_backend')
+        try:
+            self.test_incomplete_ads_are_organized_without_paid_calls_or_attestations()
+        finally:
+            self.market.db.execute('RESET ROLE')
+            self.queue.db.execute('RESET ROLE')
 
 @unittest.skipUnless(URL, 'Disposable PostgreSQL test database not configured')
 class PostgresMarketTests(test_market.MarketTests):

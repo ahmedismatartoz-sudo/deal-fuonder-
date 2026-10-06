@@ -31,6 +31,15 @@ The old human-attested complete repair quote control remains distinct: it still 
 
 ## Deployment limits
 
-No paid plate lookup is enabled. A free lookup provider and a live web-search adapter are still unconnected. Task names specify handoffs, not external connectors. Enrichment is a persisted route/task contract; no automatic identity lookup or additional enrichment job is claimed. Current archive scanning queues selected candidates; incomplete observations stay archived for later enrichment. Existing opportunity publication and GUI are not implemented by the new candidate-card filter helper.
+Revisione successiva: [agent-readiness.md](agent-readiness.md). Lo scheduler
+ora collega archivio, screening e piani persistenti di arricchimento; il
+ricercatore ricambi server è implementato e richiede opt-in/configurazione.
+
+No paid plate lookup is enabled. A fully free unlimited lookup is not connected.
+Enrichment jobs preserve missing-field and photo/web plans without starting paid
+calls or granting identity attestations. The parts web adapter is opt-in and
+configuration remains explicit. Current archive scanning queues selected
+candidates; incomplete observations receive separate enrichment plans. Existing
+opportunity publication and GUI are not implemented by the candidate-card filter helper.
 
 Validation: full unit suite plus disposable Postgres CI; tests cover missing specs, sparse evidence, unknown conditions, damaged/healthy separation, km bands, selection-before-parts, conflicting identity, separate hours and filter null/budget boundaries.

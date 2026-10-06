@@ -1,7 +1,9 @@
 # Sette componenti e controlli interni
 
-Contratto `national-pipeline-v0.5`. GET /agents e CLI agents espongono i sette
+Contratto `agent-readiness-v0.8`. GET /agents e CLI agents espongono i sette
 componenti; GET /agents elenca separatamente i controlli interni.
+La revisione, l'ordine dei passaggi, la ricerca ricambi e le connessioni sono in
+[agent-readiness.md](agent-readiness.md).
 Gli esiti registrati mantengono le chiavi dei controlli precedenti e aggiungono
 `components`, così benchmark e scenari restano ispezionabili.
 

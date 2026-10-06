@@ -36,6 +36,15 @@ def repair_estimate(request: dict):
     except (ValueError, KeyError, TypeError, AttributeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
+
+@app.post('/repairs/research')
+def research_parts(request: dict):
+    from .parts_web import execute
+    try:
+        return execute(request)
+    except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
 @app.middleware('http')
 async def authenticate(request, call_next):
     if request.url.path != '/health':
@@ -92,8 +101,10 @@ class EvaluationRequest(BaseModel):
 
 @app.get('/agents')
 def agents():
+    from .agent_runtime import connections
     return {'pipeline_version': PIPELINE_VERSION, 'agents': registry(), 'controls': control_registry(),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
+            'connections': connections(),
             'forecast_enabled': False}
 
 @app.post('/batches', status_code=202)
@@ -203,6 +214,27 @@ def market_candidates(city: str | None = None, province: str | None = None,
     finally:
         market.close()
 
+
+@app.get('/opportunities/candidates')
+def candidate_cards(make: str | None = None, model: str | None = None, province: str | None = None,
+                    min_price_eur: int | None = None, max_price_eur: int | None = None,
+                    min_mileage_km: int | None = None, max_mileage_km: int | None = None,
+                    min_potential_gross_low_cents: int | None = None, offset: int = 0, limit: int = 100):
+    from .candidate_catalog import search
+    from .models import normalize
+    filters = {k: v for k, v in locals().items() if k in ('make', 'model', 'province', 'min_price_eur',
+               'max_price_eur', 'min_mileage_km', 'max_mileage_km', 'min_potential_gross_low_cents') and v is not None}
+    queue = Queue(database_target())
+    try:
+        for key in ('make', 'model', 'province'):
+            if key in filters:
+                filters[key] = normalize(filters[key])
+        return search(queue, offset=offset, limit=limit, **filters)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        queue.close()
+
 @app.get('/collection/sources')
 def collection_sources():
     return {'sources': sources()}
@@ -308,7 +340,7 @@ def promote_listing(source: str, source_id: str, request: dict):
     archive = Archive(database_target())
     queue = None
     try:
-        allowed = {'batch_id', 'identity_evidence', 'inspection', 'repair_quotes', 'operating_costs'}
+        allowed = {'batch_id', 'identity_evidence', 'inspection', 'repair_quotes', 'operating_costs', 'parts_research'}
         if set(request) - allowed:
             raise ValueError('Unexpected promotion fields')
         envelope = archive.normalized_envelope(source, source_id)

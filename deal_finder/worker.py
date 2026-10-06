@@ -214,6 +214,9 @@ def main():
             from .bootstrap import Bootstrap, bootstrap_config
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
+            from .agent_runtime import BackgroundScreening
+            screening = (BackgroundScreening(args.db)
+                         if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             brightdata = None
             campaign_raw = os.getenv('DEAL_FINDER_BRIGHTDATA_CAMPAIGN')
             if campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
@@ -239,18 +242,34 @@ def main():
                             print(json.dumps(progress), flush=True)
                         if stopping:
                             break
+                    if screening:
+                        progress = screening.step()
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if stopping:
+                            break
                     if bootstrap:
                         progress = bootstrap.step()
                         if progress:
                             print(json.dumps(progress), flush=True)
                         if stopping:
                             break
-                    result = queue.work_one()
-                    if result is None:
+                    worked = 0
+                    drain_started = time.monotonic()
+                    # Cheap enrichment plans should not wait one collection
+                    # page each. Stop claiming when count/time/job budget ends.
+                    while not stopping and worked < 10 and time.monotonic()-drain_started < 10:
+                        if args.max_jobs and processed >= args.max_jobs:
+                            break
+                        result = queue.work_one()
+                        if result is None:
+                            break
+                        print(json.dumps(result), flush=True)
+                        processed += 1
+                        worked += 1
+                    if worked == 0:
                         time.sleep(args.poll_seconds)
                         continue
-                    print(json.dumps(result), flush=True)
-                    processed += 1
             except KeyboardInterrupt:
                 pass
             finally:

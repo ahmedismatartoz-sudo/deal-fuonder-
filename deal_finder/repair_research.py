@@ -9,7 +9,7 @@ from math import ceil
 from statistics import median
 from urllib.parse import urlsplit
 
-VERSION = 'parts-web-research-v1'
+VERSION = 'parts-web-research-v2'
 
 
 def number(value, name, maximum=10_000_000):
@@ -26,15 +26,13 @@ def stamp(value):
 
 
 def url(value):
-    parsed = urlsplit(value)
-    if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
-        raise ValueError('Evidence requires a public HTTPS URL')
-    return value
+    from .agents.photo_identity import public_url
+    return public_url(value)
 
 
 def search_plan(vehicle, part):
     """Ask by exact code first, otherwise expose unresolved fitment dimensions."""
-    fields = ('make', 'model', 'generation', 'year', 'engine_code', 'gearbox')
+    fields = ('make', 'model', 'generation', 'year', 'engine_code', 'gearbox', 'production_month')
     identity = ' '.join(str(vehicle[k]) for k in fields if vehicle.get(k))
     description = str(part['name'])
     constraints = ' '.join(f'{k} {v}' for k, v in part.get('requirements', {}).items())
@@ -72,7 +70,9 @@ def estimate_parts(request, *, as_of=None):
         for source in fallback['source_urls']:
             url(source)
         requirements = part.get('requirements', {})
-        groups, rejected, seen = defaultdict(list), [], set()
+        if not isinstance(requirements, dict):
+            raise ValueError('Part requirements must be an object')
+        groups, rejected, seen = defaultdict(list), [], {}
         offers = part.get('offers', [])
         if not isinstance(offers,list):
             raise ValueError('Offers must be an array')
@@ -96,6 +96,10 @@ def estimate_parts(request, *, as_of=None):
                 if not offer.get('fitment_basis') or any(offer.get('attributes', {}).get(k) != v
                                                         for k, v in requirements.items()):
                     raise ValueError('incomplete or conflicting compatibility')
+                requested_code = part.get('part_number')
+                if requested_code and str(requested_code).strip().casefold() not in {
+                        str(code).strip().casefold() for code in [offer.get('part_number')] + offer.get('oem_cross_references', [])}:
+                    raise ValueError('requested code or documented cross-reference missing')
                 price = number(offer['price_cents'], 'price')
                 pack = number(offer['pack_quantity'], 'pack quantity', 100)
                 if not price or not pack:
@@ -105,17 +109,32 @@ def estimate_parts(request, *, as_of=None):
                 if not group:
                     raise ValueError('seller group missing')
                 # Known storefront aliases must not inflate independent evidence.
-                if domain in ('auto-doc.it', 'autoparti.it', 'tuttoautoricambi.it') and offer.get('seller') == 'AUTODOC':
+                if domain in ('auto-doc.it', 'autoparti.it', 'tuttoautoricambi.it') and str(offer.get('seller', '')).strip().casefold() in ('autodoc', 'autodoc se'):
                     group = 'autodoc'
                 key = (group, offer['brand'].casefold(), offer['part_number'].strip().casefold())
-                if key in seen:
-                    raise ValueError('duplicate seller and product')
-                seen.add(key)
-                groups[group].append(dict(offer, normalized_cost_cents=ceil(quantity/pack)*price))
+                normalized = dict(offer, normalized_cost_cents=ceil(quantity/pack)*price)
+                previous = seen.get(key)
+                if previous:
+                    newer = stamp(offer['observed_at']) > stamp(previous['observed_at'])
+                    cheaper_same_time = (stamp(offer['observed_at']) == stamp(previous['observed_at'])
+                                         and normalized['normalized_cost_cents'] < previous['normalized_cost_cents'])
+                    if not newer and not cheaper_same_time:
+                        raise ValueError('duplicate seller and product')
+                    groups[group].remove(previous)
+                    rejected.append(dict(url=previous['url'], reason='superseded duplicate seller and product'))
+                seen[key] = normalized
+                groups[group].append(normalized)
             except (ValueError, KeyError, TypeError, AttributeError) as error:
                 rejected.append(dict(url=offer.get('url'), reason=str(error)))
         accepted = [offer for group in groups.values() for offer in group]
         costs = [o['normalized_cost_cents'] for o in accepted]
+        lowest = min(accepted, key=lambda o: (o['normalized_cost_cents'], o['url'])) if accepted else None
+        delivered = []
+        for offer in accepted:
+            fees = [offer.get(k) for k in ('shipping_cents', 'bulky_fee_cents', 'core_deposit_cents')]
+            if all(type(x) is int and 0 <= x <= 10_000_000 for x in fees):
+                delivered.append(dict(offer, upfront_delivered_cents=offer['normalized_cost_cents']+sum(fees)))
+        cheapest_delivered = min(delivered, key=lambda o: (o['upfront_delivered_cents'], o['url'])) if delivered else None
         # One seller gets one vote regardless of how many brands it lists.
         typical = round(median([median([o['normalized_cost_cents'] for o in group])
                                 for group in groups.values()])) if costs else (low+high)//2
@@ -128,11 +147,14 @@ def estimate_parts(request, *, as_of=None):
                 low, high = min(low, observed_low), max(high, observed_high)
             else:
                 low, high = observed_low, observed_high
-        hours = part['hours']
-        hour_low = number(hours['low_minutes'], 'hours low', 100000)
-        hour_high = number(hours['high_minutes'], 'hours high', 100000)
-        if hour_high < hour_low or not hours.get('basis'):
-            raise ValueError('Hours require explicit basis and ordered bounds')
+        hours = part.get('hours')
+        if hours is None:
+            hours = dict(low_minutes=None, high_minutes=None, basis='Await sourced operation time', source_urls=[])
+        else:
+            hour_low = number(hours['low_minutes'], 'hours low', 100000)
+            hour_high = number(hours['high_minutes'], 'hours high', 100000)
+            if hour_high < hour_low or not hours.get('basis'):
+                raise ValueError('Hours require explicit basis and ordered bounds')
         typical = max(low, min(typical, high))
         results.append(dict(id=part['id'], name=part['name'], quantity=quantity,
                             parts_low_cents=low, parts_typical_cents=typical, parts_high_cents=high,
@@ -140,7 +162,11 @@ def estimate_parts(request, *, as_of=None):
                             uncertainty='wide' if uncertain or not costs else 'observed_price_range',
                             independent_sellers=len(groups), accepted_offers=accepted,
                             rejected_offers=rejected, assumptions=fallback['basis'],
+                            research_rejected_offers=part.get('research_rejected_offers', []),
                             fallback_sources=fallback['source_urls'], hours=hours,
+                            lowest_observed_parts_offer=lowest,
+                            lowest_complete_upfront_delivered_offer=cheapest_delivered,
+                            lowest_total_cost_verified=False,
                             shipping_included=False))
     return dict(version=VERSION, status='provisional', vehicle=vehicle, items=results,
                 parts_low_cents=sum(x['parts_low_cents'] for x in results),

@@ -212,13 +212,21 @@ def registry():
         for x in AGENTS] + [dict(name='evaluation', version=PIPELINE_VERSION, requires=[], mode='evaluation', purpose=EvaluationAgent.purpose)]
 
 
-def analyze(raw, candidates, as_of, agents=AGENTS, identity_evidence=None, source_asking_candidates=None):
+def analyze(raw, candidates, as_of, agents=AGENTS, identity_evidence=None, source_asking_candidates=None, before_checks=None):
     from .contracts import Context
     ctx = Context(raw=raw, candidates=candidates, as_of=as_of, identity_evidence=identity_evidence or {},
                   source_asking_candidates=source_asking_candidates)
+    preflight_blockers = []
+    preflight_ran = False
     for agent in agents:
+        if agent.name in ('condition', 'repair', 'opportunity') and not preflight_ran:
+            preflight_ran = True
+            if before_checks is not None:
+                preflight_blockers = before_checks(ctx) or []
         if agent.name in ('condition', 'repair', 'opportunity') and not selection_decision(ctx.target, ctx.results.get('market'))['candidate']:
             result = Result(agent.name, 'blocked', reasons=['Price screening did not select this listing.'])
+        elif agent.name in ('condition', 'repair', 'opportunity') and preflight_blockers:
+            result = Result(agent.name, 'blocked', reasons=list(preflight_blockers))
         elif not ctx.ready(*agent.requires):
             result = Result(agent.name, 'blocked', reasons=[f'Dependency unavailable: {name}'
                             for name in agent.requires if not ctx.ready(name)])

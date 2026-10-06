@@ -103,16 +103,21 @@ sono osservazioni web per test, devono essere ricontrollati prima dell'acquisto.
 
 ## Codice e limite operativo
 
+Aggiornamento: l'adapter server `deal_finder.parts_web` e POST `/repairs/research`
+ora eseguono ricerca web quando chiave, modello e opt-in sono configurati.
+Il workflow della coda può avviarlo per candidature selezionate tramite
+`parts_research.web_search=true`, conservando tutti gli esiti. Procedura,
+limiti e configurazione: [agent-readiness.md](agent-readiness.md).
+
 `deal_finder.repair_research` costruisce query e calcola stime da offerte ricevute.
 API autenticate: POST `/repairs/search-plan` con vehicle/part;
 POST `/repairs/estimate` con vehicle/parts. Tutte le stime sono `provisional`,
 `calibrated=false`, `verified_quote=false`, senza abilitare previsioni di profitto.
 `examples/repair_web_cases.json` contiene tre auto inventate e prezzi osservati.
 
-Il modulo NON naviga autonomamente sul web e NON interpreta le fotografie.
-Serve collegare un adapter di ricerca server al contratto delle offerte e un
-modello multimodale per proporre gli interventi. La ricerca fatta in chat non
-costituisce tale integrazione. Un fallback mancante è un errore di input: l'agente
+Il calcolatore `repair_research` rimane senza rete; l'adapter `parts_web` è
+separato e non è abilitato senza configurazione. Le fotografie non sostituiscono
+una diagnosi documentata. Un fallback mancante è un errore di input: l'agente
 ricercatore deve prima costruire scenari documentati, anche molto ampi.
 Non esiste qui una cifra universale affidabile per qualsiasi guasto sconosciuto.
 

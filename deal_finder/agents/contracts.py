@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-PIPELINE_VERSION = 'photo-web-identity-v0.7'
+PIPELINE_VERSION = 'agent-readiness-v0.8'
 STATUSES = {'completed', 'blocked', 'needs_review', 'quarantined', 'failed'}
 
 @dataclass(frozen=True)
