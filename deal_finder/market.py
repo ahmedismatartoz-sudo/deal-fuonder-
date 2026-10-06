@@ -71,6 +71,7 @@ class Market:
                         AND m.source_id=e.source_id AND m.observed_at=e.observed_at)
                     ORDER BY e.source, e.source_id, e.observed_at LIMIT 500''',
                     (as_of.isoformat(),)).fetchall()
+                projected_rows = []
                 for source, source_id, stamp, url, active, original in rows:
                     original = self.db.json_decode(original)
                     data = {k: v for k, v in original.items() if k in allowed}
@@ -88,9 +89,10 @@ class Market:
                     # Refresh timestamps alone do not enqueue the same analysis.
                     stable = {k: v for k, v in data.items() if k != 'observed_at'}
                     signature = hashlib.sha256(canonical(stable).encode()).hexdigest()
-                    self.db.execute('INSERT INTO market_observations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        (source, source_id, stamp, signature,
+                    projected_rows.append((source, source_id, stamp, signature,
                          None if payload is None else self.db.json_param(canonical(payload)), issue, *specs))
+                if projected_rows:
+                    self.db.executemany('INSERT INTO market_observations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', projected_rows)
                 self.db.commit()
             except Exception:
                 self.db.rollback()

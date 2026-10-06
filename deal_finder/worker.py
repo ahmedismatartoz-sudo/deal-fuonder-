@@ -35,6 +35,8 @@ def main():
     scan.add_argument('--mode', choices=['initial', 'incremental', 'full'], default='incremental')
     sub.add_parser('market-status')
     sub.add_parser('market-candidates')
+    first = sub.add_parser('first-archive-test')
+    first.add_argument('--run-id', required=True)
     cycle = sub.add_parser('daily-cycle')
     cycle.add_argument('--config', default=None, help='Collection configuration JSON: Apify tasks and/or native autoscout24')
     cycle.add_argument('--mode', choices=['initial', 'incremental'], default='incremental')
@@ -61,6 +63,20 @@ def main():
         return
     if args.command == 'migrate':
         print(json.dumps(migrate(args.db), indent=2))
+        return
+    if args.command == 'first-archive-test':
+        from .archive import Archive
+        from .price_memory import PriceMemory
+        from datetime import datetime, timezone
+        archive = Archive(args.db)
+        try:
+            memory = PriceMemory(archive.db)
+            now = datetime.now(timezone.utc)
+            while memory.sync(now, limit=500):
+                pass
+            print(json.dumps(memory.first_test(args.run_id, now), indent=2))
+        finally:
+            archive.close()
         return
     if args.command == 'collect-brightdata':
         from .brightdata import cycle
@@ -217,6 +233,9 @@ def main():
             from .agent_runtime import BackgroundScreening
             screening = (BackgroundScreening(args.db)
                          if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
+            from .price_memory import BackgroundPriceMemory
+            price_memory = BackgroundPriceMemory(args.db)
+            first_test_id = os.getenv('DEAL_FINDER_FIRST_ARCHIVE_TEST')
             brightdata = None
             from .brightdata import BackgroundArchiveRevalidation
             archive_revalidation = BackgroundArchiveRevalidation(args.db)
@@ -247,7 +266,10 @@ def main():
                             print(json.dumps(progress), flush=True)
                         if stopping:
                             break
-                    if screening:
+                    memory_progress = price_memory.step(first_test_id)
+                    if memory_progress:
+                        print(json.dumps(memory_progress), flush=True)
+                    if screening and price_memory.ready and not first_test_id:
                         progress = screening.step()
                         if progress:
                             print(json.dumps(progress), flush=True)
@@ -263,10 +285,11 @@ def main():
                     drain_started = time.monotonic()
                     # Cheap enrichment plans should not wait one collection
                     # page each. Stop claiming when count/time/job budget ends.
-                    while not stopping and worked < 10 and time.monotonic()-drain_started < 10:
+                    while price_memory.ready and not stopping and worked < 10 and time.monotonic()-drain_started < 10:
                         if args.max_jobs and processed >= args.max_jobs:
                             break
-                        result = queue.work_one()
+                        result = (queue.work_one(batch_id='first-test-'+first_test_id)
+                                  if first_test_id else queue.work_one())
                         if result is None:
                             break
                         print(json.dumps(result), flush=True)

@@ -31,6 +31,24 @@ class PostgresQueueTests(test_queue.QueueTests):
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())
+    def test_price_memory_backend_bulk_insert_and_priority_report(self):
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory
+        from test_market import complete
+        from test_archive import page
+        from test_core import NOW
+        archive=Archive(URL)
+        archive.db.execute('SET ROLE deal_finder_backend')
+        try:
+            archive.ingest(page([complete('memory')]),as_of=NOW)
+            memory=PriceMemory(archive.db)
+            self.assertEqual(memory.sync(NOW),1)
+            self.assertEqual(memory.sync(NOW),0)
+            self.assertEqual(len(list(memory.current(NOW))),1)
+            report=memory.first_test('postgres-test',NOW)
+            self.assertEqual(report['approved_buys'],0)
+            self.assertEqual(memory.first_test('postgres-test',NOW),report)
+        finally: archive.close()
     def test_regional_facebook_replay_under_private_backend_role(self):
         from unittest.mock import patch
         from deal_finder.archive import Archive
@@ -83,7 +101,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 5)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 6)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -98,7 +116,7 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 15)
+        self.assertEqual(len(rows), 17)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(

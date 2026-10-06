@@ -190,6 +190,19 @@ def market_status():
         market.close()
 
 
+@app.get('/price-tests/{run_id}')
+def price_test_report(run_id: str):
+    from .archive import Archive
+    archive = Archive(database_target())
+    try:
+        row = archive.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?', (run_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail='Price test not completed')
+        return archive.db.json_decode(row[0])
+    finally:
+        archive.close()
+
+
 @app.post('/market/scan')
 def market_scan(mode: str = 'incremental'):
     market = Market(database_target())
