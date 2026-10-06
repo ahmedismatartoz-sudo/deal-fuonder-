@@ -50,6 +50,14 @@ class Cursor:
         return (self._row(row) for row in self.cursor)
 
 
+class DatabaseConnectionError(RuntimeError):
+    """Safe diagnostics without connection strings or driver error messages."""
+    def __init__(self, error):
+        super().__init__('PostgreSQL connection failed; verify configured secrets and network access')
+        self.db_error_type = type(error).__name__
+        self.sqlstate = error.sqlstate
+
+
 class Database:
     def __init__(self, target):
         self.dialect = 'postgres' if target.startswith(('postgresql://', 'postgres://')) else 'sqlite'
@@ -63,12 +71,16 @@ class Database:
                 import psycopg
             except ImportError:
                 raise RuntimeError('Install the postgres dependency: pip install -e ".[postgres]"') from None
+            connection = None
             try:
                 self.connection = psycopg.connect(target, autocommit=True, connect_timeout=10,
                     prepare_threshold=None, sslmode=sslmode, application_name='deal-finder')
+                connection = self.connection
                 self.connection.execute('SET search_path TO deal_finder, pg_catalog')
-            except psycopg.Error:
-                raise RuntimeError('PostgreSQL connection failed; verify configured secrets and network access') from None
+            except psycopg.Error as error:
+                if connection is not None:
+                    connection.close()
+                raise DatabaseConnectionError(error) from None
 
     def execute(self, sql, params=()):
         # Internal SQL uses ? placeholders; no arbitrary caller SQL reaches here.
