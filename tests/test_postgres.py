@@ -58,15 +58,53 @@ class PostgresQueueTests(test_queue.QueueTests):
         archive=Archive(URL)
         archive.db.execute('SET ROLE deal_finder_backend')
         try:
-            archive.ingest(page([complete('memory')]),as_of=NOW)
+            record=complete('memory',make='  FIAT   AUTO  ',model=' Panda ',
+                            damage_indicators=['unverified'],description='original description')
+            record['payload']['original']={'large':'x'*500000}
+            record['payload']['image_urls']=['https://example.com/image.jpg']*100
+            archive.ingest(page([record]),as_of=NOW)
             memory=PriceMemory(archive.db)
             self.assertEqual(memory.sync(NOW),1)
             self.assertEqual(memory.sync(NOW),0)
-            self.assertEqual(len(list(memory.current(NOW))),1)
+            current=list(memory.current(NOW))
+            self.assertEqual(len(current),1)
+            self.assertEqual(current[0]['make'],'fiat auto')
+            self.assertEqual(current[0]['model'],'panda')
+            self.assertEqual(current[0]['damage_indicators'],['unverified'])
+            self.assertEqual(current[0]['description'],'original description')
+            self.assertIsInstance(current[0]['year'],int)
+            self.assertNotIn('original',current[0])
+            self.assertNotIn('image_urls',current[0])
             report=memory.first_test('postgres-test',NOW)
             self.assertEqual(report['approved_buys'],0)
             self.assertEqual(memory.first_test('postgres-test',NOW),report)
         finally: archive.close()
+    def test_price_projection_skips_busy_projector_and_finds_late_arriving_keys(self):
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory
+        from test_market import complete
+        from test_archive import page
+        from test_core import NOW
+        archive,other=Archive(URL),Database(URL)
+        try:
+            archive.db.execute('SET ROLE deal_finder_backend')
+            archive.ingest(page([complete('z-last')]),as_of=NOW)
+            memory=PriceMemory(archive.db)
+            with other:
+                other.execute('SELECT pg_advisory_xact_lock(1649763002)')
+                self.assertEqual(memory.sync(NOW),0)
+                self.assertTrue(memory.pending(NOW))
+            self.assertEqual(memory.sync(NOW),1)
+            cursor=memory.next_cursor
+            archive.ingest(page([complete('a-late')],run='late-arrival'),as_of=NOW)
+            self.assertEqual(memory.sync(NOW,after=cursor),0)
+            self.assertIsNone(memory.next_cursor)
+            self.assertTrue(memory.pending(NOW))
+            self.assertEqual(memory.sync(NOW),1)
+            self.assertFalse(memory.pending(NOW))
+            self.assertEqual({p['source_id'] for p in memory.current(NOW)},{'z-last','a-late'})
+        finally:
+            other.close();archive.close()
     def test_regional_facebook_replay_under_private_backend_role(self):
         from unittest.mock import patch
         from deal_finder.archive import Archive

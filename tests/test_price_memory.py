@@ -8,6 +8,8 @@ from test_market import complete
 from deal_finder.archive import Archive
 from deal_finder.price_memory import PriceMemory
 from deal_finder.queue import Queue
+from unittest.mock import Mock, patch
+from deal_finder.price_memory import BackgroundPriceMemory
 
 class PriceMemoryTests(unittest.TestCase):
     def setUp(self):
@@ -60,6 +62,17 @@ class PriceMemoryTests(unittest.TestCase):
         self.archive.ingest(page([complete('new')]),as_of=NOW)
         self.assertEqual(self.memory.first_test('pending',NOW)['status'],'waiting_for_price_memory')
         self.assertEqual(self.archive.db.execute('SELECT count(*) FROM price_test_reports').fetchone()[0],0)
+    def test_forward_projection_revisits_backfilled_keys_before_completion(self):
+        self.archive.ingest(page([complete('z-last')]),as_of=NOW)
+        self.assertEqual(self.memory.sync(NOW,limit=1),1)
+        cursor=self.memory.next_cursor
+        self.archive.ingest(page([complete('a-late')],run='backfill'),as_of=NOW)
+        self.assertEqual(self.memory.sync(NOW,after=cursor),0)
+        self.assertIsNone(self.memory.next_cursor)
+        self.assertTrue(self.memory.pending(NOW))
+        self.assertEqual(self.memory.first_test('backfill',NOW)['status'],'waiting_for_price_memory')
+        self.assertEqual(self.memory.sync(NOW,after=self.memory.next_cursor),1)
+        self.assertFalse(self.memory.pending(NOW))
     def test_priority_batch_cannot_claim_other_jobs(self):
         q=Queue(self.path)
         try:
@@ -70,3 +83,48 @@ class PriceMemoryTests(unittest.TestCase):
             self.assertIsNone(q.claim(batch_id='first-test'))
             self.assertEqual(q.claim()['raw']['listing']['source_id'],'ordinary')
         finally:q.close()
+
+class BackgroundPriceMemoryTests(unittest.TestCase):
+    def test_slow_success_reduces_work_and_fast_success_is_capped(self):
+        clock=[0]
+        memory=Mock(pending=Mock(return_value=True))
+        def sync(*args,**kwargs):
+            clock[0]+=6
+            return kwargs['limit']
+        memory.sync.side_effect=sync
+        archive=Mock()
+        worker=BackgroundPriceMemory('unused')
+        with patch('deal_finder.archive.Archive',return_value=archive),patch('deal_finder.price_memory.PriceMemory',return_value=memory),patch('time.monotonic',side_effect=lambda:clock[0]):
+            result=worker.step()
+            self.assertEqual(result['projected_this_step'],25)
+            self.assertEqual(result['next_projection_batch'],12)
+            self.assertEqual(result['projection_seconds'],6)
+            def fast_sync(*args,**kwargs):
+                clock[0]+=1
+                return kwargs['limit']
+            memory.sync.side_effect=fast_sync
+            worker.batch_size=100
+            self.assertEqual(worker.step()['next_projection_batch'],100)
+        self.assertEqual(archive.close.call_count,2)
+
+    def test_query_failure_backs_off_without_opening_another_connection(self):
+        import psycopg
+        clock=[0]
+        memory=Mock()
+        memory.sync.side_effect=psycopg.errors.QueryCanceled('private query detail')
+        archive=Mock()
+        worker=BackgroundPriceMemory('unused')
+        with patch('deal_finder.archive.Archive',return_value=archive) as opened,patch('deal_finder.price_memory.PriceMemory',return_value=memory),patch('time.monotonic',side_effect=lambda:clock[0]):
+            result=worker.step()
+            self.assertEqual(result['db_sqlstate'],'57014')
+            self.assertEqual(result['next_projection_batch'],12)
+            self.assertEqual(result['retry_after_seconds'],2)
+            self.assertNotIn('private query detail',str(result))
+            clock[0]=1
+            self.assertIsNone(worker.step())
+            self.assertEqual(opened.call_count,1)
+            clock[0]=2
+            result=worker.step()
+            self.assertEqual(result['retry_after_seconds'],4)
+            self.assertEqual(opened.call_count,2)
+        self.assertEqual(archive.close.call_count,2)

@@ -1,6 +1,6 @@
 import unittest
-from unittest.mock import patch
-from deal_finder.database import Database, database_target, validate_postgres_url
+from unittest.mock import Mock, patch
+from deal_finder.database import Database, DatabaseConnectionError, database_target, validate_postgres_url
 from deal_finder.serve import validate_runtime
 
 class ConfigurationTests(unittest.TestCase):
@@ -29,3 +29,15 @@ class ConfigurationTests(unittest.TestCase):
         db.execute('INSERT INTO sample VALUES (2)');db.commit()
         self.assertEqual(list(db.execute('SELECT id FROM sample')),[(2,)])
         db.close()
+    def test_failed_postgres_setup_closes_connection_and_redacts_error(self):
+        import psycopg
+        connection=Mock()
+        connection.execute.side_effect=psycopg.errors.QueryCanceled('secret connection detail')
+        with patch('psycopg.connect',return_value=connection):
+            with self.assertRaises(DatabaseConnectionError) as raised:
+                Database('postgresql://user:private-password@host.example/database')
+        connection.close.assert_called_once()
+        self.assertEqual(raised.exception.db_error_type,'QueryCanceled')
+        self.assertEqual(raised.exception.sqlstate,'57014')
+        self.assertNotIn('private-password',str(raised.exception))
+        self.assertNotIn('secret connection detail',str(raised.exception))

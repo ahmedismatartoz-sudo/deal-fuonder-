@@ -18,6 +18,38 @@ PAYMENT = re.compile(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*
 DAMAGE = re.compile(r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*|airbag.{0,15}(?:scoppi|esplos)|alluvionat\w*|incendiat\w*|uso ricambi|non marciante)\b',re.I)
 
 
+def postgres_projection_sql():
+    # Choose missing identities using the covering primary-key indexes before
+    # touching any original JSON. jsonb_to_record extracts only named fields;
+    # jsonb_each also materializes the bulky original/image values we discard.
+    columns = ','.join(field+' jsonb' for field in (*FIELDS,'make','model'))
+    def key(field):
+        return "CASE WHEN jsonb_typeof(e.payload->'"+field+"')='string' THEN nullif(lower(regexp_replace(btrim(e.payload->>'"+field+"'), '\\s+', ' ', 'g')),'') END"
+    make, model = key('make'), key('model')
+    return f"""WITH projection_lock AS MATERIALIZED (
+        SELECT pg_try_advisory_xact_lock(1649763002) AS acquired),
+        missing_keys AS MATERIALIZED (
+        SELECT e.source,e.source_id,e.observed_at FROM listing_events e
+        WHERE (SELECT acquired FROM projection_lock) AND e.observed_at<=?
+        AND (e.source,e.source_id,e.observed_at)>(?,?,?)
+        AND NOT EXISTS (SELECT 1 FROM price_observations p WHERE p.source=e.source
+            AND p.source_id=e.source_id AND p.observed_at=e.observed_at)
+        ORDER BY e.source,e.source_id,e.observed_at LIMIT ?),
+        thin AS MATERIALIZED (
+        SELECT e.source,e.source_id,e.observed_at,e.url,e.active,to_jsonb(f) AS payload
+        FROM missing_keys k JOIN listing_events e USING(source,source_id,observed_at)
+        CROSS JOIN LATERAL jsonb_to_record(e.payload) AS f({columns}))
+        , inserted AS (
+        INSERT INTO price_observations(source,source_id,observed_at,active,make,model,payload)
+        SELECT e.source,e.source_id,e.observed_at,e.active,{make},{model},
+            e.payload || jsonb_build_object('url',e.url,'active',e.active,'make',{make},'model',{model})
+        FROM thin e ON CONFLICT(source,source_id,observed_at) DO NOTHING RETURNING 1)
+        SELECT (SELECT count(*) FROM inserted),k.source,k.source_id,k.observed_at
+        FROM (SELECT 1) seed LEFT JOIN LATERAL (
+            SELECT source,source_id,observed_at FROM missing_keys
+            ORDER BY source DESC,source_id DESC,observed_at DESC LIMIT 1) k ON true"""
+
+
 def normalized(value):
     try:
         return normalize(value) if value else None
@@ -43,31 +75,18 @@ class PriceMemory:
               AND p.source_id=e.source_id AND p.observed_at=e.observed_at) LIMIT 1''',
             (as_of.isoformat(),)).fetchone())
 
-    def sync(self, as_of, limit=100):
+    def sync(self, as_of, limit=100, *, after=None):
+        after=after or ('','','0001-01-01T00:00:00+00:00')
         if self.db.dialect == 'postgres':
-            # Project within one server statement. Do not transfer bulky source
-            # originals or perform hundreds of remote inserts to learn prices.
-            def key(field):
-                return "CASE WHEN jsonb_typeof(e.payload->'"+field+"')='string' THEN nullif(lower(regexp_replace(btrim(e.payload->>'"+field+"'), '\\s+', ' ', 'g')),'') END"
-            make, model = key('make'), key('model')
-            fields = ','.join("'"+field+"'" for field in (*FIELDS,'make','model'))
-            sql = """WITH fresh AS MATERIALIZED (
-                SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload FROM listing_events e WHERE e.observed_at<=?
-                AND NOT EXISTS (SELECT 1 FROM price_observations p WHERE p.source=e.source
-                    AND p.source_id=e.source_id AND p.observed_at=e.observed_at)
-                ORDER BY e.source,e.source_id,e.observed_at LIMIT ?),
-                thin AS MATERIALIZED (
-                SELECT e.source,e.source_id,e.observed_at,e.url,e.active,
-                    COALESCE((SELECT jsonb_object_agg(k,v) FROM jsonb_each(e.payload) AS f(k,v)
-                        WHERE k IN ("""+fields+""")), '{}'::jsonb) AS payload FROM fresh e)
-                INSERT INTO price_observations(source,source_id,observed_at,active,make,model,payload)
-                SELECT e.source,e.source_id,e.observed_at,e.active,"""+make+","+model+",e.payload || jsonb_build_object('url',e.url,'active',e.active,'make',"+make+",'model',"+model+") FROM thin e ON CONFLICT(source,source_id,observed_at) DO NOTHING"
-            return self.db.execute(sql,(as_of.isoformat(),limit)).rowcount
+            result=self.db.execute(postgres_projection_sql(),(as_of.isoformat(),*after,limit)).fetchone()
+            self.next_cursor=tuple(result[1:]) if result[1] is not None else None
+            return result[0]
         rows = self.db.execute('''SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload
-            FROM listing_events e WHERE e.observed_at<=? AND NOT EXISTS (
+            FROM listing_events e WHERE e.observed_at<=? AND (e.source,e.source_id,e.observed_at)>(?,?,?) AND NOT EXISTS (
               SELECT 1 FROM price_observations p WHERE p.source=e.source AND p.source_id=e.source_id
               AND p.observed_at=e.observed_at) ORDER BY e.source,e.source_id,e.observed_at LIMIT ?''',
-            (as_of.isoformat(),limit)).fetchall()
+            (as_of.isoformat(),*after,limit)).fetchall()
+        self.next_cursor=tuple(rows[-1][:3]) if rows else None
         compact = []
         for source, source_id, observed, url, active, encoded in rows:
             raw = self.db.json_decode(encoded)
@@ -231,10 +250,15 @@ class BackgroundPriceMemory:
         self.ready=False
         self.failures=0
         self.last_poll=None
-        self.batch_size=100
+        self.batch_size=25
+        self.retry_at=None
+        self.sync_cursor=None
 
     def step(self, run_id=None):
         import time
+        started=time.monotonic()
+        if self.retry_at is not None and started<self.retry_at:
+            return None
         if self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
             return None
         self.last_poll=time.monotonic()
@@ -246,9 +270,15 @@ class BackgroundPriceMemory:
             memory=PriceMemory(archive.db)
             now=datetime.now(timezone.utc)
             stage='project_new_observations'
-            count=memory.sync(now,limit=self.batch_size)
+            projection_started=time.monotonic()
+            count=memory.sync(now,limit=self.batch_size,after=self.sync_cursor)
+            self.sync_cursor=memory.next_cursor
+            projection_seconds=time.monotonic()-projection_started
             stage='check_completion'
-            self.ready=not memory.pending(now)
+            # A full batch cannot prove completion. Only a short/empty batch
+            # needs the global missing-event check; this also catches a late
+            # arrival behind the cursor before any comparison is allowed.
+            self.ready=count<self.batch_size and not memory.pending(now)
             out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
             if self.ready and run_id:
                 stage='compare_archive'
@@ -276,13 +306,29 @@ class BackgroundPriceMemory:
                 out.update(first_test=report['status'],run_id=run_id,candidates=len(report.get('candidates',[])),
                            approved_buys=report.get('approved_buys',0))
             self.failures=0
-            self.batch_size=min(500,self.batch_size*2)
+            self.retry_at=None
+            # A successful slow query is still too much work for this database.
+            # Stay comfortably below the statement limit instead of doubling
+            # every success back to the same batch that just timed out.
+            if projection_seconds>5:
+                self.batch_size=max(1,self.batch_size//2)
+            elif projection_seconds<2:
+                self.batch_size=min(100,self.batch_size*2)
+            out['projection_seconds']=round(projection_seconds,3)
             out['next_projection_batch']=self.batch_size
             return out if count or run_id else None
         except Exception as error:
             self.ready=False;self.failures+=1
             if stage=='project_new_observations':
                 self.batch_size=max(1,self.batch_size//2)
-            return dict(price_memory='retry_later',stage=stage,error_type=type(error).__name__,attempts=self.failures,next_projection_batch=self.batch_size)
+            delay=min(60,2**min(self.failures,6))
+            self.retry_at=time.monotonic()+delay
+            out=dict(price_memory='retry_later',stage=stage,error_type=type(error).__name__,
+                     attempts=self.failures,next_projection_batch=self.batch_size,retry_after_seconds=delay)
+            sqlstate=getattr(error,'sqlstate',None)
+            if sqlstate: out['db_sqlstate']=sqlstate
+            db_error_type=getattr(error,'db_error_type',None)
+            if db_error_type: out['db_error_type']=db_error_type
+            return out
         finally:
             if archive: archive.close()
