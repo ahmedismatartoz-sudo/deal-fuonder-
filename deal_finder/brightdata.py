@@ -23,7 +23,40 @@ FREE_CONFIRMATION = 'unfunded-no-auto-recharge'
 
 
 class ProviderError(RuntimeError):
-    pass
+    def __init__(self, message, *, http_status=None, phase=None):
+        super().__init__(message)
+        self.http_status = http_status
+        self.phase = phase
+
+
+class SetupError(ValueError):
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+def paused_diagnostic(error):
+    # Only emit fixed codes and numeric HTTP status, never exception text,
+    # provider bodies, configuration values or credentials.
+    codes = {
+        'api_key_missing': 'BRIGHTDATA_API_KEY is missing or empty',
+        'api_key_invalid_format': 'BRIGHTDATA_API_KEY contains unsupported characters or length',
+        'free_confirmation_missing': 'Free account confirmation is missing',
+        'free_confirmation_invalid': 'Free account confirmation does not match the required value',
+        'cycle_configuration_changed': 'Saved cycle configuration differs from current configuration',
+    }
+    code = error.code if isinstance(error, SetupError) and error.code in codes else None
+    result = dict(brightdata='paused', error_code=code or (
+        'provider_request_failed' if isinstance(error, ProviderError) else 'archive_or_configuration_invalid'),
+        reason=codes[code] if code else (
+            'Provider request failed; inspect status and phase before recovery' if isinstance(error, ProviderError)
+            else 'Archive or collection configuration failed validation'))
+    if isinstance(error, ProviderError):
+        if type(error.http_status) is int and 100 <= error.http_status <= 599:
+            result['http_status'] = error.http_status
+        if error.phase in ('trigger', 'progress', 'snapshot'):
+            result['phase'] = error.phase
+    return result
 
 
 def resource(value, prefix):
@@ -74,15 +107,20 @@ class NoRedirect(HTTPRedirectHandler):
 
 class Client:
     def __init__(self, key=None):
-        self.key = key or os.getenv('BRIGHTDATA_API_KEY')
+        self.key = key if key is not None else os.getenv('BRIGHTDATA_API_KEY')
+        if isinstance(self.key, str):
+            self.key = self.key.strip()
+        if not self.key:
+            raise SetupError('api_key_missing')
         if not isinstance(self.key, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{10,1024}', self.key):
-            raise ValueError('Configure BRIGHTDATA_API_KEY in the backend secret environment')
+            raise SetupError('api_key_invalid_format')
         self.opener = build_opener(NoRedirect())
 
     def request(self, path, *, query=None, body=None):
         # Paths are constructed only by the three methods below, never from URLs.
         if not re.fullmatch(r'/datasets/v3/(trigger|progress/sd_[A-Za-z0-9]+|snapshot/sd_[A-Za-z0-9]+)', path):
             raise ValueError('Unsupported Bright Data API path')
+        phase = path.split('/')[3]
         url = 'https://api.brightdata.com' + path
         if query:
             url += '?' + urlencode(query)
@@ -92,16 +130,16 @@ class Client:
         try:
             with self.opener.open(request, timeout=30) as response:
                 if response.status != 200:
-                    raise ProviderError('Unexpected Bright Data response; no automatic retry')
+                    raise ProviderError('Unexpected Bright Data response; no automatic retry', http_status=response.status, phase=phase)
                 raw = response.read(20_000_001)
                 if len(raw) > 20_000_000:
-                    raise ProviderError('Bright Data response exceeds 20 MB')
+                    raise ProviderError('Bright Data response exceeds 20 MB', phase=phase)
                 return json.loads(raw)
         except HTTPError as error:
             # Never echo bodies/headers: provider errors can contain secrets.
-            raise ProviderError(f'Bright Data HTTP {error.code}; no automatic retry') from None
+            raise ProviderError(f'Bright Data HTTP {error.code}; no automatic retry', http_status=error.code, phase=phase) from None
         except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
-            raise ProviderError('Bright Data request failed; saved cycle retained') from None
+            raise ProviderError('Bright Data request failed; saved cycle retained', phase=phase) from None
 
     def start(self, config):
         validate_config(config)
@@ -194,8 +232,9 @@ def reserve(archive, run_id, scope):
 
 def cycle(config, archive, *, client=None, free_confirmed=False):
     config = validate_config(config)
-    if not free_confirmed and os.getenv('DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED') != FREE_CONFIRMATION:
-        raise ValueError('Confirm an unfunded free account with auto-recharge disabled before collection')
+    confirmation = os.getenv('DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED')
+    if not free_confirmed and confirmation != FREE_CONFIRMATION:
+        raise SetupError('free_confirmation_missing' if not confirmation else 'free_confirmation_invalid')
     # Check credentials before recording a reservation or making any request.
     client = client or Client()
     control_id = 'brightdata-' + config['cycle_id']
@@ -207,7 +246,7 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
         saved = None
     if saved:
         if saved['scope'] != scope:
-            raise ValueError('Cycle configuration changed; use a new cycle ID')
+            raise SetupError('cycle_configuration_changed')
         if not saved['complete']:
             return dict(status='recovery_required', cycle_id=config['cycle_id'],
                         reason='Trigger already reserved; inspect provider account before retrying')
@@ -270,9 +309,9 @@ class BackgroundCollection:
         try:
             try:
                 result = cycle(self.config, archive)
-            except (ValueError, ProviderError):
+            except (ValueError, ProviderError) as error:
                 self.finished = True
-                return dict(brightdata='paused', reason='Check key, free account, configuration or saved trigger in provider account')
+                return paused_diagnostic(error)
             self.finished = result['status'] in ('complete', 'failed', 'recovery_required')
             return dict(brightdata=result['status'], **{k: v for k, v in result.items() if k != 'status'})
         finally:
