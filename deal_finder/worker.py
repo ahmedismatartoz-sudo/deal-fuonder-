@@ -45,6 +45,8 @@ def main():
     native.add_argument('--run-id', required=True, help='Reuse this ID to resume after interruptions')
     native.add_argument('--max-pages', type=int, default=100)
     native.add_argument('--scan', action='store_true')
+    brightdata = sub.add_parser('collect-brightdata')
+    brightdata.add_argument('--config', help='Reviewed Bright Data input configuration JSON')
     preview = sub.add_parser('publication-preview')
     preview.add_argument('batch_id')
     sub.add_parser('agents')
@@ -59,6 +61,20 @@ def main():
         return
     if args.command == 'migrate':
         print(json.dumps(migrate(args.db), indent=2))
+        return
+    if args.command == 'collect-brightdata':
+        from .brightdata import cycle
+        from .archive import Archive
+        if args.config:
+            with open(args.config) as handle:
+                config = json.load(handle)
+        else:
+            config = json.loads(os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG', '{}'))
+        archive = Archive(args.db)
+        try:
+            print(json.dumps(cycle(config, archive), indent=2))
+        finally:
+            archive.close()
         return
     if args.command == 'collect-autoscout24':
         from .autoscout24 import collect
@@ -198,6 +214,13 @@ def main():
             from .bootstrap import Bootstrap, bootstrap_config
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
+            brightdata = None
+            if os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
+                from .brightdata import BackgroundCollection
+                try:
+                    brightdata = BackgroundCollection(args.db, json.loads(os.environ['DEAL_FINDER_BRIGHTDATA_CONFIG']))
+                except (ValueError, TypeError):
+                    print(json.dumps({'brightdata': 'paused', 'reason': 'Invalid backend collection configuration'}), flush=True)
             stopping = False
             def stop(signum, frame):
                 nonlocal stopping
@@ -205,6 +228,12 @@ def main():
             old_handler = signal.signal(signal.SIGTERM, stop)
             try:
                 while not stopping and (args.max_jobs == 0 or processed < args.max_jobs):
+                    if brightdata:
+                        progress = brightdata.step()
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if stopping:
+                            break
                     if bootstrap:
                         progress = bootstrap.step()
                         if progress:

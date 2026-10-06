@@ -1,0 +1,273 @@
+"""Bounded async Bright Data Facebook collection into the existing archive.
+
+Disabled until backend key, unfunded-free-account confirmation and a reviewed
+provider input configuration exist. No browser or Facebook cookies required.
+"""
+import json
+import os
+import re
+import time
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlsplit, urlencode
+from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
+from .archive import canonical
+
+SOURCE = 'facebook_marketplace'
+CONTROL = 'brightdata_control'
+VERSION = 'brightdata-facebook-milano-v1'
+DETAIL_DATASET = 'gd_lvt9iwuh6fbcwmx1a'
+FREE_CONFIRMATION = 'unfunded-no-auto-recharge'
+
+
+class ProviderError(RuntimeError):
+    pass
+
+
+def resource(value, prefix):
+    if not isinstance(value, str) or not re.fullmatch(prefix + r'_[A-Za-z0-9]{1,100}', value):
+        raise ValueError('Invalid Bright Data resource ID')
+    return value
+
+
+def item_url(value):
+    p = urlsplit(value) if isinstance(value, str) else None
+    if (not p or p.scheme != 'https' or p.netloc not in ('www.facebook.com', 'facebook.com')
+            or p.query or p.fragment or not re.fullmatch(r'/marketplace/item/[0-9]{1,30}/?', p.path)):
+        raise ValueError('Canonical public Facebook item URL required')
+    return 'https://www.facebook.com' + p.path.rstrip('/') + '/'
+
+
+def validate_config(config):
+    if not isinstance(config, dict) or set(config) != {'cycle_id', 'dataset_id', 'discover_by', 'input', 'limit', 'schema_verified'}:
+        raise ValueError('Bright Data configuration requires cycle_id, dataset_id, discover_by, input, limit and schema_verified')
+    if not isinstance(config['cycle_id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', config['cycle_id']):
+        raise ValueError('Invalid collection cycle ID')
+    resource(config['dataset_id'], 'gd')
+    if config['schema_verified'] is not True:
+        raise ValueError('Verify the provider input schema before enabling collection')
+    if type(config['limit']) is not int or not 1 <= config['limit'] <= 100:
+        raise ValueError('Trial limit must be 1..100')
+    inputs = config['input']
+    if not isinstance(inputs, list) or not 1 <= len(inputs) <= 10 or any(not isinstance(x, dict) for x in inputs):
+        raise ValueError('Configure 1..10 provider inputs')
+    if len(canonical(config).encode()) > 20000:
+        raise ValueError('Collection configuration too large')
+    if config['discover_by'] is None:
+        if config['dataset_id'] != DETAIL_DATASET:
+            raise ValueError('Unsupported detail dataset')
+        for row in inputs:
+            if set(row) != {'url'}:
+                raise ValueError('Detail input requires only url')
+            item_url(row['url'])
+    elif config['discover_by'] not in ('url', 'keyword'):
+        raise ValueError('Discovery must use a verified URL or keyword schema')
+    return config
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+class Client:
+    def __init__(self, key=None):
+        self.key = key or os.getenv('BRIGHTDATA_API_KEY')
+        if not isinstance(self.key, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{10,1024}', self.key):
+            raise ValueError('Configure BRIGHTDATA_API_KEY in the backend secret environment')
+        self.opener = build_opener(NoRedirect())
+
+    def request(self, path, *, query=None, body=None):
+        # Paths are constructed only by the three methods below, never from URLs.
+        if not re.fullmatch(r'/datasets/v3/(trigger|progress/sd_[A-Za-z0-9]+|snapshot/sd_[A-Za-z0-9]+)', path):
+            raise ValueError('Unsupported Bright Data API path')
+        url = 'https://api.brightdata.com' + path
+        if query:
+            url += '?' + urlencode(query)
+        request = Request(url, data=canonical(body).encode() if body is not None else None,
+                          headers={'Authorization': 'Bearer ' + self.key, 'Accept': 'application/json',
+                                   'Content-Type': 'application/json'})
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                if response.status != 200:
+                    raise ProviderError('Unexpected Bright Data response; no automatic retry')
+                raw = response.read(20_000_001)
+                if len(raw) > 20_000_000:
+                    raise ProviderError('Bright Data response exceeds 20 MB')
+                return json.loads(raw)
+        except HTTPError as error:
+            # Never echo bodies/headers: provider errors can contain secrets.
+            raise ProviderError(f'Bright Data HTTP {error.code}; no automatic retry') from None
+        except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
+            raise ProviderError('Bright Data request failed; saved cycle retained') from None
+
+    def start(self, config):
+        validate_config(config)
+        query = dict(dataset_id=config['dataset_id'], include_errors='true', notify='false',
+                     limit_multiple_results=config['limit'])
+        if config['discover_by']:
+            query.update(type='discover_new', discover_by=config['discover_by'])
+        result = self.request('/datasets/v3/trigger', query=query,
+                              body={'input': config['input'], 'limit_per_input': config['limit']})
+        if not isinstance(result, dict):
+            raise ProviderError('Invalid trigger response; recover snapshot manually')
+        return resource(result.get('snapshot_id'), 'sd')
+
+    def progress(self, snapshot_id):
+        result = self.request('/datasets/v3/progress/' + resource(snapshot_id, 'sd'))
+        if not isinstance(result, dict) or result.get('status') not in ('starting', 'running', 'ready', 'failed'):
+            raise ProviderError('Unsupported snapshot progress response')
+        return result['status']
+
+    def download(self, snapshot_id):
+        result = self.request('/datasets/v3/snapshot/' + resource(snapshot_id, 'sd'), query={'format': 'json'})
+        if not isinstance(result, list):
+            raise ProviderError('Snapshot must be a JSON array')
+        return result
+
+
+def event(row, observed_at):
+    if not isinstance(row, dict) or row.get('error') or row.get('error_code'):
+        raise ValueError('Provider error or invalid row')
+    if row.get('country_code') != 'IT':
+        raise ValueError('Explicit Italy country code required')
+    location = row.get('location')
+    if not isinstance(location, str) or location.split(',')[0].strip().casefold() not in ('milano', 'milan'):
+        raise ValueError('Explicit Milano city required')
+    breadcrumbs = row.get('breadcrumbs', [])
+    labels = [x.get('name', '') if isinstance(x, dict) else x for x in breadcrumbs] if isinstance(breadcrumbs, list) else []
+    car_categories = {'cars', 'cars & trucks', 'cars and trucks', 'auto', 'automobili', 'auto e furgoni'}
+    if not any(isinstance(x, str) and x.strip().casefold() in car_categories for x in labels):
+        raise ValueError('Car category is not verified; retain in quarantine')
+    url = item_url(row.get('url'))
+    identifier = row.get('product_id')
+    if type(identifier) is int:
+        identifier = str(identifier)
+    if identifier != url.rstrip('/').split('/')[-1]:
+        raise ValueError('Listing ID and URL conflict')
+    title, description = row.get('title'), row.get('description') or ''
+    if not isinstance(title, str) or not title.strip() or not isinstance(description, str):
+        raise ValueError('Invalid title or description')
+    if row.get('currency') != 'EUR':
+        raise ValueError('Explicit EUR required')
+    value = row.get('final_price') if row.get('final_price') is not None else row.get('initial_price')
+    try:
+        amount = Decimal(str(value))
+        if not amount.is_finite() or not 0 < amount <= 10_000_000 or amount != amount.to_integral_value():
+            raise ValueError('Invalid EUR price')
+    except InvalidOperation:
+        raise ValueError('Invalid EUR price') from None
+    if type(row.get('is_sold')) is not bool:
+        raise ValueError('Explicit sold status required')
+    payload = dict(country='IT', city='Milano', province='MI', title=title,
+                   description=description, price_eur=int(amount), price_kind='unknown',
+                   adapter=VERSION, original=row, location_basis='provider_published_country_and_city')
+    images = row.get('images') or []
+    if not isinstance(images, list) or len(images) > 1000:
+        raise ValueError('Unsupported images')
+    payload['image_urls'] = []
+    for image in images:
+        p = urlsplit(image) if isinstance(image, str) else None
+        if not p or p.scheme != 'https' or not p.netloc:
+            raise ValueError('Unsupported image URL')
+        payload['image_urls'].append(image)
+    for source, key in (('brand', 'make'), ('transmission', 'transmission')):
+        if isinstance(row.get(source), str) and row[source].strip():
+            payload[key] = row[source]
+    # car_miles has no verified unit for Italian output; original evidence kept.
+    # Neither year, model, trim, condition nor total cash price is guessed.
+    return dict(source_id=identifier, url=url, observed_at=observed_at,
+                active=not row['is_sold'], payload=payload)
+
+
+def reserve(archive, run_id, scope):
+    return archive.ingest(dict(source=CONTROL, run_id=run_id,
+        page_id='reservation', mode='initial', scope=scope,
+        input_cursor=None, next_cursor='reserved', complete=False, records=[]))
+
+
+def cycle(config, archive, *, client=None, free_confirmed=False):
+    config = validate_config(config)
+    if not free_confirmed and os.getenv('DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED') != FREE_CONFIRMATION:
+        raise ValueError('Confirm an unfunded free account with auto-recharge disabled before collection')
+    # Check credentials before recording a reservation or making any request.
+    client = client or Client()
+    control_id = 'brightdata-' + config['cycle_id']
+    scope = dict(country='IT', city='Milano', adapter=VERSION, configuration=config)
+    try:
+        saved = archive.run_status(CONTROL, control_id)
+    except KeyError:
+        saved = None
+    if saved:
+        if saved['scope'] != scope:
+            raise ValueError('Cycle configuration changed; use a new cycle ID')
+        if not saved['complete']:
+            return dict(status='recovery_required', cycle_id=config['cycle_id'],
+                        reason='Trigger already reserved; inspect provider account before retrying')
+    else:
+        reserved = reserve(archive, control_id, scope)
+        if reserved['idempotent']:
+            return dict(status='recovery_required', cycle_id=config['cycle_id'])
+        snapshot_id = client.start(config)
+        # Store the snapshot as a second immutable page ID/cursor-free record.
+        # The page ID holds the snapshot ID so immutable scope stays unchanged.
+        archive.ingest(dict(source=CONTROL, run_id=control_id, page_id=snapshot_id,
+            mode='initial', scope=scope, input_cursor='reserved', next_cursor=None,
+            complete=True, records=[]))
+    snapshot_id = archive.db.execute('SELECT page_id FROM collection_pages WHERE source=? AND run_id=? AND complete=?',
+                                    (CONTROL, control_id, True)).fetchone()[0]
+    resource(snapshot_id, 'sd')
+    import_id = 'brightdata-' + snapshot_id
+    try:
+        imported = archive.run_status(SOURCE, import_id)
+    except KeyError:
+        imported = None
+    if imported and imported['complete']:
+        return dict(status='complete', snapshot_id=snapshot_id, collection=imported)
+    status = client.progress(snapshot_id)
+    if status != 'ready':
+        return dict(status=status, snapshot_id=snapshot_id)
+    rows = client.download(snapshot_id)
+    if len(rows) > config['limit']:
+        raise ProviderError('Provider exceeded configured record cap; import stopped')
+    # Trigger reservation time is a conservative freshness bound.
+    observed_at = archive.db.execute('SELECT received_at FROM collection_pages WHERE source=? AND run_id=? AND page_id=?',
+                                    (CONTROL, control_id, 'reservation')).fetchone()[0]
+    if isinstance(observed_at, datetime):
+        observed_at = observed_at.isoformat()
+    records = []
+    for row in rows:
+        try:
+            records.append(event(row, observed_at))
+        except (ValueError, TypeError, KeyError):
+            records.append({'payload': {'original': row}, 'adapter_error':
+                            'Unverified car, Milano location, EUR price, availability or provider error'})
+    result = archive.ingest(dict(source=SOURCE, run_id=import_id, page_id='snapshot',
+        mode='initial', scope=dict(scope, snapshot_id=snapshot_id, market_coverage_verified=False),
+        input_cursor=None, next_cursor=None, complete=True, records=records))
+    return dict(status='complete', snapshot_id=snapshot_id, collection=result)
+
+
+class BackgroundCollection:
+    def __init__(self, path, config):
+        self.path, self.config = path, validate_config(config)
+        self.last_poll = None
+        self.finished = False
+
+    def step(self):
+        if self.finished or (self.last_poll is not None and time.monotonic() - self.last_poll < 60):
+            return None
+        self.last_poll = time.monotonic()
+        from .archive import Archive
+        archive = Archive(self.path)
+        try:
+            try:
+                result = cycle(self.config, archive)
+            except (ValueError, ProviderError):
+                self.finished = True
+                return dict(brightdata='paused', reason='Check key, free account, configuration or saved trigger in provider account')
+            self.finished = result['status'] in ('complete', 'failed', 'recovery_required')
+            return dict(brightdata=result['status'], **{k: v for k, v in result.items() if k != 'status'})
+        finally:
+            archive.close()

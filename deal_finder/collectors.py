@@ -61,7 +61,11 @@ class CollectionAgent:
 
 
 def sources():
-    return [dict(source='export', status='available', modes=['initial', 'incremental']),
+    return [dict(source='brightdata', status='adapter_available', live_scraping=False,
+                 requires=['BRIGHTDATA_API_KEY', 'DEAL_FINDER_BRIGHTDATA_CONFIG',
+                           'DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED'],
+                 geography='Milano city only', live_access_verified=False),
+            dict(source='export', status='available', modes=['initial', 'incremental']),
             dict(source='apify', status='adapter_available', modes=['initial', 'incremental'],
                  requires=['APIFY_API_TOKEN', 'DEAL_FINDER_COLLECTION_CONFIG'],
                  collection_schedule='configured_in_apify', live_scraping=False),
