@@ -42,6 +42,9 @@ class FakeClient:
         self.downloads += 1
         return self.rows
 
+    def snapshots(self, dataset_id, since):
+        return []
+
 
 class BrightDataTests(unittest.TestCase):
     def test_persistence_resume_no_duplicate_job_or_ads(self):
@@ -66,6 +69,8 @@ class BrightDataTests(unittest.TestCase):
                     cycle(config(), archive, client=client, free_confirmed=True)
                 result = cycle(config(), archive, client=client, free_confirmed=True)
                 self.assertEqual(result['status'], 'recovery_required')
+                self.assertTrue(result['provider_auth_verified'])
+                self.assertEqual(result['snapshot_candidates'], [])
                 self.assertEqual(start.call_count, 1)
         finally:
             archive.close()
@@ -226,3 +231,18 @@ class BrightDataTests(unittest.TestCase):
         for error in (ValueError('secret-config'), ProviderError('secret-body', phase='secret-key'), SetupError('secret-code')):
             result = paused_diagnostic(error)
             self.assertNotIn('secret', str(result))
+
+    def test_recovery_uses_only_readonly_snapshot_list(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client, 'request', return_value=[{'id': 'sd_job123'}, {'id': 's_job456'}]) as request:
+            self.assertEqual(client.snapshots(DETAIL_DATASET, NOW), ['sd_job123', 's_job456'])
+            self.assertEqual(request.call_args.args, ('/datasets/v3/snapshots',))
+            self.assertNotIn('body', request.call_args.kwargs)
+        with patch.object(client, 'request', return_value=[{'id': 'secret-invalid'}]):
+            with self.assertRaises(ProviderError):
+                client.snapshots(DETAIL_DATASET, NOW)
+
+    def test_published_short_snapshot_prefix_supported(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client, 'request', return_value={'snapshot_id': 's_job123'}):
+            self.assertEqual(client.start(config()), 's_job123')

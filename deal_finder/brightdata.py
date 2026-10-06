@@ -54,7 +54,7 @@ def paused_diagnostic(error):
     if isinstance(error, ProviderError):
         if type(error.http_status) is int and 100 <= error.http_status <= 599:
             result['http_status'] = error.http_status
-        if error.phase in ('trigger', 'progress', 'snapshot'):
+        if error.phase in ('trigger', 'progress', 'snapshot', 'snapshots'):
             result['phase'] = error.phase
     return result
 
@@ -62,6 +62,13 @@ def paused_diagnostic(error):
 def resource(value, prefix):
     if not isinstance(value, str) or not re.fullmatch(prefix + r'_[A-Za-z0-9]{1,100}', value):
         raise ValueError('Invalid Bright Data resource ID')
+    return value
+
+
+def snapshot_resource(value):
+    # Both forms appear in the provider's published API examples.
+    if not isinstance(value, str) or not re.fullmatch(r'(?:sd|s)_[A-Za-z0-9]{1,100}', value):
+        raise ValueError('Invalid Bright Data snapshot ID')
     return value
 
 
@@ -118,7 +125,7 @@ class Client:
 
     def request(self, path, *, query=None, body=None):
         # Paths are constructed only by the three methods below, never from URLs.
-        if not re.fullmatch(r'/datasets/v3/(trigger|progress/sd_[A-Za-z0-9]+|snapshot/sd_[A-Za-z0-9]+)', path):
+        if not re.fullmatch(r'/datasets/v3/(trigger|snapshots|progress/(?:sd|s)_[A-Za-z0-9]+|snapshot/(?:sd|s)_[A-Za-z0-9]+)', path):
             raise ValueError('Unsupported Bright Data API path')
         phase = path.split('/')[3]
         url = 'https://api.brightdata.com' + path
@@ -151,19 +158,37 @@ class Client:
                               body={'input': config['input'], 'limit_per_input': config['limit']})
         if not isinstance(result, dict):
             raise ProviderError('Invalid trigger response; recover snapshot manually')
-        return resource(result.get('snapshot_id'), 'sd')
+        return snapshot_resource(result.get('snapshot_id'))
 
     def progress(self, snapshot_id):
-        result = self.request('/datasets/v3/progress/' + resource(snapshot_id, 'sd'))
+        result = self.request('/datasets/v3/progress/' + snapshot_resource(snapshot_id))
         if not isinstance(result, dict) or result.get('status') not in ('starting', 'running', 'ready', 'failed'):
             raise ProviderError('Unsupported snapshot progress response')
         return result['status']
 
     def download(self, snapshot_id):
-        result = self.request('/datasets/v3/snapshot/' + resource(snapshot_id, 'sd'), query={'format': 'json'})
+        result = self.request('/datasets/v3/snapshot/' + snapshot_resource(snapshot_id), query={'format': 'json'})
         if not isinstance(result, list):
             raise ProviderError('Snapshot must be a JSON array')
         return result
+
+    def snapshots(self, dataset_id, since):
+        # Read-only recovery check, as used by Bright Data's official n8n
+        # integration. This never triggers another collection or adopts a job.
+        result = self.request('/datasets/v3/snapshots', query={
+            'dataset_id': resource(dataset_id, 'gd'), 'from_date': since, 'limit': 10})
+        if not isinstance(result, list):
+            raise ProviderError('Unsupported snapshot list response', phase='snapshots')
+        candidates = []
+        for row in result:
+            if not isinstance(row, dict):
+                raise ProviderError('Unsupported snapshot list row', phase='snapshots')
+            try:
+                identifier = snapshot_resource(row.get('id'))
+            except ValueError:
+                raise ProviderError('Unsupported snapshot list ID', phase='snapshots') from None
+            candidates.append(identifier)
+        return candidates
 
 
 def event(row, observed_at):
@@ -248,8 +273,14 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
         if saved['scope'] != scope:
             raise SetupError('cycle_configuration_changed')
         if not saved['complete']:
+            since = archive.db.execute('SELECT received_at FROM collection_pages WHERE source=? AND run_id=? AND page_id=?',
+                                       (CONTROL, control_id, 'reservation')).fetchone()[0]
+            if isinstance(since, datetime):
+                since = since.isoformat()
+            candidates = client.snapshots(config['dataset_id'], since)
             return dict(status='recovery_required', cycle_id=config['cycle_id'],
-                        reason='Trigger already reserved; inspect provider account before retrying')
+                        reason='Trigger already reserved; read-only provider check completed',
+                        provider_auth_verified=True, snapshot_candidates=candidates)
     else:
         reserved = reserve(archive, control_id, scope)
         if reserved['idempotent']:
@@ -262,7 +293,7 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
             complete=True, records=[]))
     snapshot_id = archive.db.execute('SELECT page_id FROM collection_pages WHERE source=? AND run_id=? AND complete=?',
                                     (CONTROL, control_id, True)).fetchone()[0]
-    resource(snapshot_id, 'sd')
+    snapshot_resource(snapshot_id)
     import_id = 'brightdata-' + snapshot_id
     try:
         imported = archive.run_status(SOURCE, import_id)
