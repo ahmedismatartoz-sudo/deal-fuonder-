@@ -63,7 +63,7 @@ class PriceMemory:
         return len(rows)
 
     def current(self, as_of, *, make=None, model=None, source=None):
-        cursor = ('','','')
+        cursor = ('','','0001-01-01T00:00:00+00:00')
         args = [(as_of-timedelta(days=30)).isoformat(),as_of.isoformat(),as_of.isoformat()]
         filters = ''
         for key,value in (('make',make),('model',model),('source',source)):
