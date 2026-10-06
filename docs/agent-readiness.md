@@ -52,6 +52,10 @@ di un modello sulle auto reali. Le prove pratiche vengono dopo questa revisione.
 piani di arricchimento; nessun browser o provider a pagamento è avviato.
 Il worker continua a elaborare la coda esistente. Riavvii non duplicano lotti.
 I piani superati da nuovi eventi/rimozioni non avviano ricerca.
+Le letture per arricchimento e contesto famiglia usano pagine da 100 righe:
+gli originali vengono caricati solo per il singolo lavoro. Il catalogo delle
+schede usa pagine da 50 e proiezioni JSON, evitando di caricare tutti gli input
+con i loro confronti. I limiti sono per pagina; non troncano la base.
 
 Foto/web: `OPENAI_API_KEY`, `DEAL_FINDER_VISION_MODEL` e
 `DEAL_FINDER_PHOTO_IDENTITY_ENABLED=1`.
