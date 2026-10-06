@@ -1,6 +1,4 @@
 """Coarse, provisional family prices for enrichment priority, never valuation."""
-import re
-from datetime import timedelta
 from statistics import median
 from ..models import normalize
 
@@ -17,35 +15,26 @@ def review(listing, db, as_of):
     price = listing.get('price_eur')
     if type(price) is not int or price <= 0:
         return dict(output, reason='Published acquisition amount unresolved')
-    make_field, model_field = db.json_field('make', 'e'), db.json_field('model', 'e')
-    evidence_fields = ', '.join(db.json_field(k, 'e') for k in ('title', 'description', 'fuel', 'condition'))
+    from ..price_memory import PriceMemory, amount_usable
+    memory = PriceMemory(db)
+    # Development callers may ingest directly; deployed worker builds memory
+    # before consuming jobs. Read only new raw observations, never whole families.
+    while memory.sync(as_of):
+        pass
     amounts, sources = [], []
-    cursor = ''
-    while True:
-        rows = db.execute('''SELECT source_id, observed_at, url, price_eur, price_kind, '''+evidence_fields+'''
-            FROM listing_events e WHERE source=? AND active=? AND observed_at BETWEEN ? AND ?
-            AND lower('''+make_field+''')=? AND lower('''+model_field+''')=? AND source_id>?
-            AND NOT EXISTS (SELECT 1 FROM listing_events n WHERE n.source=e.source AND n.source_id=e.source_id
-                AND n.observed_at>e.observed_at AND n.observed_at<=?) ORDER BY source_id LIMIT 100''',
-            (listing['source'], True, (as_of-timedelta(days=30)).isoformat(), as_of.isoformat(), make, model,
-             cursor, as_of.isoformat())).fetchall()
-        for source_id, observed, url, amount, kind, title, description, fuel, condition in rows:
-            cursor = source_id
-            if source_id == listing['source_id'] or kind in ('installment', 'deposit') or type(amount) is not int or amount <= 0:
-                continue
-            text = str(title or '')+' '+str(description or '')
-            if kind != 'total' and re.search(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*/\s*mese', text, re.I):
-                continue
-            # Known contradictions are not silently pooled into the family analogy.
-            if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)
-                    and listing['fuel'].strip() and fuel.strip() and normalize(listing['fuel']) != normalize(fuel)):
-                continue
-            if listing.get('condition') in ('damaged', 'undamaged') and condition in ('damaged', 'undamaged') and listing['condition'] != condition:
-                continue
-            amounts.append(amount)
-            sources.append(dict(source_id=source_id, observed_at=observed, url=url, amount_eur=amount, price_kind=kind))
-        if len(rows) < 100:
-            break
+    for p in memory.current(as_of, make=make, model=model, source=listing['source']):
+        source_id, amount = p['source_id'], p.get('price_eur')
+        if source_id == listing['source_id'] or not amount_usable(p):
+            continue
+        fuel, condition = p.get('fuel'), p.get('condition')
+        if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)
+                and listing['fuel'].strip() and fuel.strip() and normalize(listing['fuel']) != normalize(fuel)):
+            continue
+        if listing.get('condition') in ('damaged', 'undamaged') and condition in ('damaged', 'undamaged') and listing['condition'] != condition:
+            continue
+        amounts.append(amount)
+        sources.append(dict(source_id=source_id, observed_at=p['observed_at'], url=p['url'],
+                            amount_eur=amount, price_kind=p.get('price_kind')))
     output.update(sources=sources, observation_count=len(amounts),
                   unresolved_dimensions=['generation', 'trim/engine', 'year/mileage comparability', 'damage', 'total asking amount'])
     if not amounts:

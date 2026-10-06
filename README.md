@@ -2,7 +2,7 @@
 
 Software per individuare opportunità nelle auto usate in Italia. Priorità:
 precisione dei prezzi, provenienza delle evidenze e analisi riproducibili.
-Budget di selezione: **1.000–50.000 €**. Nessuna ipotesi su un'officina propria.
+Budget di acquisto: **1.000–19.999 €**. Nessuna ipotesi su un'officina propria.
 
 ## Avvio e verifiche
 
@@ -104,3 +104,27 @@ della pipeline: non usarlo per decisioni d'acquisto.
 
 Database live: [docs/live-status.md](docs/live-status.md).
 Configurazione PostgreSQL: [docs/postgres.md](docs/postgres.md).
+
+## Primo test dell’archivio e memoria prezzi
+
+`python -m deal_finder.worker first-archive-test --run-id archive-YYYYMMDD-v1`
+proietta tutta la base prima di confrontarla. Il worker aggiorna poi solo i nuovi
+eventi nella memoria compatta `price_observations`; la rimozione più recente
+annulla il vecchio prezzo. I report in `price_test_reports` sono immutabili e
+legati al momento del test. `DEAL_FINDER_FIRST_ARCHIVE_TEST` abilita lo stesso
+test nel worker: le candidature vengono accodate per completare le evidenze
+prima delle altre richieste. La coda ordinaria rimane conservata.
+
+Il primo test esclude danni dichiarati o segnalati, rate/acconti, dati senza
+anno/chilometri e località non risolte. Confronta famiglia, carburante, cambio,
+anno ±1 e chilometri ±20.000; richiede almeno otto analogie provvisorie dopo
+il collasso delle specifiche duplicate. Usa P25 ridotto del 15%, con almeno
+2.000 € di spazio lordo e 25% sul prezzo. Sono priorità di verifica: generazione,
+allestimento, prezzo totale, danni, rivendita e tutti i costi restano da attestare.
+Il rapporto non indica margini netti o acquisti approvati. Quattro fasce di
+acquisto (1–5, 5–10, 10–15, 15–20 mila euro) ricevono turni alternati, massimo
+due auto per famiglia, senza abbassare i requisiti per riempire una fascia.
+
+La ricerca ricambi richiede prima identità e lavori necessari: confronta codici,
+compatibilità, IVA, consegna, disponibilità e condizioni uniformi. Non si
+inventano ricambi o preventivi per sbloccare un’auto senza ispezione.

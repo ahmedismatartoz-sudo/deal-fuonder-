@@ -82,6 +82,13 @@ class Database:
             return self.connection.execute(sql, prepare=False)
         return self.connection.executescript(sql)
 
+    def executemany(self, sql, rows):
+        if self.dialect == 'postgres':
+            with self.connection.cursor() as cursor:
+                cursor.executemany(sql.replace('?', '%s'), rows)
+        else:
+            self.connection.executemany(sql, rows)
+
     def json_param(self, encoded):
         if self.dialect == 'postgres':
             from psycopg.types.json import Jsonb
