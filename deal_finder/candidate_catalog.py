@@ -49,8 +49,10 @@ def search(queue, *, offset=0, limit=100, as_of=None, **filters):
         if len(rows) < 50:
             break
     matches = filter_cards(cards, **filters)
-    matches.sort(key=lambda c: (c.get('potential_gross_low_cents') is not None,
-                               c.get('potential_gross_low_cents') or 0, c['observed_at']), reverse=True)
+    matches.sort(key=lambda c: (c.get('professional_policy_ready') is True,
+                               c.get('conservative_margin_low_cents') is not None,
+                               c.get('conservative_margin_low_cents') if c.get('conservative_margin_low_cents') is not None
+                               else c.get('potential_gross_low_cents') or 0, c['observed_at']), reverse=True)
     page = []
     for metadata in matches[offset:offset+limit]:
         row = queue.db.execute('SELECT '+card_field+' FROM agent_runs WHERE id=?', (metadata['_run_id'],)).fetchone()
@@ -58,4 +60,5 @@ def search(queue, *, offset=0, limit=100, as_of=None, **filters):
         page.append(dict(card, analysis_as_of=metadata['_analysis_as_of'], provisional=True, publishable=False))
     return dict(items=page, count=len(matches), offset=offset,
                 opportunities_verified=False, publication_enabled=False,
+                conservative_margin_basis='all_reviewed_costs_holding_and_combined_adverse_stress',
                 margin_basis='before_labor_and_other_costs')

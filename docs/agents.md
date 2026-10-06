@@ -1,9 +1,13 @@
 # Sette componenti e controlli interni
 
-Contratto `agent-readiness-v0.8`. GET /agents e CLI agents espongono i sette
+Contratto `professional-opportunity-v1`. GET /agents e CLI agents espongono i sette
 componenti; GET /agents elenca separatamente i controlli interni.
 La revisione, l'ordine dei passaggi, la ricerca ricambi e le connessioni sono in
 [agent-readiness.md](agent-readiness.md).
+La policy prudente, i tre nuovi sottoagenti e i dossier professionali sono in
+[professional-policy.md](professional-policy.md). Il minimo per un'opportunità
+finale è 2.000 EUR dopo i costi nello scenario prudente; i modelli calibrati
+restano necessari e le candidature non sono opportunità approvate.
 Gli esiti registrati mantengono le chiavi dei controlli precedenti e aggiungono
 `components`, così benchmark e scenari restano ispezionabili.
 

@@ -1,5 +1,10 @@
 # Base operativa degli agenti — revisione del 6 ottobre 2026
 
+Aggiornamento: [professional-policy.md](professional-policy.md) introduce
+`professional-opportunity-v1`, tre sottoagenti, compiti concreti e selezione
+prudente con minimo 2.000 EUR. I limiti di attivazione/calibrazione sotto
+rimangono applicabili; non è stato eseguito un nuovo training.
+
 Contratto `agent-readiness-v0.8`. La preparazione comprende codice, procedure e
 test di regressione: non equivale a fine-tuning, calibrazione o collaudo pratico
 di un modello sulle auto reali. Le prove pratiche vengono dopo questa revisione.

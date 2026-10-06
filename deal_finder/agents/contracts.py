@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-PIPELINE_VERSION = 'agent-readiness-v0.8'
+PIPELINE_VERSION = 'professional-opportunity-v1'
 STATUSES = {'completed', 'blocked', 'needs_review', 'quarantined', 'failed'}
 
 @dataclass(frozen=True)

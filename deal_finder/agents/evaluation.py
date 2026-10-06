@@ -45,26 +45,44 @@ class EvaluationAgent:
                 segment = row['segment']
                 if not isinstance(segment, str) or not segment.strip():
                     raise ValueError('Segment required')
+                repair_error = None
+                if any(key in row for key in ('predicted_repair_high_cents','actual_repair_cents','repair_evidence_url')):
+                    evidence(row['repair_evidence_url'])
+                    predicted_repairs=cents(row['predicted_repair_high_cents'])
+                    actual_repairs=cents(row['actual_repair_cents'])
+                    repair_error=actual_repairs-predicted_repairs
                 seen.add(vehicle)
                 accepted.append(dict(vehicle_id=vehicle, segment=segment, error=predicted-sold,
-                                     percentage=abs(predicted-sold)/sold*100, covered=low<=sold<=high))
+                                     percentage=abs(predicted-sold)/sold*100, covered=low<=sold<=high,
+                                     repair_cost_underestimate_cents=repair_error))
             except (ValueError, KeyError, TypeError) as error:
                 rejected.append({'index': index, 'reason': str(error)})
         def metrics(rows):
             errors = sorted(abs(x['error']) for x in rows)
+            overpricing = sorted(max(0,x['error']) for x in rows)
             return dict(count=len(rows), mae_cents=round(mean(errors)),
                         median_absolute_percentage_error=round(median(x['percentage'] for x in rows), 3),
                         p90_absolute_error_cents=errors[ceil(len(rows)*0.9)-1],
                         bias_cents=round(mean(x['error'] for x in rows)),
-                        interval_coverage=round(mean(x['covered'] for x in rows), 4))
+                        interval_coverage=round(mean(x['covered'] for x in rows), 4),
+                        overpricing_fraction=round(mean(x['error']>0 for x in rows),4),
+                        p90_overpricing_cents=overpricing[ceil(len(rows)*0.9)-1])
         groups = {}
         for row in accepted:
             groups.setdefault(row['segment'], []).append(row)
+        repairs=[x['repair_cost_underestimate_cents'] for x in accepted if x['repair_cost_underestimate_cents'] is not None]
+        learning = dict(overpricing_cases=[x['vehicle_id'] for x in accepted if x['error']>0],
+                        repair_underestimate_cases=[x['vehicle_id'] for x in accepted
+                            if x['repair_cost_underestimate_cents'] is not None and x['repair_cost_underestimate_cents']>0],
+                        repair_sample_count=len(repairs),
+                        mean_repair_underestimate_cents=round(mean(max(0,x) for x in repairs)) if repairs else None,
+                        automatic_policy_changes=False, independent_validation_required=True)
         return Result(self.name, 'completed' if len(accepted)>=minimum and not rejected else 'blocked', {
             'model_version': model_version, 'accepted_count': len(accepted), 'rejected': rejected,
             'metrics': metrics(accepted) if accepted else None,
             'segments': {name: dict(status='sufficient_sample' if len(rows)>=minimum else 'insufficient_sample',
                                    metrics=metrics(rows)) for name, rows in groups.items()},
             'forecast_release_approved': False,
+            'learning_review': learning,
             'verification': 'human_attestation_not_independent_certification'},
             ['Metrics require independent evidence review and explicit release thresholds before predictions can be enabled.'])

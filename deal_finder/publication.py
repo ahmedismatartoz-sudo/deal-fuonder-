@@ -1,6 +1,8 @@
 """Build a reviewable feed from completed evaluations; never infer an approval."""
 from datetime import datetime, timezone, timedelta
 from .archive import instant
+from .agents.professional import POLICY, IndependentReviewAgent
+from .models import Listing
 
 
 class PublicationAgent:
@@ -32,7 +34,7 @@ class PublicationAgent:
             reasons = []
             if result['state'] != 'done' or not run:
                 reasons.append('Analysis not completed')
-            if supervisor.get('approved') is not True or not supervisor.get('checks') or not all(supervisor['checks'].values()):
+            if supervisor.get('approved') is not True or not supervisor.get('checks') or not all(value is True for value in supervisor['checks'].values()):
                 reasons.append('Supervisor approval or required checks missing')
             if components.get('publication', {}).get('data', {}).get('publishable') is not True:
                 reasons.append('Publication gate closed')
@@ -49,8 +51,23 @@ class PublicationAgent:
             # Future forecast adapters must supply concrete, positive net estimates.
             economics = components.get('opportunity', {}).get('data', {})
             profit = economics.get('forecast_profit_cents')
-            if type(profit) is not int or profit <= 0:
-                reasons.append('Positive documented forecast profit unavailable')
+            if type(profit) is not int or profit < POLICY['minimum_margin_cents']:
+                reasons.append('Documented net forecast profit of at least 2000 EUR unavailable')
+            lower_profit = economics.get('forecast_profit_low_cents')
+            if type(lower_profit) is not int or lower_profit < POLICY['minimum_margin_cents']:
+                reasons.append('Conservative calibrated net forecast lower bound of at least 2000 EUR unavailable')
+            try:
+                outputs = run['outputs'] if run else {}
+                checked = IndependentReviewAgent().execute(
+                    raw, Listing.parse(listing), outputs.get('market', {}).get('data', {}),
+                    outputs.get('repair', {}), outputs.get('opportunity', {}), [], now)
+                if not checked['approved_for_final_checks']:
+                    reasons.extend(checked['blocking_reasons'])
+                stressed = checked['economics']['margin_low_cents']
+                if type(stressed) is not int or stressed < POLICY['minimum_margin_cents']:
+                    reasons.append('Recomputed conservative net scenario below 2000 EUR or unavailable')
+            except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
+                reasons.append('Independent conservative publication review unavailable')
             if reasons:
                 rejections.append(dict(job_id=job_id, source=key[0], source_id=key[1], reasons=reasons))
             else:

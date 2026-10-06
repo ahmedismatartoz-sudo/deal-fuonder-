@@ -82,9 +82,11 @@ class Queue(Store):
                 try:
                     if not isinstance(raw, dict):
                         raise ValueError('Record must be an object with a listing field')
-                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence', 'parts_research', 'task'}
+                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence', 'parts_research', 'professional_evidence', 'task'}
                     if set(raw) - allowed:
                         raise ValueError('Unknown envelope fields: ' + ', '.join(sorted(set(raw)-allowed)))
+                    if 'professional_evidence' in raw and not isinstance(raw['professional_evidence'], dict):
+                        raise ValueError('professional_evidence must be a reviewed evidence object')
                     if raw.get('task') == 'archive_enrichment':
                         if set(raw) != {'task', 'listing'} or not isinstance(raw['listing'], dict):
                             raise ValueError('Invalid archive enrichment envelope')
@@ -244,6 +246,13 @@ class Queue(Store):
                 row = self.db.execute('SELECT payload FROM identity_attestations WHERE source=? AND source_id=? AND observed_at=?', key).fetchone()
                 if row:
                     proofs[key] = self.db.json_decode(row[0])
+            if candidates and not job['quality_issue']:
+                from .agents.collection_audit import execute as audit_collection
+                collection_audit = audit_collection(self.db, target, candidates, as_of)
+            else:
+                collection_audit = None
+            if collection_audit is not None:
+                raw['_collection_audit'] = collection_audit
             outputs = analyze(raw, candidates, as_of, identity_evidence=proofs, source_asking_candidates=source_pool)
             # Persist the effective intake error as well as the archived benchmark
             # pool so the analysis can be reproduced independently of future data.

@@ -45,6 +45,10 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province', condi
             continue
         if not item.active or item.condition != condition or not 0 <= age <= 30:
             continue
+        if condition == 'undamaged':
+            from .agents.professional import damage_severity
+            if damage_severity({},item,now)['severity']=='severe':
+                continue
         if any(getattr(item, field) != getattr(target, field) for field in MATCH_FIELDS if scope != 'national' or field != 'province'):
             continue
         year_gap = abs(item.year - target.year)
@@ -60,7 +64,10 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province', condi
         weight = 1 / (1 + year_gap + km_gap / 20_000 + age / 30)
         selected.append((item, weight))
     comparables = [dict(source=x.source, source_id=x.source_id, url=x.url,
-                        price_eur=x.price_eur, province=x.province, weight=round(w, 6), observed_at=x.observed_at)
+                        price_eur=x.price_eur, province=x.province, weight=round(w, 6), observed_at=x.observed_at,
+                        specifications={key: getattr(x, key) for key in ('make', 'model', 'generation', 'trim', 'fuel', 'transmission', 'year')},
+                        mileage_km=x.mileage_km, seller_type=x.seller_type,
+                        inclusion_reason='Matching variant/seller/condition; year within 1 and mileage within 20000 km')
                    for x, w in selected]
     result = dict(status='insufficient_data', basis='asking_prices',
                   model_version='asking-comparables-v0.3', comparable_condition=condition, geographic_scope=scope, comparable_count=len(selected),

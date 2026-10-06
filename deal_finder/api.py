@@ -102,9 +102,11 @@ class EvaluationRequest(BaseModel):
 @app.get('/agents')
 def agents():
     from .agent_runtime import connections
+    from .agents.professional import POLICY, registry as professional_tasks
     return {'pipeline_version': PIPELINE_VERSION, 'agents': registry(), 'controls': control_registry(),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
             'connections': connections(),
+            'professional_policy': POLICY, 'professional_tasks': professional_tasks(),
             'forecast_enabled': False}
 
 @app.post('/batches', status_code=202)
@@ -219,11 +221,15 @@ def market_candidates(city: str | None = None, province: str | None = None,
 def candidate_cards(make: str | None = None, model: str | None = None, province: str | None = None,
                     min_price_eur: int | None = None, max_price_eur: int | None = None,
                     min_mileage_km: int | None = None, max_mileage_km: int | None = None,
-                    min_potential_gross_low_cents: int | None = None, offset: int = 0, limit: int = 100):
+                    min_potential_gross_low_cents: int | None = None,
+                    min_conservative_margin_low_cents: int | None = None,
+                    severe_controls_required: bool | None = None,
+                    professional_policy_ready: bool | None = None, offset: int = 0, limit: int = 100):
     from .candidate_catalog import search
     from .models import normalize
     filters = {k: v for k, v in locals().items() if k in ('make', 'model', 'province', 'min_price_eur',
-               'max_price_eur', 'min_mileage_km', 'max_mileage_km', 'min_potential_gross_low_cents') and v is not None}
+               'max_price_eur', 'min_mileage_km', 'max_mileage_km', 'min_potential_gross_low_cents',
+               'min_conservative_margin_low_cents', 'severe_controls_required', 'professional_policy_ready') and v is not None}
     queue = Queue(database_target())
     try:
         for key in ('make', 'model', 'province'):
@@ -340,7 +346,7 @@ def promote_listing(source: str, source_id: str, request: dict):
     archive = Archive(database_target())
     queue = None
     try:
-        allowed = {'batch_id', 'identity_evidence', 'inspection', 'repair_quotes', 'operating_costs', 'parts_research'}
+        allowed = {'batch_id', 'identity_evidence', 'inspection', 'repair_quotes', 'operating_costs', 'parts_research', 'professional_evidence'}
         if set(request) - allowed:
             raise ValueError('Unexpected promotion fields')
         envelope = archive.normalized_envelope(source, source_id)
