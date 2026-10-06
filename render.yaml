@@ -23,6 +23,8 @@ services:
     dockerCommand: python -m deal_finder.worker run --poll-seconds 2
     maxShutdownDelaySeconds: 300
     envVars:
+      - key: DEAL_FINDER_AGENT_SCHEDULER_ENABLED
+        value: "1"
       - key: DEAL_FINDER_MODE
         value: production
       - key: DEAL_FINDER_DATABASE_URL

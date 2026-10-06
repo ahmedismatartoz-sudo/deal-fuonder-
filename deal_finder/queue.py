@@ -82,19 +82,37 @@ class Queue(Store):
                 try:
                     if not isinstance(raw, dict):
                         raise ValueError('Record must be an object with a listing field')
-                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence', 'parts_research'}
+                    allowed = {'listing', 'inspection', 'repair_quotes', 'operating_costs', 'identity_evidence', 'parts_research', 'task'}
                     if set(raw) - allowed:
                         raise ValueError('Unknown envelope fields: ' + ', '.join(sorted(set(raw)-allowed)))
-                    listing = Listing.parse(raw['listing'])
-                    with self.db.savepoint():
-                        self.snapshot(listing)
-                        proof = raw.get('identity_evidence')
-                        if proof is not None:
-                            encoded = canonical(proof)
-                            self.db.execute('INSERT INTO identity_attestations VALUES (?, ?, ?, ?) ON CONFLICT(source, source_id, observed_at) DO NOTHING', (*listing.identity, listing.observed_at, self.db.json_param(encoded)))
-                            old_proof = self.db.execute('SELECT payload FROM identity_attestations WHERE source=? AND source_id=? AND observed_at=?', (*listing.identity, listing.observed_at)).fetchone()
-                            if self.db.json_decode(old_proof[0]) != proof:
-                                raise ValueError('Conflicting immutable identity attestation')
+                    if raw.get('task') == 'archive_enrichment':
+                        if set(raw) != {'task', 'listing'} or not isinstance(raw['listing'], dict):
+                            raise ValueError('Invalid archive enrichment envelope')
+                        from .agents.enrichment import listing_input
+                        value = raw['listing']
+                        exists = (self.db.execute("SELECT to_regclass('deal_finder.listing_events')").fetchone()[0]
+                                  if self.db.dialect == 'postgres' else self.db.execute(
+                                      "SELECT name FROM sqlite_master WHERE type='table' AND name='listing_events'").fetchone())
+                        if not exists:
+                            raise ValueError('Archive is required for enrichment')
+                        saved = self.db.execute('SELECT url, payload FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
+                            (value['source'], value['source_id'], value['observed_at'])).fetchone()
+                        if saved is None or value != listing_input(value['source'], value['source_id'], value['observed_at'],
+                                                                  saved[0], self.db.json_decode(saved[1])):
+                            raise ValueError('Enrichment must match an immutable source observation')
+                    elif 'task' in raw:
+                        raise ValueError('Unsupported task')
+                    else:
+                        listing = Listing.parse(raw['listing'])
+                        with self.db.savepoint():
+                            self.snapshot(listing)
+                            proof = raw.get('identity_evidence')
+                            if proof is not None:
+                                encoded = canonical(proof)
+                                self.db.execute('INSERT INTO identity_attestations VALUES (?, ?, ?, ?) ON CONFLICT(source, source_id, observed_at) DO NOTHING', (*listing.identity, listing.observed_at, self.db.json_param(encoded)))
+                                old_proof = self.db.execute('SELECT payload FROM identity_attestations WHERE source=? AND source_id=? AND observed_at=?', (*listing.identity, listing.observed_at)).fetchone()
+                                if self.db.json_decode(old_proof[0]) != proof:
+                                    raise ValueError('Conflicting immutable identity attestation')
                 except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
                     issue = str(error)
                 raw_id = self.db.insert_id('INSERT INTO raw_records(batch_id, ordinal, payload, quality_issue) VALUES (?, ?, ?, ?)',
@@ -196,6 +214,11 @@ class Queue(Store):
             raw = dict(job['raw']) if isinstance(job['raw'], dict) else {'listing': job['raw']}
             if job['quality_issue']:
                 raw['_intake_error'] = job['quality_issue']
+            if raw.get('task') == 'archive_enrichment' and not job['quality_issue']:
+                from .agents.enrichment import execute
+                outputs = execute(raw, self.db, as_of)
+                self.finish(job, as_of, [], outputs)
+                return dict(job_id=job['id'], state='done', analysis=outputs['validation']['data'])
             candidates = []
             source_pool = None
             if not job['quality_issue']:

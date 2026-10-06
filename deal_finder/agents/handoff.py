@@ -1,6 +1,7 @@
 """Parts-only handoff and searchable candidate cards; never net-profit claims."""
 from ..repair_research import estimate_parts
 from ..models import normalize
+from .contracts import verified_identity
 
 FILTER_FIELDS = ('make', 'model', 'generation', 'price_eur', 'mileage_km', 'year', 'fuel',
                  'transmission', 'province', 'seller_type', 'condition', 'route',
@@ -20,13 +21,34 @@ def parts_handoff(raw, target, selected, as_of):
         return result
     try:
         vehicle = request['vehicle']
-        if vehicle.get('vehicle_id') != target.vehicle_id or not target.vehicle_id:
-            raise ValueError('Parts research must identify the same vehicle')
+        # A source snapshot reference supports provisional research without
+        # pretending that an ad ID is a verified physical vehicle identity.
+        source_match = (vehicle.get('source') == target.source and vehicle.get('source_id') == target.source_id
+                        and vehicle.get('observed_at') == target.observed_at)
+        vehicle_match = target.vehicle_id and vehicle.get('vehicle_id') == target.vehicle_id
+        if not source_match and not vehicle_match:
+            raise ValueError('Parts research must identify the same vehicle or immutable source snapshot')
         for key in ('make', 'model', 'generation'):
             if normalize(vehicle[key]) != getattr(target, key):
                 raise ValueError('Parts research vehicle specification conflict: ' + key)
         if vehicle['year'] != target.year or normalize(vehicle['gearbox']) != target.transmission:
             raise ValueError('Parts research year or gearbox mismatch')
+        if vehicle.get('trim') is not None and normalize(vehicle['trim']) != target.trim:
+            raise ValueError('Parts research trim mismatch')
+        if vehicle.get('fuel') is not None and normalize(vehicle['fuel']) != target.fuel:
+            raise ValueError('Parts research fuel mismatch')
+        # Research never grants itself a human identity attestation.
+        if not verified_identity(raw.get('identity_evidence'), target, as_of):
+            request = dict(request, parts=[dict(p, identity_confirmed=False) for p in request.get('parts', [])])
+        if raw.get('parts_research', {}).get('web_search') is True:
+            from ..parts_web import execute
+            researched = execute(request, as_of=as_of)
+            result['research'] = researched
+            if researched['status'] != 'provisional':
+                result.update(status=researched['status'], reasons=[researched.get('reason', 'Await web price evidence')])
+                return result
+            result.update(status='provisional', data=dict(researched['estimate'], search_adapter_connected=True))
+            return result
         value = estimate_parts(request, as_of=as_of.isoformat())
         result.update(status='provisional', data=dict(value, search_adapter_connected=False))
     except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:

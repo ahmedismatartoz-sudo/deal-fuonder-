@@ -21,25 +21,40 @@ COMPONENTS = (
 
 
 def registry():
+    parts_roles = [dict(name=name, version=PIPELINE_VERSION, purpose=purpose) for name, purpose in (
+        ('damage_scope', 'Separate diagnosed repairs from parts hypotheses and hidden-damage questions.'),
+        ('parts_fitment', 'Check codes, variant, side, dimensions and required kit contents.'),
+        ('parts_web_research', 'Search supplier and manufacturer pages with cited observations and bounded provider requests.'),
+        ('parts_basket', 'Normalize pack quantities, seller aliases, observed prices and known delivery/deposit charges.'),
+        ('operation_hours', 'Report sourced time ranges separately, without a labor price or blind summation.'))]
     return [dict(name=name, version=PIPELINE_VERSION, requires=list(requires),
                  mode='collection' if name == 'collection' else 'analysis', purpose=purpose,
-                 subagents=expert_registry()+[dict(name='photo_web_identity', version=PIPELINE_VERSION, purpose='Combine photos, ad and web references; expose uncertain variants')] if name == 'market_selection' else [])
+                 subagents=(expert_registry()+[
+                     dict(name='family_price_triage', version=PIPELINE_VERSION, purpose='Prioritize incomplete source observations using provisional family amounts.'),
+                     dict(name='archive_enrichment', version=PIPELINE_VERSION, purpose='Persist missing-field plans before exact price selection.'),
+                     dict(name='photo_web_identity', version=PIPELINE_VERSION, purpose='Combine photos, ad and web references; expose uncertain variants')]
+                     if name == 'market_selection' else parts_roles if name == 'repairs' else []))
             for name, requires, purpose in COMPONENTS]
 
 
 def analyze(raw, candidates, as_of, **kwargs):
-    out = controls(raw, candidates, as_of, **kwargs)
+    photo = {}
+    def before_checks(ctx):
+        selected = selection_decision(ctx.target, ctx.results.get('market'))['candidate']
+        if selected and os.getenv('DEAL_FINDER_PHOTO_IDENTITY_ENABLED') == '1':
+            photo.update(identify_photos(raw, as_of))
+        else:
+            photo.update(status='waiting' if selected else 'blocked',
+                         reason='Photo/web identification requires selected candidate and configured adapter',
+                         identity_attestation=False, exact_part_fitment_confirmed=False)
+        return ['Resolve photo/listing specification conflicts before further checks'] if photo.get('conflicting_fields') else []
+    out = controls(raw, candidates, as_of, before_checks=before_checks, **kwargs)
     quality = out['quality']
     target = Listing.parse(quality['data']['listing']) if quality['status'] == 'completed' else None
     market = out['market']
     decision = selection_decision(target, Result('market', market['status'], market['data'], market['reasons']))
     selected = decision['candidate']
-    if selected and os.getenv('DEAL_FINDER_PHOTO_IDENTITY_ENABLED') == '1':
-        out['photo_identity'] = identify_photos(raw, as_of)
-    else:
-        out['photo_identity'] = dict(status='waiting' if selected else 'blocked',
-                                    reason='Photo/web identification requires selected candidate and configured adapter',
-                                    identity_attestation=False, exact_part_fitment_confirmed=False)
+    out['photo_identity'] = photo
     photo_conflicts = out['photo_identity'].get('conflicting_fields', [])
     if photo_conflicts:
         selected = False
@@ -74,10 +89,14 @@ def analyze(raw, candidates, as_of, **kwargs):
     pool = kwargs.get('source_asking_candidates')
     pool = candidates if pool is None else pool
     out['market_experts'] = review(target, pool, as_of, decision)
+    from .damage_scope import execute as damage_scope
+    out['damage_scope'] = damage_scope(raw, selected, out['condition'])
     parts = parts_handoff(raw, target, selected, as_of)
     out['parts_research'] = parts
     out['candidate_card'] = card(target, decision, market['data'], parts)
     out['handoff'] = dict(route=decision['route'], tasks=out['market_experts']['next_tasks'],
+                          ordered_stages=['source_quality', 'market_selection', 'vehicle_identity', 'damage_scope',
+                                          'parts_prices', 'operation_hours', 'other_costs', 'supervisor', 'publication'],
                           filter_fields=list(FILTER_FIELDS), shared_archive_required=True,
                           price_lookup_policy='free_only', paid_lookup_enabled=False)
     out['components'] = components

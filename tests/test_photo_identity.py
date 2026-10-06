@@ -110,3 +110,11 @@ class PhotoTests(unittest.TestCase):
     def test_private_photo_and_non_https_urls_rejected(self):
         for url in ('https://127.0.0.1/a','https://localhost/a','http://example.com/a','https://user:pass@example.com/a'):
             with self.assertRaises(ValueError): public_url(url)
+
+    def test_invalid_credential_is_not_sent_or_disclosed(self):
+        secret='synthetic-key\nprivate-value'
+        with patch.dict('os.environ',OPENAI_API_KEY=secret,DEAL_FINDER_VISION_MODEL='chosen',DEAL_FINDER_PHOTO_IDENTITY_ENABLED='1'):
+            with patch('deal_finder.agents.photo_identity.build_opener',side_effect=AssertionError('No request')):
+                value=research(plan(raw()))
+        self.assertEqual(value['status'],'configuration_required')
+        self.assertNotIn(secret,str(value))

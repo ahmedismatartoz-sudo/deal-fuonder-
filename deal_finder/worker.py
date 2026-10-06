@@ -214,6 +214,9 @@ def main():
             from .bootstrap import Bootstrap, bootstrap_config
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
+            from .agent_runtime import BackgroundScreening
+            screening = (BackgroundScreening(args.db)
+                         if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             brightdata = None
             campaign_raw = os.getenv('DEAL_FINDER_BRIGHTDATA_CAMPAIGN')
             if campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
@@ -235,6 +238,12 @@ def main():
                 while not stopping and (args.max_jobs == 0 or processed < args.max_jobs):
                     if brightdata:
                         progress = brightdata.step()
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if stopping:
+                            break
+                    if screening:
+                        progress = screening.step()
                         if progress:
                             print(json.dumps(progress), flush=True)
                         if stopping:
