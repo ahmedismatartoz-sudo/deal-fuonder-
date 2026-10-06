@@ -158,6 +158,21 @@ class MarketTests(unittest.TestCase):
         self.assertEqual(outputs['quality']['status'],'quarantined')
         self.assertFalse(outputs['components']['supervisor']['data']['approved'])
 
+    def test_collection_between_screening_and_analysis_refreshes_comparables(self):
+        self.base()
+        self.ingest([complete('cheap', price_eur=7000)], run='cheap')
+        self.scan()
+        self.ingest([complete('new-comparable', observed_at=NOW.isoformat())], run='concurrent')
+        self.assertEqual(self.market.status()['unprojected_events'], 1)
+        with patch('deal_finder.queue.now_iso', return_value=NOW.isoformat()):
+            processed = self.queue.work_one()
+        self.assertEqual(processed['state'], 'done')
+        outputs = self.queue.result(processed['job_id'])['run']['outputs']
+        self.assertEqual(outputs['components']['market_selection']['status'], 'completed')
+        self.assertEqual(outputs['market']['data']['comparable_count'], 9)
+        self.assertEqual(self.market.status()['unprojected_events'], 0)
+        self.assertFalse(outputs['components']['supervisor']['data']['approved'])
+
     def test_new_data_reconsiders_previously_insufficient_cohort(self):
         self.ingest([complete(i) for i in range(7)] + [complete('cheap', price_eur=7000)])
         self.scan()
