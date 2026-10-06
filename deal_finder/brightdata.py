@@ -13,6 +13,7 @@ from urllib.parse import urlsplit, urlencode
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
 from .archive import canonical
+from .vehicle_searches import title_identity
 
 SOURCE = 'facebook_marketplace'
 CONTROL = 'brightdata_control'
@@ -204,18 +205,17 @@ def event(row, observed_at):
     car_categories = {'cars', 'cars & trucks', 'cars and trucks', 'auto', 'automobili', 'auto e furgoni'}
     category_verified = any(isinstance(x, str) and x.strip().casefold() in car_categories for x in labels)
     vehicle_basis = 'provider_car_category'
+    identity = title_identity(row.get('title'))
     if not category_verified:
         # The observed provider output omits breadcrumbs even for cars. Use
         # conservative model/title + automobile-field evidence; never infer
         # a car from the discovery URL, a price or a title alone.
         title = row.get('title', '')
         description = row.get('description') or ''
-        model = re.fullmatch(r'(19\d{2}|20\d{2}) (?:Fiat (?:500[XL]?|Panda|Punto|Tipo)|Audi (?:A[1-8]|Q[2-8])|BMW (?:[1-8]\d{2}[a-z]*|(?:BMW )?SERIE [1-8](?: [A-Za-z0-9]+)?))',
-                             title, re.IGNORECASE) if isinstance(title, str) else None
         parts_or_other_vehicle = re.search(r'\b(?:ricambi|motore in vendita|vendo motore|smembro|monopattino|scooter|motocicletta)\b',
                                           description, re.IGNORECASE) if isinstance(description, str) else True
         miles = row.get('car_miles')
-        if (not model or int(model.group(1)) > datetime.now(timezone.utc).year + 1
+        if (not identity or identity['model_year_from_title'] > datetime.now(timezone.utc).year + 1
                 or type(miles) not in (int, float) or not 0 <= miles <= 2_000_000
                 or row.get('transmission') not in ('MANUAL', 'AUTOMATIC')
                 or row.get('condition') not in ('USED', 'NEW') or parts_or_other_vehicle):
@@ -249,6 +249,17 @@ def event(row, observed_at):
                    description=description, price_eur=int(amount), price_kind='unknown',
                    adapter=VERSION, original=row, location_basis='provider_published_country_and_city')
     payload['vehicle_type_basis'] = vehicle_basis
+    if identity:
+        payload.update(identity)
+        payload['identity_basis'] = 'published_title_model_family'
+        payload['identity_status'] = 'exact_variant_unverified'
+    # Resolve provider mileage units only when published km evidence agrees.
+    if type(row.get('car_miles')) in (int, float):
+        km_values = {int(re.sub(r'[ .]', '', x)) for x in re.findall(
+            r'(?<!\d)(\d{1,3}(?:[ .]\d{3})+|\d{4,7})\s*(?:km|chilometri)\b', description, re.IGNORECASE)}
+        if len(km_values) == 1 and row['car_miles'] in km_values:
+            payload['mileage_km'] = int(row['car_miles'])
+            payload['mileage_basis'] = 'published_km_matches_provider_vehicle_field'
     images = row.get('images') or []
     if not isinstance(images, list) or len(images) > 1000:
         raise ValueError('Unsupported images')
@@ -261,8 +272,8 @@ def event(row, observed_at):
     for source, key in (('brand', 'make'), ('transmission', 'transmission')):
         if isinstance(row.get(source), str) and row[source].strip():
             payload[key] = row[source]
-    # car_miles has no verified unit for Italian output; original evidence kept.
-    # Neither year, model, trim, condition nor total cash price is guessed.
+    # Uncorroborated car_miles retains unknown units. A model family/year
+    # copied from a title does not establish an exact variant or registration.
     return dict(source_id=identifier, url=url, observed_at=observed_at,
                 active=not row['is_sold'], payload=payload)
 
@@ -346,7 +357,7 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
 def revalidate_quarantine(archive, snapshot_id):
     snapshot_resource(snapshot_id)
     origin_run = 'brightdata-' + snapshot_id
-    replay_run = 'brightdata-revalidate-v1-' + snapshot_id
+    replay_run = 'brightdata-revalidate-v2-' + snapshot_id
     try:
         return archive.run_status(SOURCE, replay_run)
     except KeyError:
@@ -365,12 +376,15 @@ def revalidate_quarantine(archive, snapshot_id):
                                        (SOURCE, origin_run)).fetchall():
         envelope = archive.db.json_decode(stored)
         try:
-            records.append(event(envelope['payload']['original'], observed_at))
+            record = event(envelope['payload']['original'], observed_at)
+            if not archive.db.execute('SELECT 1 FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
+                                      (SOURCE, record['source_id'], observed_at)).fetchone():
+                records.append(record)
         except (ValueError, TypeError, KeyError):
             continue
     return archive.ingest(dict(source=SOURCE, run_id=replay_run, page_id='revalidated', mode='initial',
         scope=dict(country='IT', city='Milano', origin_run=origin_run, snapshot_id=snapshot_id,
-                   validation_revision='vehicle-fields-v1', market_coverage_verified=False),
+                   validation_revision='model-family-v2', market_coverage_verified=False),
         input_cursor=None, next_cursor=None, complete=True, records=records))
 
 

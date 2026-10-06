@@ -277,3 +277,16 @@ class BrightDataTests(unittest.TestCase):
             self.assertEqual(archive.run_status(SOURCE, 'brightdata-sd_test123')['quarantined'], 2)
         finally:
             archive.close()
+
+    def test_model_family_and_km_require_published_evidence(self):
+        row = car(); row.update(title='2014 Fiat 500', description='100000 km, revisionata',
+                                car_miles=100000, breadcrumbs=None, transmission='MANUAL', condition='USED')
+        payload = event(row, NOW)['payload']
+        self.assertEqual((payload['make'], payload['model'], payload['mileage_km']), ('Fiat', '500', 100000))
+        self.assertEqual(payload['identity_status'], 'exact_variant_unverified')
+        row['description'] = '50000 km'
+        self.assertNotIn('mileage_km', event(row, NOW)['payload'])
+        row.update(title='2018 Mercedes-Benz c 220 d 4matic cabrio')
+        self.assertEqual(event(row, NOW)['payload']['model'], 'Classe C')
+        row.update(title='2016 Fiat Fiat+500 ')
+        self.assertEqual(event(row, NOW)['payload']['model'], '500')
