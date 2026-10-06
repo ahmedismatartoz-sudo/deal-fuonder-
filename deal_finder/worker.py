@@ -215,10 +215,15 @@ def main():
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
             brightdata = None
-            if os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
+            campaign_raw = os.getenv('DEAL_FINDER_BRIGHTDATA_CAMPAIGN')
+            if campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
                 from .brightdata import BackgroundCollection
                 try:
-                    brightdata = BackgroundCollection(args.db, json.loads(os.environ['DEAL_FINDER_BRIGHTDATA_CONFIG']))
+                    if campaign_raw:
+                        from .brightdata_campaign import BackgroundCampaign
+                        brightdata = BackgroundCampaign(args.db, json.loads(campaign_raw))
+                    else:
+                        brightdata = BackgroundCollection(args.db, json.loads(os.environ['DEAL_FINDER_BRIGHTDATA_CONFIG']))
                 except (ValueError, TypeError):
                     print(json.dumps({'brightdata': 'paused', 'error_code': 'backend_configuration_invalid', 'reason': 'Invalid backend collection configuration'}), flush=True)
             stopping = False

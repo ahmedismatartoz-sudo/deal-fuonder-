@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 from deal_finder.archive import Archive
 from deal_finder.brightdata import (Client, ProviderError, cycle, event, validate_config,
                                    BackgroundCollection, DETAIL_DATASET, FREE_CONFIRMATION,
-                                   SetupError, paused_diagnostic, revalidate_quarantine)
+                                   SetupError, paused_diagnostic, revalidate_quarantine, ProviderNotReady)
 
 NOW = datetime.now(timezone.utc).isoformat()
 URL = 'https://www.facebook.com/marketplace/item/123/'
@@ -275,5 +275,33 @@ class BrightDataTests(unittest.TestCase):
             self.assertEqual(len(archive.history(SOURCE := 'facebook_marketplace', '123')), 1)
             self.assertEqual(client.starts, 1)
             self.assertEqual(archive.run_status(SOURCE, 'brightdata-sd_test123')['quarantined'], 2)
+        finally:
+            archive.close()
+
+    def test_model_family_and_km_require_published_evidence(self):
+        row = car(); row.update(title='2014 Fiat 500', description='100000 km, revisionata',
+                                car_miles=100000, breadcrumbs=None, transmission='MANUAL', condition='USED')
+        payload = event(row, NOW)['payload']
+        self.assertEqual((payload['make'], payload['model'], payload['mileage_km']), ('Fiat', '500', 100000))
+        self.assertEqual(payload['identity_status'], 'exact_variant_unverified')
+        row['description'] = '50000 km'
+        self.assertNotIn('mileage_km', event(row, NOW)['payload'])
+        row.update(title='2018 Mercedes-Benz c 220 d 4matic cabrio')
+        self.assertEqual(event(row, NOW)['payload']['model'], 'Classe C')
+        row.update(title='2016 Fiat Fiat+500 ')
+        self.assertEqual(event(row, NOW)['payload']['model'], '500')
+
+    def test_snapshot_202_keeps_polling_without_another_trigger(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client.opener, 'open') as request:
+            request.return_value.__enter__.return_value.status = 202
+            with self.assertRaises(ProviderNotReady):
+                client.download('sd_test123')
+        archive = Archive(':memory:'); fake = FakeClient(); fake.state = 'ready'
+        try:
+            with patch.object(fake, 'download', side_effect=ProviderNotReady('building')):
+                self.assertEqual(cycle(config(), archive, client=fake, free_confirmed=True)['status'], 'running')
+            self.assertEqual(cycle(config(), archive, client=fake, free_confirmed=True)['status'], 'complete')
+            self.assertEqual(fake.starts, 1)
         finally:
             archive.close()

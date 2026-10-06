@@ -2,7 +2,10 @@
 
 Backend integration, disabled by default. No local browser, Facebook login or
 cookie export is used. An API key and verified provider configuration are
-still required; no live Facebook collection has been started.
+still required. On 2026-10-06 a live 10-record generic trial and a 20-record
+targeted Fiat 500 search completed and were saved in the private archive.
+The first targeted search accepted 6/20 records under the validator deployed
+at the time. This is a small connectivity/yield check, not market accuracy.
 
 ## Free tier
 
@@ -25,12 +28,10 @@ GitHub/frontend/chat. Set `DEAL_FINDER_BRIGHTDATA_FREE_ACCOUNT_CONFIRMED` to
 has no automatic recharge. The detailed Marketplace dataset ID is verified:
 `gd_lvt9iwuh6fbcwmx1a`, with inputs `[{"url": ".../marketplace/item/ID/"}]`.
 
-For discovery, copy the dataset ID, discover_by and input fields from the
-provider's Facebook Marketplace discovery API example. The public JSON input
-catalogue could not be retrieved in this workspace, so no discovery ID or
-input schema has been guessed. Confirm the actual schema with an account
-before setting `schema_verified=true`. The importer uses the documented
-Marketplace output fields; alternative discovery output needs verification.
+The user's provider UI verified Marketplace URL discovery with the same
+dataset ID, discover_by=url and input fields url/country. A live URL discovery
+request succeeded. Keyword discovery has not been verified and is not used
+by this campaign. Future schema changes require verification before enabling.
 
 Configuration fields:
 - cycle_id: stable identifier, reused on every restart for this collection
@@ -56,7 +57,8 @@ If the POST's outcome is uncertain, it is not repeated: inspect Bright Data
 and reconcile the snapshot before re-enabling a new cycle. Provider metadata
 is stored under source=brightdata_control with zero listing records.
 
-Only country_code=IT, explicit Milano/Milan city, verified car breadcrumb,
+Only country_code=IT, explicit Milano/Milan city, car breadcrumb or conservative
+known model-family title with corroborating provider vehicle fields,
 EUR numeric asking amount strictly below 20,000, matching item ID/URL and
 is_sold=false are accepted. A provider search cap must also be set in the
 verified discovery input: post-filtering cannot prevent credits consumed by
@@ -65,16 +67,19 @@ usable catalogue, retaining raw evidence in private quarantine.
 Other rows and provider errors go to private quarantine for later enrichment.
 No inference from search location. Nearby cities are excluded. Descriptions,
 all supplied photo URLs and original output are retained. Images are links,
-not downloaded copies. car_miles units, model, year, trim, condition and total
-cash price are not invented. Asking amount stays price_kind=unknown, so these
+not downloaded copies. Model family and model year copied from the published
+title remain coarse evidence, never an exact variant or registration year.
+car_miles stays unit-unknown unless explicit published km evidence agrees.
+Trim, condition verification and total cash price are not invented.
+Asking amount stays price_kind=unknown, so these
 records are archived but not asserted ready for market valuation.
 
 Synthetic tests cover provider contract and persistence, not real Marketplace
 accuracy or discovery compatibility. Full catalogue coverage is never claimed.
 
-## Required market sample distribution (pending discovery verification)
+## Market sample coverage
 
-Use separate reviewed search batches across price ranges [1,5000),
+Use separate reviewed search batches across price ranges [500,5000),
 [5000,10000), [10000,15000), [15000,20000), with explicit EUR and Milano.
 Within these distribute across mileage ranges 0–50,000, 50,001–100,000,
 100,001–150,000 and above 150,000 km, and different brands, models and years.
@@ -83,6 +88,49 @@ unknown mileage must remain unknown and its coverage must be reported.
 Do not claim representativeness or mark a batch complete because it reached
 a record quota: report unique vehicles per price/make/model/mileage group and
 identify missing groups. A 10-record connectivity trial checks the pipeline;
-it is not a sufficiently distributed market-price training set. No search
-matrix or scheduled batches are activated until the actual provider discovery
-schema and its filter capabilities have been verified in the user's account.
+it is not a sufficiently distributed market-price training set. Targeted URL
+searches work in the live pilot, but geographic radius is not an enforced
+guarantee: published listing location remains the acceptance gate.
+
+## Autonomous initial campaign
+
+Opt in with `DEAL_FINDER_BRIGHTDATA_CAMPAIGN` on the existing worker:
+
+```json
+{"campaign_id":"milano-20261006-base-5k-v1","credit_ceiling":5000,"batch_limit":40,"plan_version":"milano-diverse-v1"}
+```
+
+This takes precedence over the fixed trial config. Reuse the campaign ID on
+every restart. The durable cursor, allocations, provider IDs, counts and stop
+reasons live in the existing private archive; no local/browser session is
+needed and no daily repeating schedule is enabled.
+
+The plan rotates 21 brands, known model families and four asking-price bands
+below EUR 20,000. About 80% of searches collect comparables; 20% add urgency,
+private-sale or repair keywords. These keywords are leads, not verified facts.
+Provider price/radius filters are hints checked against actual returned data.
+Do not buy an advertised opportunity solely because a search term matched.
+
+The monthly connector ledger counts all returned rows, including quarantined
+or repeated ads, and holds the full request cap for unresolved triggers. Known
+completed short batches release unused cap. Trials and earlier connector
+campaigns count toward the same 5,000 ceiling. Unknown prior trigger outcomes
+remain conservatively reserved. This cannot see other products' credit usage;
+the confirmed unfunded account's external hard stop is still required.
+
+Only one async collection is in flight. Each search URL is scheduled once.
+After five nonempty batches produce no new valid car IDs, pause rather than
+spend the remaining credits on duplicates/out-of-scope results. Also stop at
+the ceiling, plan exhaustion, account/API failure or an uncertain trigger.
+Temporary failures of progress/download GETs retry at most three times, with
+the retry counter saved across restarts; trigger POSTs never retry. A download
+HTTP 202 returns to polling rather than treating an unfinished snapshot as a
+terminal failure. Completed snapshots are persisted before advancing; restarts do not repost
+reserved triggers. Creating another campaign ID does not reset the ledger.
+
+Report provider rows and accepted unique cars separately. 5,000 credits is
+not a promise of 5,000 unique Milano cars or any financial return. Preserve
+all original records, descriptions and photo URLs, including excluded records
+in private quarantine. Market/repair agents must resolve variant, mileage,
+asking-price ambiguity, repair parts, resale evidence and selling costs before
+publishing a margin. Photos remain links, not durable downloaded image files.
