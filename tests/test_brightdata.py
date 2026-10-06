@@ -96,6 +96,26 @@ class BrightDataTests(unittest.TestCase):
         self.assertNotIn('mileage_km', result['payload'])
         self.assertEqual(result['payload']['price_kind'], 'unknown')
 
+    def test_milano_price_cap_and_unsold_only(self):
+        for change in ({'initial_price': 20000}, {'final_price': 23000}, {'is_sold': True}):
+            row = car(); row.update(change)
+            with self.assertRaises(ValueError):
+                event(row, NOW)
+        row = car(); row['initial_price'] = 19999
+        self.assertEqual(event(row, NOW)['payload']['price_eur'], 19999)
+
+    def test_over_budget_and_sold_rows_quarantined(self):
+        archive = Archive(':memory:'); client = FakeClient(); client.state = 'ready'
+        expensive = car(); expensive['initial_price'] = 20000
+        sold = car(); sold['is_sold'] = True
+        client.rows = [car(), expensive, sold]
+        try:
+            result = cycle(config(), archive, client=client, free_confirmed=True)
+            self.assertEqual(result['collection']['accepted'], 1)
+            self.assertEqual(result['collection']['quarantined'], 2)
+        finally:
+            archive.close()
+
     def test_total_limit_enforced(self):
         archive = Archive(':memory:'); client = FakeClient(); client.state = 'ready'; client.rows *= 11
         try:

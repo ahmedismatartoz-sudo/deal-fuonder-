@@ -16,7 +16,8 @@ from .archive import canonical
 
 SOURCE = 'facebook_marketplace'
 CONTROL = 'brightdata_control'
-VERSION = 'brightdata-facebook-milano-v1'
+VERSION = 'brightdata-facebook-milano-v2'
+MAX_PRICE_EXCLUSIVE_EUR = 20_000
 DETAIL_DATASET = 'gd_lvt9iwuh6fbcwmx1a'
 FREE_CONFIRMATION = 'unfunded-no-auto-recharge'
 
@@ -158,8 +159,12 @@ def event(row, observed_at):
             raise ValueError('Invalid EUR price')
     except InvalidOperation:
         raise ValueError('Invalid EUR price') from None
+    if amount >= MAX_PRICE_EXCLUSIVE_EUR:
+        raise ValueError('Collection accepts only asking amounts below 20000 EUR')
     if type(row.get('is_sold')) is not bool:
         raise ValueError('Explicit sold status required')
+    if row['is_sold']:
+        raise ValueError('Sold listings are excluded from this collection')
     payload = dict(country='IT', city='Milano', province='MI', title=title,
                    description=description, price_eur=int(amount), price_kind='unknown',
                    adapter=VERSION, original=row, location_basis='provider_published_country_and_city')
@@ -194,7 +199,8 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
     # Check credentials before recording a reservation or making any request.
     client = client or Client()
     control_id = 'brightdata-' + config['cycle_id']
-    scope = dict(country='IT', city='Milano', adapter=VERSION, configuration=config)
+    scope = dict(country='IT', city='Milano', adapter=VERSION, configuration=config,
+                 max_price_exclusive_eur=MAX_PRICE_EXCLUSIVE_EUR, available_only=True)
     try:
         saved = archive.run_status(CONTROL, control_id)
     except KeyError:
@@ -242,7 +248,7 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
             records.append(event(row, observed_at))
         except (ValueError, TypeError, KeyError):
             records.append({'payload': {'original': row}, 'adapter_error':
-                            'Unverified car, Milano location, EUR price, availability or provider error'})
+                            'Unverified car, Milano location, EUR price below 20000, available listing or provider error'})
     result = archive.ingest(dict(source=SOURCE, run_id=import_id, page_id='snapshot',
         mode='initial', scope=dict(scope, snapshot_id=snapshot_id, market_coverage_verified=False),
         input_cursor=None, next_cursor=None, complete=True, records=records))

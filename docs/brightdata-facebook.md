@@ -57,7 +57,11 @@ and reconcile the snapshot before re-enabling a new cycle. Provider metadata
 is stored under source=brightdata_control with zero listing records.
 
 Only country_code=IT, explicit Milano/Milan city, verified car breadcrumb,
-EUR numeric price, matching item ID/URL and explicit is_sold are accepted.
+EUR numeric asking amount strictly below 20,000, matching item ID/URL and
+is_sold=false are accepted. A provider search cap must also be set in the
+verified discovery input: post-filtering cannot prevent credits consumed by
+out-of-scope results. The current guard prevents those results entering the
+usable catalogue, retaining raw evidence in private quarantine.
 Other rows and provider errors go to private quarantine for later enrichment.
 No inference from search location. Nearby cities are excluded. Descriptions,
 all supplied photo URLs and original output are retained. Images are links,
@@ -67,3 +71,18 @@ records are archived but not asserted ready for market valuation.
 
 Synthetic tests cover provider contract and persistence, not real Marketplace
 accuracy or discovery compatibility. Full catalogue coverage is never claimed.
+
+## Required market sample distribution (pending discovery verification)
+
+Use separate reviewed search batches across price ranges [1,5000),
+[5000,10000), [10000,15000), [15000,20000), with explicit EUR and Milano.
+Within these distribute across mileage ranges 0–50,000, 50,001–100,000,
+100,001–150,000 and above 150,000 km, and different brands, models and years.
+Only apply provider kilometre filters after confirming their actual units;
+unknown mileage must remain unknown and its coverage must be reported.
+Do not claim representativeness or mark a batch complete because it reached
+a record quota: report unique vehicles per price/make/model/mileage group and
+identify missing groups. A 10-record connectivity trial checks the pipeline;
+it is not a sufficiently distributed market-price training set. No search
+matrix or scheduled batches are activated until the actual provider discovery
+schema and its filter capabilities have been verified in the user's account.
