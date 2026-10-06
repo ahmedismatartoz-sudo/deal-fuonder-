@@ -104,8 +104,9 @@ class Database:
             self.execute('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', (batch_id,))
 
     def json_field(self, field, alias=''):
-        allowed = {'make','model','generation','trim','fuel','transmission','province','seller_type','vehicle_id'}
-        if field not in allowed or alias not in ('', 's'):
+        allowed = {'make','model','generation','trim','fuel','transmission','province','seller_type','vehicle_id',
+                   'condition','title','description'}
+        if field not in allowed or alias not in ('', 's', 'e'):
             raise ValueError('Unknown indexed JSON field')
         prefix = alias + '.' if alias else ''
         if self.dialect == 'postgres':

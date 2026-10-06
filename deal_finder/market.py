@@ -283,27 +283,38 @@ class Market:
             raise ValueError('Enrichment limit must be 1..100')
         from .agents.enrichment import VERSION as revision, listing_input
         now = as_of or datetime.now(timezone.utc)
-        rows = self.db.execute('''SELECT m.source, m.source_id, m.observed_at, m.signature,
-            m.quality_issue, m.payload, e.url, e.payload FROM market_observations m
-            JOIN listing_events e ON e.source=m.source AND e.source_id=m.source_id AND e.observed_at=m.observed_at
-            WHERE e.active=? AND m.observed_at BETWEEN ? AND ? AND ''' + self._latest() + '''
-            ORDER BY m.observed_at DESC, m.source, m.source_id''',
-            (True, (now-timedelta(days=30)).isoformat(), now.isoformat(), now.isoformat()))
         count = 0
-        for source, source_id, stamp, signature, issue, normalized, url, payload in rows:
-            normalized = self.db.json_decode(normalized) if normalized else None
-            if not issue and normalized['condition'] != 'unknown' and normalized['price_kind'] == 'total':
-                continue
-            key = canonical([source, source_id, stamp, signature, revision])
-            batch_id = 'enrichment-' + hashlib.sha256(key.encode()).hexdigest()
-            if self.db.execute('SELECT 1 FROM batches WHERE batch_id=?', (batch_id,)).fetchone():
-                continue
-            listing = listing_input(source, source_id, stamp, url, self.db.json_decode(payload))
-            receipt = queue.submit(batch_id, [dict(task='archive_enrichment', listing=listing)])
-            count += int(not receipt['idempotent'])
-            if count >= limit:
-                break
-        return count
+        cursor = (now.isoformat(), '', '')
+        condition_field = self.db.json_field('condition', 'e')
+        while True:
+            # psycopg buffers ordinary cursor results. Never select the entire
+            # original archive here: metadata pages are small; fetch only the
+            # individual payload actually being enqueued.
+            rows = self.db.execute('''SELECT m.source, m.source_id, m.observed_at, m.signature,
+                m.quality_issue, e.url, e.price_kind, '''+condition_field+''' FROM market_observations m
+                JOIN listing_events e ON e.source=m.source AND e.source_id=m.source_id AND e.observed_at=m.observed_at
+                WHERE e.active=? AND m.observed_at BETWEEN ? AND ? AND ''' + self._latest() + '''
+                AND (m.observed_at<? OR (m.observed_at=? AND (m.source>? OR (m.source=? AND m.source_id>?))))
+                ORDER BY m.observed_at DESC, m.source, m.source_id LIMIT 100''',
+                (True, (now-timedelta(days=30)).isoformat(), now.isoformat(), now.isoformat(),
+                 cursor[0], cursor[0], cursor[1], cursor[1], cursor[2])).fetchall()
+            for source, source_id, stamp, signature, issue, url, price_kind, condition in rows:
+                cursor = stamp, source, source_id
+                if not issue and condition != 'unknown' and price_kind == 'total':
+                    continue
+                key = canonical([source, source_id, stamp, signature, revision])
+                batch_id = 'enrichment-' + hashlib.sha256(key.encode()).hexdigest()
+                if self.db.execute('SELECT 1 FROM batches WHERE batch_id=?', (batch_id,)).fetchone():
+                    continue
+                payload = self.db.execute('SELECT payload FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
+                                          (source, source_id, stamp)).fetchone()[0]
+                listing = listing_input(source, source_id, stamp, url, self.db.json_decode(payload))
+                receipt = queue.submit(batch_id, [dict(task='archive_enrichment', listing=listing)])
+                count += int(not receipt['idempotent'])
+                if count >= limit:
+                    return count
+            if len(rows) < 100:
+                return count
 
     def queue_context(self, target, as_of):
         """Only source records matching the immutable archive use this lane."""

@@ -154,6 +154,41 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(search(self.queue,as_of=now)['count'],0)
         with self.assertRaises(ValueError): search(self.queue,min_price_eur=-1,as_of=now)
 
+    def test_large_archive_is_paged_without_losing_later_enrichment_or_family_evidence(self):
+        from deal_finder.agents.market_triage import review
+        from deal_finder.agents.enrichment import listing_input
+        records=[complete(i,price_eur=10000) for i in range(205)]
+        for record in records:
+            del record['payload']['trim']
+            record['payload']['large_unmapped_original']='x'*50000
+        for index in range(0,len(records),100):
+            self.market.archive.ingest(page(records[index:index+100],run='large-'+str(index)),as_of=NOW)
+        self.market.sync(NOW)
+        maximum=[0]
+        execute=self.market.db.execute
+        class BufferedRows:
+            def __init__(self,rows): self.rows=rows
+            def fetchall(self): return self.rows
+            def fetchone(self): return self.rows[0] if self.rows else None
+            def __iter__(self): return iter(self.rows)
+        def buffering(sql,params=()):
+            cursor=execute(sql,params)
+            if sql.lstrip().upper().startswith('SELECT'):
+                rows=cursor.fetchall()
+                maximum[0]=max(maximum[0],len(rows))
+                return BufferedRows(rows)
+            return cursor
+        with patch.object(self.market.db,'execute',side_effect=buffering):
+            self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
+            self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
+            self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),5)
+            target=dict(row('target',price_eur=5000),source='export',source_id='target')
+            self.assertEqual(review(target,self.market.db,NOW)['observation_count'],205)
+        self.assertLessEqual(maximum[0],100)
+        self.assertEqual(self.queue.db.execute('SELECT count(*) FROM jobs').fetchone()[0],205)
+        value=self.queue.db.execute('SELECT payload FROM raw_records LIMIT 1').fetchone()[0]
+        self.assertNotIn('large_unmapped_original',str(value))
+
 
 class WorkerDrainTests(unittest.TestCase):
     def run_worker(self, queue, max_jobs, *, bootstrap=None, clock=None):
