@@ -143,10 +143,23 @@ class BackgroundCampaign:
                 return dict(brightdata='campaign_complete', reason=reason, rows=state['rows'],
                             new_unique=unique_count(archive) - state['unique_start'])
             state.update(stage='inflight', limit=min(self.spec['batch_limit'], remaining),
-                         unique_before=unique_count(archive))
+                         unique_before=unique_count(archive), read_retries=0)
             cursor = self.checkpoint(archive, state, 'allocated-' + str(state['index']), cursor)
         config = config_for(self.spec, state['index'], state['limit'])
-        result = cycle(config, archive, client=self.client)
+        try:
+            result = cycle(config, archive, client=self.client)
+        except ProviderError as error:
+            # Only harmless GETs may retry. Trigger POSTs are never repeated.
+            retryable = error.phase in ('progress', 'snapshot') and (
+                error.http_status is None or error.http_status == 429
+                or (type(error.http_status) is int and 500 <= error.http_status <= 599))
+            retries = state.get('read_retries', 0)
+            if retryable and retries < 3:
+                state['read_retries'] = retries + 1
+                self.checkpoint(archive, state, 'read-retry-' + str(state['index']) + '-' + str(retries + 1), cursor)
+                return dict(brightdata='campaign_retrying_read', campaign_id=self.spec['campaign_id'],
+                            phase=error.phase, retry=retries + 1)
+            raise
         status = result['status']
         if status in ('failed', 'recovery_required'):
             state.update(stage='paused', reason=status)

@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 from deal_finder.archive import Archive
 from deal_finder.brightdata import (Client, ProviderError, cycle, event, validate_config,
                                    BackgroundCollection, DETAIL_DATASET, FREE_CONFIRMATION,
-                                   SetupError, paused_diagnostic, revalidate_quarantine)
+                                   SetupError, paused_diagnostic, revalidate_quarantine, ProviderNotReady)
 
 NOW = datetime.now(timezone.utc).isoformat()
 URL = 'https://www.facebook.com/marketplace/item/123/'
@@ -290,3 +290,18 @@ class BrightDataTests(unittest.TestCase):
         self.assertEqual(event(row, NOW)['payload']['model'], 'Classe C')
         row.update(title='2016 Fiat Fiat+500 ')
         self.assertEqual(event(row, NOW)['payload']['model'], '500')
+
+    def test_snapshot_202_keeps_polling_without_another_trigger(self):
+        client = Client(key='test-key-12345')
+        with patch.object(client.opener, 'open') as request:
+            request.return_value.__enter__.return_value.status = 202
+            with self.assertRaises(ProviderNotReady):
+                client.download('sd_test123')
+        archive = Archive(':memory:'); fake = FakeClient(); fake.state = 'ready'
+        try:
+            with patch.object(fake, 'download', side_effect=ProviderNotReady('building')):
+                self.assertEqual(cycle(config(), archive, client=fake, free_confirmed=True)['status'], 'running')
+            self.assertEqual(cycle(config(), archive, client=fake, free_confirmed=True)['status'], 'complete')
+            self.assertEqual(fake.starts, 1)
+        finally:
+            archive.close()

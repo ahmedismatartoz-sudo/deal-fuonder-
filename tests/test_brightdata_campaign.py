@@ -121,3 +121,14 @@ class CampaignTests(unittest.TestCase):
         resumed = BackgroundCampaign(self.path, spec(ceiling=100, batch=10), client=client)
         self.assertEqual(resumed.step()['reason'], 'five_nonempty_batches_without_new_valid_cars')
         self.assertEqual(client.starts, 6)
+
+    def test_transient_get_retries_survive_restart_without_new_trigger(self):
+        client = FakeClient()
+        with patch.object(client, 'progress', side_effect=ProviderError('secret', http_status=503, phase='progress')):
+            result = BackgroundCampaign(self.path, spec(), client=client).step()
+            self.assertEqual(result['retry'], 1)
+            result = BackgroundCampaign(self.path, spec(), client=client).step()
+            self.assertEqual(result['retry'], 2)
+        client.state = 'ready'
+        self.assertEqual(BackgroundCampaign(self.path, spec(), client=client).step()['brightdata'], 'campaign_batch_complete')
+        self.assertEqual(client.starts, 1)

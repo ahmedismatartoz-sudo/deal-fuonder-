@@ -79,7 +79,7 @@ accuracy or discovery compatibility. Full catalogue coverage is never claimed.
 
 ## Market sample coverage
 
-Use separate reviewed search batches across price ranges [1,5000),
+Use separate reviewed search batches across price ranges [500,5000),
 [5000,10000), [10000,15000), [15000,20000), with explicit EUR and Milano.
 Within these distribute across mileage ranges 0–50,000, 50,001–100,000,
 100,001–150,000 and above 150,000 km, and different brands, models and years.
@@ -122,7 +122,10 @@ Only one async collection is in flight. Each search URL is scheduled once.
 After five nonempty batches produce no new valid car IDs, pause rather than
 spend the remaining credits on duplicates/out-of-scope results. Also stop at
 the ceiling, plan exhaustion, account/API failure or an uncertain trigger.
-Completed snapshots are persisted before advancing; restarts do not repost
+Temporary failures of progress/download GETs retry at most three times, with
+the retry counter saved across restarts; trigger POSTs never retry. A download
+HTTP 202 returns to polling rather than treating an unfinished snapshot as a
+terminal failure. Completed snapshots are persisted before advancing; restarts do not repost
 reserved triggers. Creating another campaign ID does not reset the ledger.
 
 Report provider rows and accepted unique cars separately. 5,000 credits is

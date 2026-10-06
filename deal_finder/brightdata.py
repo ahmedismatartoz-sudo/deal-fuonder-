@@ -30,6 +30,10 @@ class ProviderError(RuntimeError):
         self.phase = phase
 
 
+class ProviderNotReady(ProviderError):
+    pass
+
+
 class SetupError(ValueError):
     def __init__(self, code):
         super().__init__(code)
@@ -137,6 +141,8 @@ class Client:
                                    'Content-Type': 'application/json'})
         try:
             with self.opener.open(request, timeout=30) as response:
+                if response.status == 202 and phase == 'snapshot':
+                    raise ProviderNotReady('Snapshot is still building', http_status=202, phase=phase)
                 if response.status != 200:
                     raise ProviderError('Unexpected Bright Data response; no automatic retry', http_status=response.status, phase=phase)
                 raw = response.read(20_000_001)
@@ -333,7 +339,10 @@ def cycle(config, archive, *, client=None, free_confirmed=False):
     status = client.progress(snapshot_id)
     if status != 'ready':
         return dict(status=status, snapshot_id=snapshot_id)
-    rows = client.download(snapshot_id)
+    try:
+        rows = client.download(snapshot_id)
+    except ProviderNotReady:
+        return dict(status='running', snapshot_id=snapshot_id)
     if len(rows) > config['limit']:
         raise ProviderError('Provider exceeded configured record cap; import stopped')
     # Trigger reservation time is a conservative freshness bound.
