@@ -1,6 +1,6 @@
 """Private provisional candidate cards for a future filtered interface."""
 from datetime import datetime, timezone, timedelta
-from .agents.handoff import filter_cards
+from .agents.handoff import filter_cards, FILTER_FIELDS
 
 
 def search(queue, *, offset=0, limit=100, as_of=None, **filters):
@@ -43,12 +43,19 @@ def search(queue, *, offset=0, limit=100, as_of=None, **filters):
             event = queue.db.execute('SELECT observed_at, active FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1', key).fetchone()
             if not event or not event[1] or event[0] != card.get('observed_at'):
                 continue
-            cards.append(dict(card, analysis_as_of=stamp, provisional=True, publishable=False))
+            # Retain only filter/rank metadata across the whole result set.
+            # Descriptions and photos are loaded for the requested page below.
+            cards.append(dict({k:card.get(k) for k in FILTER_FIELDS}, _run_id=run_id, _analysis_as_of=stamp))
         if len(rows) < 50:
             break
     matches = filter_cards(cards, **filters)
     matches.sort(key=lambda c: (c.get('potential_gross_low_cents') is not None,
                                c.get('potential_gross_low_cents') or 0, c['observed_at']), reverse=True)
-    return dict(items=matches[offset:offset+limit], count=len(matches), offset=offset,
+    page = []
+    for metadata in matches[offset:offset+limit]:
+        row = queue.db.execute('SELECT '+card_field+' FROM agent_runs WHERE id=?', (metadata['_run_id'],)).fetchone()
+        card = queue.db.json_decode(row[0])
+        page.append(dict(card, analysis_as_of=metadata['_analysis_as_of'], provisional=True, publishable=False))
+    return dict(items=page, count=len(matches), offset=offset,
                 opportunities_verified=False, publication_enabled=False,
                 margin_basis='before_labor_and_other_costs')

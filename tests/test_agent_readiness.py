@@ -189,6 +189,28 @@ class RuntimeTests(unittest.TestCase):
         value=self.queue.db.execute('SELECT payload FROM raw_records LIMIT 1').fetchone()[0]
         self.assertNotIn('large_unmapped_original',str(value))
 
+    def test_candidate_paging_keeps_full_count_and_loads_only_page_cards(self):
+        from deal_finder.candidate_catalog import search
+        from deal_finder.agents.handoff import card
+        from deal_finder.models import Listing
+        from datetime import datetime,timezone
+        records=[complete(i,price_eur=7000) for i in range(61)]
+        self.market.archive.ingest(page(records),as_of=NOW)
+        envelopes=[self.market.archive.normalized_envelope('export',str(i)) for i in range(61)]
+        self.queue.submit('many-cards',envelopes)
+        for i in range(61):
+            job=self.queue.claim()
+            target=Listing.parse(job['raw']['listing'])
+            value=card(target,dict(route='verification'),{},dict(status='waiting'))
+            value['potential_gross_low_cents']=i*100
+            self.queue.finish(job,datetime.now(timezone.utc),[],dict(candidate_card=value,unrelated_large_analysis='x'*50000))
+        result=search(self.queue,offset=50,limit=10)
+        self.assertEqual(result['count'],61)
+        self.assertEqual(len(result['items']),10)
+        self.assertEqual(result['items'][0]['potential_gross_low_cents'],1000)
+        self.assertNotIn('_run_id',result['items'][0])
+        self.assertNotIn('unrelated_large_analysis',str(result))
+
 
 class WorkerDrainTests(unittest.TestCase):
     def run_worker(self, queue, max_jobs, *, bootstrap=None, clock=None):
