@@ -245,7 +245,8 @@ def main():
             from .bootstrap import Bootstrap, bootstrap_config
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
-            from .agent_runtime import BackgroundScreening
+            from .agent_runtime import BackgroundScreening, connections
+            print(json.dumps({'agent_connections': connections()}), flush=True)
             screening = (BackgroundScreening(args.db)
                          if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             from .price_memory import BackgroundPriceMemory
