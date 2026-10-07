@@ -4,6 +4,7 @@ Parse the data actually embedded in public pages, never undocumented APIs.
 Do not bypass access denials. Search exhaustion is not proof of market coverage.
 """
 import json
+import os
 import re
 import time
 import hashlib
@@ -374,6 +375,8 @@ class AutoScout24Connector:
         self.archive = archive
         self.client = client or PublicClient(delay_seconds=self.config['delay_seconds'])
         self.run_id = run_id
+        from .collection_price_agent import CollectionPriceAgent, enabled
+        self.price_agent = CollectionPriceAgent(archive.db) if enabled() else None
 
     def fetch(self, *, cursor, mode, scope):
         position = json.loads(cursor) if cursor else {'search': 0, 'page': 1}
@@ -407,12 +410,40 @@ class AutoScout24Connector:
             except ValueError:
                 records.append({'payload': {'original': item, 'adapter_issue': 'Invalid public listing URL'}})
                 continue
-            history = self.archive.history(self.source, item['id'], limit=1)
-            if history and (mode == 'incremental' or
-                    (self.run_id and history[0]['payload'].get('native_run_id') == self.run_id)):
-                continue  # New-only mode: no detail fetch or new observation for known IDs.
+            # Named scalars avoid transferring the large retained detail HTML/JSON.
+            fields = ('native_run_id','price_eur','mileage_km','year','version_text','detail_fetched')
+            expressions = ["payload->>'"+k+"'" if self.archive.db.dialect == 'postgres'
+                           else "json_extract(payload,'$."+k+"')" for k in fields]
+            known = self.archive.db.execute('SELECT observed_at,'+','.join(expressions)+
+                ' FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',
+                (self.source,item['id'])).fetchone()
             observed = datetime.now(timezone.utc).isoformat()
-            detailed = self.config['fetch_details']
+            screening = self.price_agent is not None
+            try:
+                preliminary = record_event(item, url=listing_url, observed_at=observed,
+                                           search_url=search, detailed=False, original_search=item)
+            except (ValueError, TypeError, AttributeError):
+                records.append({'payload': {'original': item, 'adapter_issue': 'Malformed listing fields'}})
+                continue
+            decision = None
+            preliminary['payload'].update(source=self.source,source_id=item['id'],observed_at=observed)
+            if known:
+                if not screening and (mode == 'incremental' or known[1] == self.run_id):
+                    continue
+                if screening:
+                    previous = tuple(str(v) if v is not None else None for v in known[2:6])
+                    current = tuple(str(preliminary['payload'].get(k)) if preliminary['payload'].get(k) is not None else None
+                                    for k in fields[1:5])
+                    age = (datetime.now(timezone.utc)-datetime.fromisoformat(str(known[0]))).total_seconds()
+                    if previous == current and age < 7*86400:
+                        if known[6] in (True, 'true', '1', 1):
+                            continue
+                        decision = self.price_agent.screen(preliminary['payload'])
+                        if not decision['detail_fetch_recommended']:
+                            continue
+            if screening and decision is None:
+                decision = self.price_agent.screen(preliminary['payload'])
+            detailed = self.config['fetch_details'] and (decision is None or decision['detail_fetch_recommended'])
             original = item
             original_title = None
             if detailed:
@@ -429,6 +460,8 @@ class AutoScout24Connector:
             except (ValueError, TypeError, AttributeError):
                 records.append({'payload': {'original': original, 'adapter_issue': 'Malformed listing fields'}})
                 continue
+            if decision is not None:
+                event['payload']['collection_price_screen'] = decision
             event['payload']['native_run_id'] = self.run_id
             records.append(event)
         # No claim that a live offset search is a frozen snapshot. Daily overlap
@@ -451,6 +484,18 @@ def collect(config, archive, *, run_id, mode='incremental', max_pages=100, clien
     scope = {'country': 'IT', 'adapter': VERSION, 'configuration': connector.config,
              'purpose': 'initial_base' if mode == 'initial' else 'new_listings',
              'snapshot_consistent': False}
+    if mode == 'initial':
+        try:
+            prior = archive.run_status('autoscout24', 'native-' + run_id)
+        except KeyError:
+            prior = None
+        if prior and compatible_initial_scope(prior, scope):
+            if prior['complete']:
+                return prior
+            scope = prior['scope']  # Continue immutable compatible legacy checkpoints.
+    if mode == 'incremental' and connector.price_agent is not None:
+        from .collection_price_agent import VERSION as price_version
+        scope['price_prescreen'] = price_version
     with collection_guard(archive):
         # Separate processes must also leave an interval before their first request.
         if client is None:
@@ -460,6 +505,19 @@ def collect(config, archive, *, run_id, mode='incremental', max_pages=100, clien
 
 
 def cycle_run_id(config, mode, cycle_id=None):
-    signature = hashlib.sha256(canonical(validate_config(config)).encode()).hexdigest()[:16]
+    from .collection_price_agent import enabled, VERSION as price_version
+    signature_config = validate_config(config)
+    if mode == 'incremental' and enabled():
+        signature_config = dict(signature_config, price_prescreen=price_version)
+    signature = hashlib.sha256(canonical(signature_config).encode()).hexdigest()[:16]
     period = cycle_id or ('base' if mode == 'initial' else datetime.now(timezone.utc).date().isoformat())
     return mode + '-' + period + '-' + signature
+
+
+def compatible_initial_scope(status, expected):
+    scope = dict(status['scope'])
+    adapter = scope.pop('adapter', None)
+    other = dict(expected)
+    other.pop('adapter', None)
+    return (status['mode'] == 'initial'
+            and adapter in ('autoscout24-public-html-v2', 'autoscout24-public-html-v3', VERSION) and scope == other)

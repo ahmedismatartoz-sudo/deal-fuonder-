@@ -13,3 +13,38 @@ The necessary budget is 85% of the lowest observed/adjusted comparable asking pr
 `POST /identity/evaluations` accepts `training_vehicle_ids` and `records`. Each record requires `vehicle_id`, `listing`, and `reviewed_labels` containing `verified`, `verified_by`, exact `source/source_id/observed_at`, document `origin`, `evidence_url`, `checked_at`, and labelled identity `fields`. Duplicate/development vehicles, future labels and seller/photo hypotheses are rejected. It reports errors, abstentions and coverage separately; it does not authenticate documents or automatically release physical-identity/price predictions.
 
 Development tests use explicitly synthetic independent challenge identities, not claimed verified production vehicles. The production report leaves physical identity accuracy unknown until an independently reviewed holdout is supplied. Missing paid-provider credentials cannot be replaced by a statistical confidence score.
+
+## Opportunity-first AutoScout24 collection
+
+`DEAL_FINDER_AUTOSCOUT24_PRICE_SCREENING_ENABLED=1` enables the deterministic
+collection price agent on incremental public search pages. The existing broad
+search configuration remains unchanged. At least three deduplicated, healthy,
+compatible archived analogies are required; fuel, gearbox, version, seller type,
+year and mileage define the comparison. The lowest observed or adjusted asking
+price is the reference. Gross headroom must cover the purchase-price tier's
+minimum net target and a 10% advertised discount before a full detail fetch is
+prioritized. This is an apparent opportunity, never verified profit: the internal
+15% adverse resale, reserve, complete costs, identity and inspection gates remain
+mandatory. No provider/model spend is added by this collector.
+
+Other search observations retain their basic prices and seller specifications for
+market learning, with an explicit `not_apparent_opportunity` or
+`needs_market_evidence` decision. Missing comparisons do not prove overpricing.
+Known IDs are reconsidered after price/specification changes, on a seven-day
+refresh, or when a deferred search-only observation can now qualify. Existing
+original details remain immutable; unrefreshed detail facts are not presented as
+fresh verified evidence. A cold archive retains search observations until comparisons exist. Compatible v2/v3
+initial checkpoints resume without deleting or downloading the existing archive again;
+when screening is enabled the remaining pages also prioritize opportunity details.
+
+The worker resumes one incremental search page per iteration (at least ten
+seconds between iterations and the existing request delay). Incomplete compatible
+cycles resume across restarts and day boundaries. HTTP denials pause collection
+with its checkpoint preserved. The daily cron can share the same guarded cycle;
+completed cycles make no requests until the next day. Search pagination exhaustion
+still does not establish complete national market coverage.
+
+Source normalization now distinguishes fuel components from fuel categories,
+accepts octane/blend labels, preserves semiautomatic gearboxes when seller text
+uses the generic word automatic, and ignores fiscal horsepower. Seller claims of
+good overall vehicle condition remain provisional and require inspection.

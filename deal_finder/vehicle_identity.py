@@ -3,7 +3,7 @@ import re
 import unicodedata
 from decimal import Decimal, InvalidOperation
 
-VERSION='vehicle-identity-evidence-v1'
+VERSION='vehicle-identity-evidence-v2'
 FIELDS=('engine_code','engine_name','displacement_cc','power_kw','power_hp','fuel',
         'transmission','drivetrain','body_type','generation','trim')
 SOURCE_PATHS={
@@ -49,6 +49,11 @@ def normalize_field(field,value):
                       'trazione posteriore':'rwd','integrale':'awd','4x4':'awd','4wd':'awd'},
         'body_type':{'berlina':'sedan','station wagon':'wagon','city car':'city_car',
                      'suv/fuoristrada/pick-up':'suv_offroad_pickup','cabrio':'convertible'}}
+    if field=='fuel':
+        if re.match(r'^benzina (?:e\d+|\d+)',value):return 'petrol'
+        if value in ('gas naturale h','gas naturale l','biogas'):return 'cng'
+        if value=='gas di petrolio liquefatto':return 'lpg'
+        if re.match(r'^diesel (?:b\d+|\d+)',value):return 'diesel'
     return aliases.get(field,{}).get(value,value)
 
 
@@ -80,6 +85,8 @@ def text_claims(payload):
             ('engine_code',r'\bcodice\s+motore\s*[:=]?\s*([a-z0-9-]{3,15})\b'),
             ('transmission',r'\bcambio\s+(automatico|manuale|semiautomatico)\b')):
             for match in re.finditer(pattern,value,re.I):
+                if field=='power_hp' and (re.search(r'fiscal.{0,20}$',value[max(0,match.start()-35):match.start()],re.I) or re.match(r'\s*fiscal',value[match.end():],re.I)):
+                    continue
                 if field=='power_kw' and re.search(r'(?:ricarica|colonnina|charger|charging).{0,30}$',value[max(0,match.start()-45):match.start()],re.I):
                     continue
                 result.append((field,match[1],origin,match[0]))
@@ -107,6 +114,8 @@ def resolve(payload, *, source_url=None):
                 origin=origin,status='declared',source_url=source_url,excerpt=excerpt))
     for field in FIELDS:
         for path in SOURCE_PATHS[field]:
+            if field=='fuel' and path=='primaryFuel.formatted' and normalize_field('fuel',fragment.get('fuelCategory.formatted')):
+                continue
             add(field,fragment.get(path),'original.vehicle.'+path,'source_structured')
         previous=payload.get('identity_dossier') or {}
         if not isinstance(payload.get('original'),dict) and not payload.get('identity_source_fields'):
@@ -123,6 +132,8 @@ def resolve(payload, *, source_url=None):
         distinct=[]
         for item in items:
             value=item['value']
+            if field=='transmission' and item['origin']=='seller_text' and value=='automatic' and 'semi_automatic' in distinct:
+                continue
             tolerance=2 if field in ('power_hp','power_kw') else 0
             if not any(abs(value-v)<=tolerance if type(value) is int and type(v) is int else value==v for v in distinct):
                 distinct.append(value)
@@ -137,6 +148,8 @@ def resolve(payload, *, source_url=None):
                   'present' if existing is not None else 'seller_text_only' if items else 'absent_from_source')
         fields[field]=dict(value=chosen,status=status,recovery_status=recovery,claims=items,
                            verification_required=True)
+        if field=='fuel' and fragment.get('primaryFuel.formatted'):
+            fields[field]['source_components']=[dict(value=normalize_field('fuel',fragment['primaryFuel.formatted']),raw_value=fragment['primaryFuel.formatted'],source_path='original.vehicle.primaryFuel.formatted',status='declared_component')]
         if chosen is not None:values[field]=chosen
     hp=values.get('power_hp');kw=values.get('power_kw')
     if hp and kw and abs(hp-kw*1.35962)>2:

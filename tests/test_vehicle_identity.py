@@ -114,3 +114,30 @@ class VehicleIdentityTests(unittest.TestCase):
         self.assertFalse(annotate_verified_fields(dossier,mismatched,listing,NOW)['physical_identity_verified'])
         conflict=resolve(dict(listing.to_dict(),description='Motore 143 CV'))
         self.assertEqual(annotate_verified_fields(conflict,proof,listing,NOW)['fields']['power_hp']['status'],'conflict')
+
+
+class SourceAliasTests(unittest.TestCase):
+    def test_fuel_components_and_octane_are_not_engine_conflicts(self):
+        for category,component,expected in [('GPL','Gas di petrolio liquefatto','lpg'),('Metano','Biogas','cng'),('Benzina','Benzina E10 91','petrol'),('Benzina/Metano','Benzina','petrol_cng')]:
+            d=resolve(dict(original=dict(vehicle=dict(fuelCategory=dict(formatted=category),primaryFuel=dict(formatted=component)))))
+            self.assertFalse(d['conflicts'])
+            self.assertEqual(d['fields']['fuel']['value'],expected)
+            self.assertEqual(d['fields']['fuel']['source_components'][0]['raw_value'],component)
+
+    def test_generic_automatic_description_preserves_structured_subtype(self):
+        d=resolve(dict(description='Cambio automatico',original=dict(vehicle=dict(transmissionType='Semiautomatico'))))
+        self.assertFalse(d['conflicts']);self.assertEqual(d['fields']['transmission']['value'],'semi_automatic')
+        self.assertTrue(resolve(dict(description='Cambio manuale',original=dict(vehicle=dict(transmissionType='Semiautomatico'))))['conflicts'])
+
+    def test_tax_horsepower_is_not_engine_power(self):
+        self.assertFalse(resolve(dict(power_hp=150,description='17 CV fiscali. Motore 150 CV'))['conflicts'])
+
+    def test_good_condition_is_declared_and_never_inspected(self):
+        from deal_finder.damage_screening import classify
+        d=classify(dict(description='Auto in ottime condizioni'))
+        self.assertEqual(d['category'],'clean');self.assertFalse(d['severity_verified'])
+        self.assertEqual(classify(dict(description='Gomme in ottime condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto non in buone condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto era in ottime condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto in ottime condizioni, motore da riparare'))['category'],'severe')
+        self.assertEqual(classify(dict(description='Auto in ottime condizioni, motore fuso'))['category'],'severe')

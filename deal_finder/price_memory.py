@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'identity-damage-opportunities-v8'
+SCREENING_VERSION = 'identity-damage-opportunities-v9'
 
 
 def autonomous_enabled():

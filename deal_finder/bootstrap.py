@@ -4,7 +4,7 @@ import os
 import re
 from .archive import Archive
 from .autoscout24 import (VERSION, CollectionBlocked, CollectionBusy,
-                         collect, validate_config)
+                         collect, validate_config, compatible_initial_scope)
 
 
 def milano_config():
@@ -47,7 +47,7 @@ def bootstrap_status(archive, spec):
         return dict(complete=False, pages=0, accepted=0, quarantined=0)
     expected = dict(country='IT', adapter=VERSION, configuration=spec['config'],
                     purpose='initial_base', snapshot_consistent=False)
-    if status['mode'] != 'initial' or status['scope'] != expected:
+    if not compatible_initial_scope(status, expected) and (status['mode'] != 'initial' or status['scope'] != expected):
         raise ValueError('Bootstrap configuration changed; use a new run_id')
     return status
 
@@ -86,5 +86,58 @@ class Bootstrap:
                 self.finished = True
             return dict(bootstrap='complete' if self.finished else 'collecting',
                         run_id=self.spec['run_id'], **progress)
+        finally:
+            archive.close()
+
+
+class OpportunityCollection:
+    """Resume one incremental page at a time, including across UTC day changes."""
+    def __init__(self, path, spec):
+        self.path, self.spec = path, spec
+        self.run_id = None
+        self.last_step = None
+        self.completed_day = None
+        self.paused = False
+
+    def step(self):
+        import time
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).date().isoformat()
+        if self.completed_day == today:
+            return None
+        from .autoscout24 import cycle_run_id
+        from .collection_price_agent import VERSION as price_version
+        if self.paused or (self.last_step is not None and time.monotonic()-self.last_step < 10):
+            return None
+        self.last_step = time.monotonic()
+        archive = Archive(self.path)
+        try:
+            if not bootstrap_status(archive, self.spec)['complete']:
+                return None
+            if self.run_id is None:
+                rows = archive.db.execute("SELECT run_id,scope,max(received_at) FROM collection_pages WHERE source=? AND mode=? GROUP BY run_id,scope ORDER BY max(received_at) DESC LIMIT 10", ('autoscout24','incremental')).fetchall()
+                for run_id,scope,_ in rows:
+                    scope=archive.db.json_decode(scope)
+                    if (scope.get('configuration') == self.spec['config']
+                            and scope.get('price_prescreen') == price_version
+                            and not archive.run_status('autoscout24',run_id)['complete']):
+                        self.run_id = run_id.removeprefix('native-')
+                        break
+                if self.run_id is None:
+                    self.run_id = cycle_run_id(self.spec['config'],'incremental')
+            try:
+                result = collect(self.spec['config'],archive,run_id=self.run_id,mode='incremental',max_pages=1)
+            except CollectionBusy:
+                return None
+            except CollectionBlocked as error:
+                self.paused = True
+                return dict(opportunity_collection='paused',reason=str(error),checkpoint_retained=True)
+            progress = dict(opportunity_collection='complete' if result['complete'] else 'collecting',
+                            run_id=self.run_id,**{k:result[k] for k in ('pages','accepted','quarantined','next_cursor')})
+            if result['complete']:
+                # Same completed cycle makes no requests until the next day.
+                self.run_id = None
+                self.completed_day = today
+            return progress
         finally:
             archive.close()
