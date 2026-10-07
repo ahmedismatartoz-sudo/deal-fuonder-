@@ -47,6 +47,29 @@ class RuntimeTests(unittest.TestCase):
         result = self.queue.work_one()
         self.assertEqual(self.queue.result(result['job_id'])['run']['outputs']['enrichment']['status'], 'superseded')
 
+    def test_enrichment_recovers_retained_source_without_refetch_or_paid_research(self):
+        from test_autoscout24 import detail, BASE
+        from deal_finder.autoscout24 import record_event
+        from deal_finder.agents.enrichment import execute
+        original=detail('retained')
+        original['seller']['type']='PrivateSeller'
+        original['vehicle'].update(rawPowerInHp=69,rawCylinderCapacity=1242)
+        observation=record_event(original,url=BASE+original['url'],observed_at=NOW.isoformat(),detailed=True)
+        # Simulate an old projection that discarded these source fields.
+        observation['payload'].pop('seller_type')
+        observation['payload'].pop('power_hp')
+        observation['payload'].pop('displacement_cc')
+        self.market.archive.ingest(page([observation],source='autoscout24'),as_of=NOW)
+        with patch('deal_finder.agents.photo_identity.research',side_effect=AssertionError('No paid call')):
+            result=execute(dict(listing=dict(source='autoscout24',source_id='retained',
+                observed_at=NOW.isoformat())),self.market.db,NOW)
+        resolved=result['enrichment']['resolved_listing']
+        self.assertEqual(resolved['seller_type'],'private')
+        self.assertEqual(resolved['power_hp'],69)
+        self.assertEqual(resolved['province'],'MI')
+        self.assertEqual(resolved['version_text'],'1.2 Easy')
+        self.assertFalse(result['validation']['data']['buy_recommendation'])
+
     def test_scheduler_handles_partial_collection_and_restart_without_duplicate_jobs(self):
         self.market.archive.ingest(page([complete(i) for i in range(8)]+[complete('cheap', price_eur=7000)]), as_of=NOW)
         runtime = BackgroundScreening(self.path)
@@ -97,8 +120,8 @@ class RuntimeTests(unittest.TestCase):
 
     def test_family_triage_prioritizes_without_bypassing_exact_screening(self):
         from deal_finder.agents.market_triage import review
-        records = [complete(i, price_eur=10000) for i in range(6)]
-        cheap = complete('cheap', price_eur=5000)
+        records = [complete(i, price_eur=10000,version_text='1.2 Easy') for i in range(6)]
+        cheap = complete('cheap', price_eur=5000,version_text='1.2 Easy')
         del cheap['payload']['trim']
         records.append(cheap)
         self.market.archive.ingest(page(records), as_of=NOW)
@@ -157,7 +180,7 @@ class RuntimeTests(unittest.TestCase):
     def test_large_archive_is_paged_without_losing_later_enrichment_or_family_evidence(self):
         from deal_finder.agents.market_triage import review
         from deal_finder.agents.enrichment import listing_input
-        records=[complete(i,price_eur=10000) for i in range(205)]
+        records=[complete(i,price_eur=10000,version_text='1.2 Easy') for i in range(205)]
         for record in records:
             del record['payload']['trim']
             record['payload']['large_unmapped_original']='x'*50000
@@ -182,7 +205,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),5)
-            target=dict(row('target',price_eur=5000),source='export',source_id='target')
+            target=dict(row('target',price_eur=5000,version_text='1.2 Easy'),source='export',source_id='target')
             self.assertEqual(review(target,self.market.db,NOW)['observation_count'],205)
         self.assertLessEqual(maximum[0],100)
         self.assertEqual(self.queue.db.execute('SELECT count(*) FROM jobs').fetchone()[0],205)
