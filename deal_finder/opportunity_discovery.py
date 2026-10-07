@@ -32,6 +32,9 @@ class PeerIndex:
             if group=='severe':continue
             row['_discovery_fuel']=normalized(row.get('fuel'))
             row['_discovery_transmission']=normalized(row.get('transmission'))
+            from .vehicle_identity import normalize_field
+            for key in ('generation','displacement_cc','power_hp','body_type'):
+                row['_discovery_'+key]=normalize_field(key,row.get(key))
             key=(normalized(row['make']),normalized(row['model']),group,row['year'],row['mileage_km']//10000)
             self.bins[key].append(row)
 
@@ -47,6 +50,8 @@ def peers_for(target, rows):
     from .price_memory import amount_usable, normalized
     unique={};indexed=isinstance(rows,PeerIndex)
     targets={key:normalized(target.get(key)) for key in ('make','model','fuel','transmission')}
+    from .vehicle_identity import normalize_field
+    technical={key:normalize_field(key,target.get(key)) for key in ('generation','displacement_cc','power_hp','body_type')}
     group=damage_group(target)
     for q in rows.candidates(target) if indexed else rows:
         if not indexed:
@@ -59,6 +64,14 @@ def peers_for(target, rows):
         for key in ('fuel','transmission'):
             value=q.get('_discovery_'+key) if indexed else normalized(q.get(key))
             if value and targets[key] and value!=targets[key]:incompatible=True;break
+        if incompatible:continue
+        for key,a in technical.items():
+            b=q.get('_discovery_'+key) if indexed else normalize_field(key,q.get(key))
+            if a is None or b is None:continue
+            if key=='displacement_cc':different=abs(a-b)>50
+            elif key=='power_hp':different=abs(a-b)>max(3,min(a,b)*.1)
+            else:different=a!=b
+            if different:incompatible=True;break
         if incompatible:continue
         key=(q['year'],q['mileage_km'],q['price_eur'],q.get('city'))
         unique.setdefault(key,q)
@@ -131,16 +144,18 @@ def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
             sources=context['sources'],gross_headroom_before_all_costs_eur=context['gross_headroom_before_all_costs_eur'],
             uncertainty_flags=flags,blocking_reasons=flags,minimum_required_net_margin_eur=minimum_net_margin_eur(p['price_eur']),
             net_margin_eur=None,buy_recommendation=False,next_tasks=['verify_identity_and_damage','rerun_conservative_economics']))
-    leads.sort(key=lambda p:(not p['price_priority_passed'],-p['gross_headroom_before_all_costs_eur']/p['price_eur'],-p['comparable_count'],p['source'],p['source_id']))
+    from .candidate_selection import select, field_profile
+    selected, selection = select(leads,limit,as_of)
     return dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=version,status='completed_research_test',
         autonomous=autonomous,screening_stage='broad_discovery',screening_policy=policy,
-        active_recent_observations=len(rows),exclusions=dict(exclusions),candidates=leads[:limit],
+        active_recent_observations=len(rows),exclusions=dict(exclusions),candidates=selected,
+        candidate_selection=selection, candidate_field_profile=field_profile(leads),
         total_discovery_leads=len(leads),returned_limit=limit,approved_buys=0,
         total_price_priority_leads=sum(p['price_priority_passed'] for p in leads),
-        returned_price_priority_leads=sum(p['price_priority_passed'] for p in leads[:limit]),
+        returned_price_priority_leads=sum(p['price_priority_passed'] for p in selected),
         net_margin_policy=net_policy(),final_conservative_filter_required=True,
         basis='approximate_asking_signal_not_resale_or_net_profit',
         severity_policy='known_severe_excluded_unknown_condition_allowed_for_review',
         damage_mix=dict(enforced=False),
         price_bands=[dict(band=i,min_price_eur=max(1000,i*5000),max_price_eur=20000 if i==3 else (i+1)*5000-1,
-            selected=sum(p['price_band']==i for p in leads[:limit])) for i in range(4)])
+            selected=sum(p['price_band']==i for p in selected)) for i in range(4)])
