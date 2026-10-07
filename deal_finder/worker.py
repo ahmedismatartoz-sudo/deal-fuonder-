@@ -332,7 +332,8 @@ def main():
                     while price_memory.ready and not stopping and worked < 10 and time.monotonic()-drain_started < 10:
                         if args.max_jobs and processed >= args.max_jobs:
                             break
-                        result = (queue.work_one(batch_id='first-test-'+first_test_id)
+                        from .price_memory import SCREENING_VERSION
+                        result = (queue.work_one(batch_id='first-test-'+first_test_id+'-'+SCREENING_VERSION)
                                   if first_test_id else queue.work_one())
                         if result is None:
                             break
