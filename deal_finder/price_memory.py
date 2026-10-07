@@ -128,7 +128,8 @@ class PriceMemory:
                 break
 
     def first_test(self, run_id, as_of, limit=20):
-        old = self.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(run_id,)).fetchone()
+        storage_run_id = run_id+'-'+SCREENING_VERSION
+        old = self.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(storage_run_id,)).fetchone()
         if old:
             cached = self.db.json_decode(old[0])
             if cached.get('screening_version') == SCREENING_VERSION:
@@ -227,8 +228,8 @@ class PriceMemory:
         if self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
         with self.db:
-            self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO UPDATE SET as_of=excluded.as_of,payload=excluded.payload',
-                            (run_id,as_of.isoformat(),self.db.json_param(canonical(report))))
+            self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO NOTHING',
+                            (storage_run_id,as_of.isoformat(),self.db.json_param(canonical(report))))
         return report
 
 
