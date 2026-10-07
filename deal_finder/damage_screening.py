@@ -33,6 +33,9 @@ def classify(p):
     text=' '.join(str(p.get(k) or '') for k in ('title','description'))
     source=p.get('damage_source_claims') or {}
     current=(source.get('rawData.condition.damage') or {}).get('isCurrentlyDamaged')
+    search_current=source.get('isCurrentlyDamaged')
+    if search_current is True or current is None:
+        current=search_current
     declared=source.get('damageConditions')
     if isinstance(declared,list):text+=' '+' '.join(str(v) for v in declared)
     severe=signals(text,PATTERNS['severe'])

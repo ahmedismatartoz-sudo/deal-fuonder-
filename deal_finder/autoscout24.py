@@ -302,10 +302,10 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
         put('latitude', location['latitude'], 'location.latitude')
         put('longitude', location['longitude'], 'location.longitude')
     damage = (raw.get('condition') or {}).get('damage') or {}
-    if damage.get('isCurrentlyDamaged') is True:
+    if damage.get('isCurrentlyDamaged') is True or vehicle.get('isCurrentlyDamaged') is True:
         put('condition', 'damaged', 'vehicle.rawData.condition.damage.isCurrentlyDamaged')
-    elif damage.get('isCurrentlyDamaged') is False:
-        put('condition', 'undamaged', 'vehicle.rawData.condition.damage.isCurrentlyDamaged')
+    elif damage.get('isCurrentlyDamaged') is False or vehicle.get('isCurrentlyDamaged') is False:
+        put('condition', 'undamaged', 'vehicle.rawData.condition.damage.isCurrentlyDamaged' if damage.get('isCurrentlyDamaged') is False else 'vehicle.isCurrentlyDamaged')
     # accidentFree / hadAccident are history, not current mechanical condition.
     title = ' '.join(str(vehicle[k]) for k in ('make', 'model', 'modelVersionInput') if vehicle.get(k))
     put('title', original_title or title,

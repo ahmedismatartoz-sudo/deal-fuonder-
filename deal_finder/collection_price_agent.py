@@ -8,7 +8,7 @@ from .damage_screening import classify
 from .margin_policy import minimum_net_margin_eur
 from .agents.market_prices import assess
 
-VERSION = 'collection-price-agent-v1'
+VERSION = 'collection-price-agent-v2'
 
 
 def enabled():

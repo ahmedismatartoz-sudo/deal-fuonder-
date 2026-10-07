@@ -9,14 +9,14 @@ FIELDS=('engine_code','engine_name','displacement_cc','power_kw','power_hp','fue
 SOURCE_PATHS={
     'engine_code':('engineCode','rawData.engine.engineCode.formatted'),
     'engine_name':('motorTypeName','rawData.engine.motorType.formatted'),
-    'displacement_cc':('rawCylinderCapacity','rawDisplacementInCCM'),
+    'displacement_cc':('rawCylinderCapacity','rawDisplacementInCCM','engineDisplacementInCCM'),
     'power_hp':('rawPowerInHp',), 'power_kw':('rawPowerInKw',),
     'fuel':('fuelCategory.formatted','fuel','primaryFuel.formatted'),
     'transmission':('transmissionType','transmission'),
     'drivetrain':('driveTrain',), 'body_type':('bodyType',),
     'generation':('rawData.classification.modelGeneration.formatted',),
     'trim':('rawData.classification.trimLine.formatted',)}
-DAMAGE_PATHS=('hadAccident','damageConditions','rawData.condition.damage')
+DAMAGE_PATHS=('hadAccident','damageConditions','rawData.condition.damage','isCurrentlyDamaged')
 
 
 def text(value):
@@ -28,6 +28,10 @@ def text(value):
 
 def normalize_field(field,value):
     if field in ('power_kw','power_hp','displacement_cc'):
+        if field=='displacement_cc' and isinstance(value,str):
+            formatted=re.fullmatch(r'\s*(\d{1,2}(?:[ .]\d{3})|\d{3,5})\s*(?:cm³|cm3|cc)\s*',value,re.I)
+            if formatted:
+                value=re.sub(r'[ .]','',formatted[1])
         try:
             if isinstance(value,bool):return None
             n=Decimal(str(value))

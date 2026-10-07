@@ -48,3 +48,10 @@ Source normalization now distinguishes fuel components from fuel categories,
 accepts octane/blend labels, preserves semiautomatic gearboxes when seller text
 uses the generic word automatic, and ignores fiscal horsepower. Seller claims of
 good overall vehicle condition remain provisional and require inspection.
+
+Search-page `vehicle.engineDisplacementInCCM` (e.g. `1.242 cm³`) is now
+normalized with its original source claim. `vehicle.isCurrentlyDamaged` is retained
+as a seller declaration of current damage, including explicit false values. This
+allows a search observation to establish provisional healthy asking evidence and
+match an engine-specific prefixed version without an unnecessary detail request.
+Missing flags remain unknown; severe text and current damage still take precedence.
