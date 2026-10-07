@@ -64,3 +64,12 @@ class DiscoveryTests(unittest.TestCase):
         self.ingest(records)
         report=self.memory.first_test('missing',NOW,profile='discovery')
         self.assertNotIn('cheap',[p['source_id'] for p in report['candidates']])
+
+    @patch.dict(os.environ,{'DEAL_FINDER_FIRST_TEST_PROFILE':'discovery'})
+    def test_enrichment_triage_keeps_the_discovery_signal(self):
+        from deal_finder.agents.market_triage import review
+        self.ingest(self.records())
+        target=next(p for p in self.memory.current(NOW) if p['source_id']=='cheap')
+        result=review(target,self.archive.db,NOW)
+        self.assertTrue(result['priority_enrichment'])
+        self.assertFalse(result['exact_variant_verified'])

@@ -18,6 +18,16 @@ def review(listing, db, as_of):
     from ..price_memory import PriceMemory, amount_usable, risky, same_variant, research_policy
     policy = research_policy()
     from ..damage_screening import classify,feasibility
+    if policy['profile']=='discovery':
+        from ..opportunity_discovery import signal,identity_present
+        if not identity_present(listing) or not amount_usable(listing) or classify(listing)['category']=='severe':
+            return dict(output,reason='Basic identity, usable price and no known severe damage required')
+        memory=PriceMemory(db)
+        context=signal(listing,list(memory.current(as_of,make=make,model=model)))
+        if context is None:return dict(output,reason='Two broad reference vehicles required')
+        return dict(output,status='broad_discovery_context',market_price_agent=context,
+                    priority_enrichment=context['apparent_opportunity'],candidate_for_verification=context['apparent_opportunity'],
+                    sources=context['sources'],exact_variant_verified=False,final_conservative_filter_required=True)
     if listing.get('identity_dossier',{}).get('conflicts'):
         return dict(output,reason='Open identity contradictions require review')
     opportunity_profile=policy['profile']=='opportunities'
