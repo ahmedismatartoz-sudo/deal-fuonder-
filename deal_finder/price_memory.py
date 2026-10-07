@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'identity-photo-cache-opportunities-v12'
+SCREENING_VERSION = 'broad-discovery-second-filter-v13'
 
 
 def autonomous_enabled():
@@ -34,6 +34,11 @@ def priority_observation_batch(candidate, **options):
 
 def research_policy(profile=None):
     profile = profile or os.getenv('DEAL_FINDER_FIRST_TEST_PROFILE', 'strict')
+    if profile=='discovery':
+        return dict(profile=profile,minimum_comparables=2,year_tolerance=3,
+                    mileage_tolerance_km=60000,minimum_headroom_eur=500,
+                    minimum_discount_percent=5,asking_stress_percent=0,
+                    final_conservative_filter_required=True)
     if profile in ('exploratory','opportunities'):
         return dict(profile=profile, minimum_comparables=3, year_tolerance=2,
                     mileage_tolerance_km=40000, minimum_headroom_eur=500,
@@ -212,6 +217,15 @@ class PriceMemory:
         if self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
         all_rows = list(self.current(as_of))
+        if policy['profile']=='discovery':
+            from .opportunity_discovery import build_report
+            discovery_limit=max(1,min(500,int(os.getenv('DEAL_FINDER_DISCOVERY_LIMIT',str(limit)))))
+            report=build_report(all_rows,run_id,as_of,SCREENING_VERSION,policy,discovery_limit,autonomous)
+            if self.pending(as_of):return dict(status='waiting_for_price_memory',run_id=run_id)
+            with self.db:
+                self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO NOTHING',
+                    (storage_run_id,as_of.isoformat(),self.db.json_param(canonical(report))))
+            return report
         groups = defaultdict(list)
         exclusions = defaultdict(int)
         eligible = []

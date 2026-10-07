@@ -156,3 +156,19 @@ a lotti limitati; finché manca la scheda, l'auto non è un confronto affidabile
 I confronti successivi leggono solo proiezioni prezzi e schede compatte,
 senza riaprire gli originali. Cache e originali sono privati e immutabili
 per il ruolo applicativo.
+
+## Prima raccolta elastica delle opportunità
+
+Il profilo `discovery` considera marca/modello, anno ±3 e km ±60.000.
+Almeno due riferimenti distinti e uno scarto dalla mediana degli annunci di
+almeno 500 € e 5% generano una segnalazione preliminare. Motore/allestimento
+incerti, conflitti e condizioni sconosciute restano da verificare. Danni
+gravi espliciti e prezzi non totali restano esclusi. Il confronto è indicativo
+e non una valutazione della rivendita. Nessun margine netto viene certificato.
+
+`DEAL_FINDER_DISCOVERY_LIMIT=200` conserva fino a 200 candidati nel rapporto,
+senza quote rigide o limite di due auto per modello; il conteggio totale
+delle segnalazioni è riportato. Il collector adotta la stessa logica. Foto
+e verifica visiva seguono le segnalazioni in lotti limitati. Il successivo
+filtro prudente continua a richiedere identità, danni, costi, rivendita e
+i margini netti concordati.
