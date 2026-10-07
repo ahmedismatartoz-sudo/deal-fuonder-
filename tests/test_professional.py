@@ -167,6 +167,34 @@ class ProfessionalTests(unittest.TestCase):
             analysis['repair'],analysis['opportunity'],analysis['technical_risk'],NOW)
         self.assertEqual(value['reference_cents'],800000)
 
+    def test_fast_sale_scenario_is_lowest_reviewed_less_all_sale_stress(self):
+        raw,candidates=reviewed()
+        value=analyze(raw,candidates,NOW)
+        economics=value['independent_review']['economics']
+        self.assertEqual(economics['fast_sale_scenario_cents'],850000)
+        self.assertEqual(value['candidate_card']['fast_sale_scenario_cents'],850000)
+        self.assertEqual(value['components']['resale']['data']['fast_sale_scenario_cents'],850000)
+        self.assertFalse(economics['sale_speed_guaranteed'])
+        self.assertIsNone(economics['expected_days_to_sell'])
+        self.assertIsNone(value['components']['resale']['data']['recommended_price_eur'])
+
+    def test_empty_review_cannot_use_unaudited_high_prices(self):
+        raw,candidates=reviewed()
+        raw['professional_evidence']['comparable_identities']=[]
+        economics=analyze(raw,candidates,NOW)['independent_review']['economics']
+        self.assertIsNone(economics['margin_low_cents'])
+        self.assertIsNone(economics['fast_sale_scenario_cents'])
+        self.assertIsNone(economics['maximum_offer_cents'])
+
+    def test_quartile_without_comparable_rows_is_not_resale_evidence(self):
+        raw,candidates=reviewed()
+        value=analyze(raw,candidates,NOW)
+        economics=conservative_economics(raw,Listing.parse(raw['listing']),
+            dict(observed_range_eur={'p25':10000,'p75':12000}),value['repair'],
+            value['opportunity'],value['technical_risk'],NOW)
+        self.assertIsNone(economics['margin_low_cents'])
+        self.assertFalse(economics['passes_margin'])
+
     def test_severe_label_overrides_seller_undamaged_or_minor_claim(self):
         raw,candidates=reviewed();raw['listing']['description']='Auto gravemente incidentata, telaio piegato'
         value=damage_severity(raw,Listing.parse(raw['listing']),NOW)

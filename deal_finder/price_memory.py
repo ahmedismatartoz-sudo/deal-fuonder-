@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'broad-discovery-streaming-v15'
+SCREENING_VERSION = 'broad-discovery-pessimistic-prices-v16'
 
 
 def autonomous_enabled():
@@ -561,6 +561,8 @@ class BackgroundPriceMemory:
                     finally:
                         queue.close()
                 out.update(first_test=report['status'],run_id=run_id,candidates=len(report.get('candidates',[])),
+                           total_price_priority_leads=report.get('total_price_priority_leads',0),
+                           returned_price_priority_leads=report.get('returned_price_priority_leads',0),
                            autonomous=automatic,price_bands=report.get('price_bands'),
                            approved_buys=report.get('approved_buys',0))
             self.failures=0

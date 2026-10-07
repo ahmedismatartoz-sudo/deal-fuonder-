@@ -54,6 +54,8 @@ class CollectionPriceAgent:
             if context is None:return dict(result,reason='fewer_than_two_broad_comparables',screening_stage='broad_discovery')
             opportunity=context['apparent_opportunity']
             return dict(result,status='apparent_opportunity' if opportunity else 'not_apparent_opportunity',
+                price_priority_passed=context['conservative_price_screen']['price_priority_passed'],
+                conservative_price_screen=context['conservative_price_screen'],
                 detail_fetch_recommended=opportunity,market_price_agent=context,screening_stage='broad_discovery',
                 gross_headroom_before_all_costs_eur=context['gross_headroom_before_all_costs_eur'],
                 final_cost_and_damage_analysis_required=True)
