@@ -231,6 +231,29 @@ class PriceMemoryTests(unittest.TestCase):
         self.assertEqual(report['candidates'],[])
         self.assertIn('screening_version',report)
 
+    def test_legacy_source_cache_warms_once_and_comparisons_never_read_originals(self):
+        record=complete('cached')
+        record['payload']['original']=dict(vehicle=dict(rawPowerInHp=69,rawCylinderCapacity=1242))
+        self.archive.ingest(page([record],source='autoscout24'),as_of=NOW)
+        self.memory.sync(NOW)
+        self.archive.db.execute('DELETE FROM identity_source_cache')
+        self.assertTrue(self.memory.pending(NOW))
+        self.assertEqual(list(self.memory.current(NOW)),[])
+        self.assertEqual(self.memory.sync(NOW,limit=1),1)
+        self.assertFalse(self.memory.pending(NOW))
+        self.assertEqual(self.memory.sync(NOW),0)
+        statements=[]
+        original_execute=self.archive.db.execute
+        def traced(sql,*args,**kwargs):
+            statements.append(sql)
+            return original_execute(sql,*args,**kwargs)
+        with patch.object(self.archive.db,'execute',side_effect=traced):
+            first=list(self.memory.current(NOW))
+            second=list(self.memory.current(NOW))
+        self.assertEqual(first,second)
+        self.assertEqual(first[0]['power_hp'],69)
+        self.assertFalse(any('listing_events' in sql for sql in statements))
+
 class BackgroundPriceMemoryTests(unittest.TestCase):
     def test_slow_success_reduces_work_and_fast_success_is_capped(self):
         clock=[0]

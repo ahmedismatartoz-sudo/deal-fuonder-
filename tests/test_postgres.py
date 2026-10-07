@@ -127,6 +127,9 @@ class PostgresQueueTests(test_queue.QueueTests):
             self.assertEqual(value['seller_type'],'private')
             self.assertEqual(value['displacement_cc'],1242)
             self.assertNotIn('unused_large',str(value))
+            self.assertEqual(memory.sync(NOW),0)
+            self.assertEqual(archive.db.execute('SELECT count(*) FROM identity_source_cache').fetchone()[0],1)
+            self.assertFalse(archive.db.execute("SELECT has_table_privilege('deal_finder_backend','deal_finder.identity_source_cache','UPDATE')").fetchone()[0])
         finally:archive.close()
 
     def test_price_projection_skips_busy_projector_and_finds_late_arriving_keys(self):
@@ -207,7 +210,7 @@ class PostgresQueueTests(test_queue.QueueTests):
             receipt = self.queue.submit('scoped-backend', [envelope()])
             self.assertEqual(receipt['record_count'], 1)
             self.assertEqual(self.queue.work_one()['state'], 'done')
-            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 7)
+            self.assertEqual(db.execute('SELECT count(*) FROM schema_migrations').fetchone()[0], 8)
             for statement in (
                 'UPDATE snapshots SET payload=payload',
                 'DELETE FROM snapshots',
@@ -222,7 +225,7 @@ class PostgresQueueTests(test_queue.QueueTests):
         rows = self.queue.db.execute("""SELECT c.relname, c.relrowsecurity
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='deal_finder' AND c.relkind='r'""").fetchall()
-        self.assertEqual(len(rows), 19)
+        self.assertEqual(len(rows), 20)
         self.assertTrue(all(enabled for _, enabled in rows))
         for table, _ in rows:
             self.assertFalse(self.queue.db.execute(
