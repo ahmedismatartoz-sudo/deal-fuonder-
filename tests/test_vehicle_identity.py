@@ -137,4 +137,7 @@ class SourceAliasTests(unittest.TestCase):
         d=classify(dict(description='Auto in ottime condizioni'))
         self.assertEqual(d['category'],'clean');self.assertFalse(d['severity_verified'])
         self.assertEqual(classify(dict(description='Gomme in ottime condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto non in buone condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto era in ottime condizioni'))['category'],'unknown')
+        self.assertEqual(classify(dict(description='Auto in ottime condizioni, motore da riparare'))['category'],'severe')
         self.assertEqual(classify(dict(description='Auto in ottime condizioni, motore fuso'))['category'],'severe')

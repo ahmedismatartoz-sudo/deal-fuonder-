@@ -1,12 +1,12 @@
 """Text/source triage, never an inspection or repair-cost estimate."""
 import re
 
-VERSION='non-severe-damage-mix-v1'
+VERSION='non-severe-damage-mix-v2'
 MIX={'clean':.30,'minimal':.20,'non_severe':.50}
 PATTERNS={
  'severe':r'\b(?:telaio\s+(?:piegato|danneggiato|deformato)|danni?\s+struttural\w*|'
            r'airbag.{0,24}(?:esplos\w*|scoppi\w*|apert\w*|attivat\w*)|'
-           r'alluvionat\w*|incendiat\w*|motore\s+(?:rotto|fuso|da\s+(?:rifare|sostituire|cambiare))|'
+           r'alluvionat\w*|incendiat\w*|motore\s+(?:rotto|fuso|da\s+(?:rifare|sostituire|cambiare|riparare))|'
            r'(?:guasto|problemi|rottura)\s+(?:al\s+|del\s+)?(?:motore|cambio)|non\s+marciante|'
            r'batteria\s+(?:alta\s+tensione|trazione).{0,20}(?:danneggiat\w*|guast\w*)|'
            r'gravemente\s+incidentat\w*|uso\s+ricambi)\b',
@@ -51,6 +51,7 @@ def classify(p):
         elif p.get('condition')=='undamaged' or current is False:category='clean';evidence=[]
         else:
             good=signals(text,r'\b(?:auto|vettura|macchina).{0,35}(?:in\s+)?(?:buone|ottime|perfette)\s+condizioni|\b(?:ottime|perfette)\s+condizioni\s+(?:generali|meccaniche\s+e\s+di\s+carrozzeria)')
+            good=[g for g in good if not re.search(r'\b(?:non|prima|era|erano)\b',g['excerpt'],re.I)]
             category='clean' if good else 'unknown';evidence=good
     return dict(version=VERSION,category=category,evidence=evidence,
                 severity_verified=False,inspection_required=True,
