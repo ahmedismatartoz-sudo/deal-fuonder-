@@ -43,6 +43,12 @@ def signal(target, rows):
     gap=reference-target['price_eur']
     from .margin_policy import minimum_net_margin_eur
     required=minimum_net_margin_eur(target['price_eur'])
+    # All compatible prices contribute to the mean; keep a bounded audit sample.
+    evidence=peers
+    if len(peers)>50:
+        sample=[min(peers,key=lambda q:q['price_eur'])]+[peers[round(i*(len(peers)-1)/49)] for i in range(1,49)]+[max(peers,key=lambda q:q['price_eur'])]
+        evidence=list({(q['source'],q['source_id']):q for q in sample}.values())
+        evidence.sort(key=lambda q:q['price_eur'])
     return dict(method='broad_model_year_mileage_asking_mean',confidence='low',
                 comparable_count=len(peers),asking_typical_eur=reference,
                 asking_low_eur=min(q['price_eur'] for q in peers),
@@ -51,9 +57,10 @@ def signal(target, rows):
                 damage_comparison_group=damage_group(target),damaged_and_healthy_compared_directly=False,
                 apparent_opportunity=gap>=required,
                 exact_variant_comparison=False,net_margin_eur=None,buy_recommendation=False,
+                source_evidence_is_sample=len(peers)>50,source_evidence_count=len(evidence),
                 unresolved_factors=['exact_engine_generation_trim','damage','resale','all_costs'],
                 sources=[dict(source=q['source'],source_id=q['source_id'],observed_at=q['observed_at'],
-                              url=q.get('url'),price_eur=q['price_eur'],year=q['year'],mileage_km=q['mileage_km']) for q in peers])
+                              url=q.get('url'),price_eur=q['price_eur'],year=q['year'],mileage_km=q['mileage_km']) for q in evidence])
 
 
 def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
