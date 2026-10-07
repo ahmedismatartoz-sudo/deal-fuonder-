@@ -10,6 +10,7 @@ from deal_finder.price_memory import PriceMemory
 from deal_finder.queue import Queue
 from unittest.mock import Mock, patch
 from deal_finder.price_memory import BackgroundPriceMemory
+from deal_finder.price_memory import risky, same_variant
 
 class PriceMemoryTests(unittest.TestCase):
     def setUp(self):
@@ -83,6 +84,45 @@ class PriceMemoryTests(unittest.TestCase):
             self.assertIsNone(q.claim(batch_id='first-test'))
             self.assertEqual(q.claim()['raw']['listing']['source_id'],'ordinary')
         finally:q.close()
+
+    def test_real_description_damage_signals_cannot_enter_clean_first_test(self):
+        for text in ('motore da cambiare, carrozzeria scolorita sul cofano e tetto',
+                     'GRANDINATA SU FIANCO DX, TETTO, COFANO',
+                     'segni di grandine e una leggera crepa sul parafango davanti'):
+            self.assertTrue(risky(dict(description=text, condition='unknown')), text)
+        self.assertFalse(risky(dict(description='Mai incidentata. Non grandinata.',condition='unknown')))
+
+    def test_same_family_cannot_mix_performance_versions_or_engines(self):
+        self.assertFalse(same_variant(dict(version_text='1.0 Active'),dict(version_text='GR 1.6 Circuit')))
+        self.assertFalse(same_variant(dict(version_text='3p 1.0 ecoboost 100cv'),dict(version_text='3p 1.6 ST 182cv')))
+        self.assertFalse(same_variant(dict(version_text='1.2 Easy',power_hp=69),dict(version_text='1.2 Easy',power_hp=85)))
+        self.assertFalse(same_variant({},{}))
+        self.assertTrue(same_variant(dict(version_text='1.2 Easy'),dict(version_text=' 1.2 EASY ')))
+
+    def test_yaris_active_does_not_become_deal_against_gr_prices(self):
+        records=[complete('active',model='yaris',price_eur=13600,mileage_km=36910,
+                          version_text='1.0 Active')]
+        records += [complete('gr'+str(i),model='yaris',price_eur=33500+i*100,
+                            mileage_km=36910+i,version_text='GR 1.6 Circuit') for i in range(9)]
+        self.ingest(records)
+        self.assertEqual(self.memory.first_test('no-gr-confusion',NOW)['candidates'],[])
+
+    def test_source_version_and_engine_fields_survive_enrichment_handoff(self):
+        from deal_finder.agents.enrichment import listing_input
+        payload=complete('car',version_text='1.3 mjt Pop 85cv',power_hp=84,displacement_cc=1248)['payload']
+        listing=listing_input('export','car',NOW.isoformat(),payload['url'],payload)
+        self.assertEqual(listing['version_text'],'1.3 mjt Pop 85cv')
+        self.assertEqual(listing['power_hp'],84)
+        self.assertEqual(listing['displacement_cc'],1248)
+
+    def test_old_report_is_recomputed_instead_of_returning_invalid_candidates(self):
+        from deal_finder.archive import canonical
+        with self.archive.db:
+            self.archive.db.execute('INSERT INTO price_test_reports VALUES (?,?,?)',
+                ('old',NOW.isoformat(),self.archive.db.json_param(canonical(dict(candidates=[dict(title='bad analogy')])))))
+        report=self.memory.first_test('old',NOW)
+        self.assertEqual(report['candidates'],[])
+        self.assertIn('screening_version',report)
 
 class BackgroundPriceMemoryTests(unittest.TestCase):
     def test_slow_success_reduces_work_and_fast_success_is_capped(self):
