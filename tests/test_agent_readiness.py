@@ -133,6 +133,21 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(output['sources']), 6)
         self.assertFalse(output['calibrated'])
 
+    def test_prioritized_enrichment_runs_configured_identity_research_and_keeps_it_provisional(self):
+        from deal_finder.agents.enrichment import execute
+        from deal_finder.agents.enrichment import listing_input
+        records=[complete(i,price_eur=10000,version_text='1.2 Easy') for i in range(6)]
+        cheap=complete('cheap',price_eur=5000,version_text='1.2 Easy',image_urls=['https://example.com/front.jpg'])
+        records.append(cheap)
+        self.market.archive.ingest(page(records),as_of=NOW)
+        value=listing_input('export','cheap',cheap['observed_at'],cheap['url'],cheap['payload'])
+        with patch('deal_finder.agent_runtime.connections',return_value=dict(photo_web_provider_configured=True)),\
+             patch('deal_finder.agents.photo_identity.execute',return_value=dict(status='provisional_identification')) as research:
+            result=execute(dict(listing=value),self.market.db,NOW)
+        research.assert_called_once()
+        self.assertEqual(result['enrichment']['research_execution']['status'],'provisional_identification')
+        self.assertFalse(result['validation']['data']['buy_recommendation'])
+
     def test_financing_and_removed_newer_events_never_feed_family_triage(self):
         from deal_finder.agents.market_triage import review
         self.market.archive.ingest(page([complete(1, price_eur=1000, price_kind='installment'),
