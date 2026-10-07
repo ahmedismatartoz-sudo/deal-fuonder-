@@ -28,6 +28,33 @@ class PostgresQueueTests(test_queue.QueueTests):
         self.queue=Queue(URL)
     def tearDown(self):
         self.queue.close()
+    def test_extended_source_recovery_under_backend_role_and_damage_mix(self):
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory
+        from test_archive import page
+        from test_market import complete
+        from test_core import NOW
+        archive=Archive(URL)
+        try:
+            archive.db.execute('SET ROLE deal_finder_backend')
+            record=complete('extended',price_eur=2000,version_text='Panda III 1.2 Easy 69cv',trim='Easy')
+            record['payload'].pop('generation')
+            record['payload']['original']=dict(vehicle=dict(rawPowerInHp=69,rawPowerInKw=51,
+                rawCylinderCapacity=1242,transmissionType='Cambio manuale',driveTrain='Anteriore',bodyType='City car'),
+                seller=dict(type='PrivateSeller'),unused_large='x'*100000)
+            archive.ingest(page([record],source='autoscout24'),as_of=NOW)
+            memory=PriceMemory(archive.db)
+            memory.sync(NOW)
+            current=next(memory.current(NOW))
+            self.assertEqual(current['power_kw'],51);self.assertEqual(current['drivetrain'],'fwd')
+            self.assertEqual(current['body_type'],'city_car');self.assertEqual(current['generation'],'iii')
+            self.assertFalse(current['identity_dossier']['conflicts'])
+            self.assertNotIn('unused_large',str(current))
+            report=memory.first_test('identity-role',NOW,profile='opportunities')
+            self.assertEqual(report['identity_quality']['fields']['power_kw']['recovered_normalization_gaps'],1)
+            self.assertTrue(report['damage_mix']['enforced'])
+        finally:archive.close()
+
     def test_migrations_idempotent(self):
         self.assertEqual(migrate(URL)['applied'],[])
         self.assertTrue(self.queue.db.schema_ready())

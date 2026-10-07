@@ -38,6 +38,9 @@ def estimate(target, listings, *, as_of=None, minimum=8, scope='province', condi
     selected = []
     seen_vehicles = set()
     for item in sorted(latest.values(), key=lambda x: x.observed_at, reverse=True):
+        from .vehicle_identity import compatible_fields
+        if not compatible_fields(target.to_dict(),item.to_dict()):
+            continue
         age = (now - datetime.fromisoformat(item.observed_at)).total_seconds() / 86400
         if item.identity == target.identity or (target.vehicle_id and item.vehicle_id == target.vehicle_id):
             continue

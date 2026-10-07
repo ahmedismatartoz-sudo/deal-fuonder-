@@ -12,7 +12,13 @@ class QualityAgent:
         try:
             if ctx.raw.get('_intake_error'):
                 raise ValueError(ctx.raw['_intake_error'])
-            ctx.target = Listing.parse(ctx.raw['listing'])
+            from ..vehicle_identity import enrich
+            ctx.target = Listing.parse(enrich(ctx.raw['listing'],source_url=ctx.raw['listing'].get('url')))
+            from dataclasses import replace
+            from ..vehicle_identity import annotate_verified_fields
+            proof=ctx.raw.get('identity_evidence') or ctx.identity_evidence.get((*ctx.target.identity,ctx.target.observed_at))
+            ctx.target=replace(ctx.target,identity_dossier=annotate_verified_fields(
+                ctx.target.identity_dossier,proof,ctx.target,ctx.as_of))
             if instant(ctx.target.observed_at) > ctx.as_of:
                 raise ValueError('Listing was not available at analysis time')
             return Result(self.name, 'completed', {'listing': ctx.target.to_dict()})
@@ -26,6 +32,9 @@ class IdentityAgent:
 
     def execute(self, ctx):
         target = ctx.target
+        if target.identity_dossier and target.identity_dossier.get('conflicts'):
+            return Result(self.name,'needs_review',{'conflicts':target.identity_dossier['conflicts']},
+                          ['Resolve contradictory source identity fields before verification'])
         if not verified_identity(ctx.raw.get('identity_evidence') or ctx.identity_evidence.get((*target.identity, target.observed_at)), target, ctx.as_of):
             return Result(self.name, 'needs_review', reasons=['Documented identity attestation missing or invalid; cross-source identity unresolved.'])
         conflicts = [x.url for x in ctx.candidates
@@ -44,6 +53,9 @@ class MarketAgent:
     purpose = 'Compute explainable asking-price benchmarks using current comparable evidence.'
 
     def execute(self, ctx):
+        if ctx.target.identity_dossier and ctx.target.identity_dossier.get('conflicts'):
+            return Result(self.name,'blocked',{'conflicts':ctx.target.identity_dossier['conflicts']},
+                          ['Open identity contradictions block market selection'])
         if any(x.identity == ctx.target.identity and instant(x.observed_at) > instant(ctx.target.observed_at) for x in ctx.candidates):
             return Result(self.name, 'blocked', reasons=['Target snapshot superseded by a newer observation.'])
         if not ctx.target.active:

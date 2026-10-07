@@ -4,7 +4,7 @@ import os
 from ..models import Listing
 from .photo_identity import plan
 
-VERSION = 'archive-enrichment-v2'
+VERSION = 'archive-enrichment-identity-damage-v3'
 
 
 def listing_input(source, source_id, observed_at, url, payload):
@@ -46,6 +46,12 @@ def execute(raw, db, as_of):
             except ValueError:
                 pass
         value['resolved_listing'] = listing
+        from ..vehicle_identity import enrich
+        listing=enrich(listing,source_url=listing.get('url'))
+        value['resolved_listing']=listing
+        value['identity_dossier']=listing['identity_dossier']
+        from ..damage_screening import classify
+        value['damage_screening']=classify(listing)
         from .market_triage import review
         value['market_triage'] = review(listing, db, as_of)
         value['priority'] = 'price_signal' if value['market_triage']['priority_enrichment'] else 'data_completion'
@@ -75,9 +81,12 @@ def execute(raw, db, as_of):
                           dict(name='verify_identity_and_damage', requires=['price_selection']),
                           dict(name='research_parts_web', requires=['price_selection', 'identified_variant', 'required_parts'])]
         value['reason'] = 'Source evidence or reviewed enrichment is required; unknown fields remain unknown.'
-        from ..price_memory import risky
-        if risky(listing):
-            value['research_execution'] = dict(status='blocked', reason='Damage or mechanical fault excluded from clean first test')
+        from ..price_memory import risky,research_policy
+        if listing['identity_dossier']['conflicts']:
+            value['research_execution']=dict(status='needs_identity_review',conflicts=listing['identity_dossier']['conflicts'])
+            value['tasks'].insert(0,dict(name='resolve_identity_conflicts',requires=[],conflicts=listing['identity_dossier']['conflicts']))
+        elif (not value['damage_screening']['eligible_for_opportunity_research'] if research_policy()['profile']=='opportunities' else risky(listing)):
+            value['research_execution'] = dict(status='blocked', reason='Severe or insufficiently described damage excluded')
         elif not value['market_triage']['priority_enrichment']:
             value['research_execution'] = dict(status='blocked', reason='Comparable price signal required before external research')
         else:

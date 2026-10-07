@@ -6,7 +6,7 @@ excludes the target from learning and validates on separate vehicle identities.
 import hashlib
 from statistics import median
 
-VERSION = 'market-price-skills-v1'
+VERSION = 'market-price-skills-v2'
 
 
 def skills():
@@ -14,7 +14,10 @@ def skills():
             dict(name='learn_year_and_mileage', purpose='Fit adjustments from independent archived vehicles'),
             dict(name='validate_price_model', purpose='Measure error on vehicles excluded from fitting'),
             dict(name='detect_price_anomaly', purpose='Compare target asking amount with adjusted source prices'),
-            dict(name='explain_uncertainty', purpose='Return sample size, source evidence and unresolved factors')]
+            dict(name='explain_uncertainty', purpose='Return sample size, source evidence and unresolved factors'),
+            dict(name='resolve_identity_conflicts',purpose='Exclude contradictory field claims from price cohorts'),
+            dict(name='screen_net_budget',purpose='Check stressed resale can cover required net and reserve before unverified costs'),
+            dict(name='balance_non_severe_damage',purpose='Select 30/20/50 damage categories and report evidence shortages')]
 
 
 def percentile(values, fraction):

@@ -240,7 +240,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),100)
             self.assertEqual(self.market.enqueue_enrichment(self.queue,as_of=NOW),5)
-            target=dict(row('target',price_eur=5000,version_text='1.2 Easy'),source='export',source_id='target')
+            target=dict(row('target',price_eur=5000,trim='Easy',version_text='1.2 Easy'),source='export',source_id='target')
             self.assertEqual(review(target,self.market.db,NOW)['observation_count'],205)
         self.assertLessEqual(maximum[0],100)
         self.assertEqual(self.queue.db.execute('SELECT count(*) FROM jobs').fetchone()[0],205)

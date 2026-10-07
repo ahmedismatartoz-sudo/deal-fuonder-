@@ -108,6 +108,9 @@ def agents():
             'market_price_agent':dict(version=price_version,skills=price_skills(),
                 data='retained_archive',paid_provider_required=False,result='/price-tests/latest'),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
+            'identity_agent':dict(version='vehicle-identity-evidence-v1',
+                evaluation='/identity/evaluations',evidence='field_claims_sources_conflicts_and_recovery_gaps',
+                paid_provider_required=False),
             'connections': connections(),
             'professional_policy': POLICY, 'professional_tasks': professional_tasks(),
             'forecast_enabled': False}
@@ -178,6 +181,18 @@ def evaluate_model(request: EvaluationRequest):
     finally:
         queue.close()
 
+class IdentityEvaluationRequest(BaseModel):
+    training_vehicle_ids: list[str]
+    records: list[dict]
+
+@app.post('/identity/evaluations')
+def evaluate_identity(request: IdentityEvaluationRequest):
+    from .identity_evaluation import evaluate
+    try:
+        return evaluate(request.records,request.training_vehicle_ids)
+    except (ValueError,TypeError) as error:
+        raise HTTPException(status_code=422,detail=str(error)) from error
+
 from .archive import Archive
 from .collectors import sources
 from .publication import PublicationAgent
@@ -194,9 +209,11 @@ def market_status():
 
 
 @app.get('/price-tests/latest')
-def latest_price_test(price_band: int | None = None):
+def latest_price_test(price_band: int | None = None,damage_category: str | None = None):
     if price_band is not None and price_band not in range(4):
         raise HTTPException(status_code=422,detail='Invalid price band')
+    if damage_category is not None and damage_category not in ('clean','minimal','non_severe'):
+        raise HTTPException(status_code=422,detail='Invalid damage category')
     from .archive import Archive
     from .price_memory import PriceMemory,priority_observation_batch
     archive=Archive(database_target())
@@ -206,7 +223,8 @@ def latest_price_test(price_band: int | None = None):
         if row is None:
             raise HTTPException(status_code=404,detail='Price screening not completed')
         result=archive.db.json_decode(row[0])
-        selected=[p for p in result.get('candidates',[]) if price_band is None or p['price_band']==price_band]
+        selected=[p for p in result.get('candidates',[]) if (price_band is None or p['price_band']==price_band)
+                  and (damage_category is None or p.get('damage_category')==damage_category)]
         profile=result.get('screening_policy',{}).get('profile','strict')
         ids={priority_observation_batch(p,profile=profile,state=state):p for p in selected
              for state in ('identity-blocked','identity-ready')}

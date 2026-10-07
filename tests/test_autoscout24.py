@@ -86,8 +86,8 @@ class AutoScoutTests(unittest.TestCase):
         self.assertEqual(payload['mileage_km'], 80000)
         self.assertEqual(payload['year'], 2018)
         self.assertEqual(payload['description'], 'Auto curata.\nTagliando recente.')
-        self.assertEqual(payload['generation'], 'III')
-        self.assertEqual(payload['trim'], 'Easy')
+        self.assertEqual(payload['generation'], 'iii')
+        self.assertEqual(payload['trim'], 'easy')
         self.assertNotIn('province', payload)
         self.assertNotIn('vehicle_id', payload)
 
@@ -102,7 +102,8 @@ class AutoScoutTests(unittest.TestCase):
         self.assertEqual(payload['power_hp'], 84)
         self.assertEqual(payload['displacement_cc'], 1248)
         self.assertNotIn('generation', payload)
-        self.assertNotIn('trim', payload)
+        self.assertEqual(payload['trim'],'easy')
+        self.assertEqual(payload['identity_dossier']['fields']['trim']['recovery_status'],'seller_text_only')
         self.assertEqual(payload['price_kind'], 'unknown')
 
     def test_all_images_original_html_and_search_fields_survive_collection(self):
@@ -159,7 +160,8 @@ class AutoScoutTests(unittest.TestCase):
         value['vehicle']['hadAccident'] = False
         payload = record_event(value, url=BASE + value['url'], observed_at=NOW, detailed=True)['payload']
         self.assertNotIn('generation', payload)
-        self.assertNotIn('trim', payload)
+        self.assertEqual(payload['trim'],'easy')
+        self.assertEqual(payload['identity_dossier']['fields']['trim']['recovery_status'],'seller_text_only')
         self.assertEqual(payload['version_text'], '1.2 Easy')
         self.assertEqual(payload['condition'], 'unknown')
 
