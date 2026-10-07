@@ -59,6 +59,26 @@ class PriceMemoryTests(unittest.TestCase):
         self.assertEqual(report['candidates'],[])
         self.assertEqual(report['exclusions']['damage_signal_or_unknown_damaged_scope'],1)
         self.assertEqual(report['exclusions']['price_or_family_missing'],1)
+
+    def test_exploratory_profile_finds_sparse_variant_without_claiming_profit(self):
+        records=[complete('cheap',price_eur=5000,version_text='1.2 Easy',year=2018,mileage_km=80000)]
+        records += [complete('peer'+str(i),price_eur=8000+i*100,version_text='1.2 Easy',
+                             year=2020,mileage_km=110000+i) for i in range(3)]
+        records += [complete('wrong-engine'+str(i),price_eur=20000,version_text='1.6 ST') for i in range(9)]
+        self.ingest(records)
+        strict=self.memory.first_test('profiles',NOW)
+        exploratory=self.memory.first_test('profiles',NOW,profile='exploratory')
+        self.assertEqual(strict['candidates'],[])
+        self.assertEqual(len(exploratory['candidates']),1)
+        lead=exploratory['candidates'][0]
+        self.assertEqual(lead['source_id'],'cheap')
+        self.assertEqual(lead['comparable_count'],3)
+        self.assertEqual(lead['gross_headroom_before_all_costs_eur'],3000)
+        self.assertIsNone(lead['net_margin_eur'])
+        self.assertFalse(lead['buy_recommendation'])
+        self.assertEqual(exploratory['approved_buys'],0)
+        self.assertEqual(exploratory['screening_policy']['profile'],'exploratory')
+        self.assertEqual(self.memory.first_test('profiles',NOW,profile='exploratory'),exploratory)
     def test_partial_projection_does_not_create_complete_test(self):
         self.archive.ingest(page([complete('new')]),as_of=NOW)
         self.assertEqual(self.memory.first_test('pending',NOW)['status'],'waiting_for_price_memory')
