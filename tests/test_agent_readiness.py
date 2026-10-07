@@ -304,6 +304,17 @@ class WorkerDrainTests(unittest.TestCase):
 class PhotoOpportunityEnrichmentTests(unittest.TestCase):
     setUp = RuntimeTests.setUp
     tearDown = RuntimeTests.tearDown
+    def test_discovery_identity_conflict_can_get_visual_review_without_buy_approval(self):
+        from deal_finder.agents.enrichment import execute,listing_input
+        record=complete('broad-photo',power_hp=143,description='150 CV',condition='unknown',
+            image_urls=['https://prod.pictures.autoscout24.net/one.jpg'])
+        self.market.archive.ingest(page([record]),as_of=NOW)
+        listing=listing_input('export','broad-photo',record['observed_at'],record['url'],record['payload'])
+        with patch.dict(os.environ,DEAL_FINDER_FIRST_TEST_PROFILE='discovery'),patch('deal_finder.agent_runtime.connections',return_value=dict(photo_web_provider_configured=True)),patch('deal_finder.agents.photo_identity.execute',return_value=dict(status='needs_review')) as identify:
+            result=execute(dict(listing=listing),self.market.db,NOW)
+        identify.assert_called_once()
+        self.assertTrue(result['enrichment']['identity_dossier']['conflicts'])
+        self.assertFalse(result['validation']['data']['buy_recommendation'])
     def test_apparent_price_signal_can_get_photo_review_before_net_gate(self):
         from deal_finder.agents.enrichment import execute,listing_input
         record=complete('photo',image_urls=['https://prod.pictures.autoscout24.net/one.jpg'])

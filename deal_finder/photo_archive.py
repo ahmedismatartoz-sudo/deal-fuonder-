@@ -142,7 +142,7 @@ class PhotoArchive:
 
 
 class BackgroundPhotoArchive:
-    def __init__(self,path): self.path=path;self.last_poll=None
+    def __init__(self,path): self.path=path;self.last_poll=None;self.photo_cursor=0
     def step(self,run_id):
         if not run_id or self.last_poll is not None and time.monotonic()-self.last_poll<5: return None
         self.last_poll=time.monotonic()
@@ -167,7 +167,15 @@ class BackgroundPhotoArchive:
                 apparent=[dict(source=s,source_id=i,observed_at=t) for s,i,t in rows]
                 candidates.extend(apparent)
             candidates=list({(p['source'],p['source_id'],p['observed_at']):p for p in candidates}.values())
-            result=PhotoArchive(archive.db).step(dict(candidates=candidates),fetch=download)
+            # Rotate bounded groups, rather than rereading every selected
+            # original blob on every photo poll as discovery grows.
+            if candidates:
+                start=self.photo_cursor%len(candidates)
+                size=min(20,len(candidates))
+                photo_candidates=[candidates[(start+i)%len(candidates)] for i in range(size)]
+                self.photo_cursor=(start+size)%len(candidates)
+            else:photo_candidates=[]
+            result=PhotoArchive(archive.db).step(dict(candidates=photo_candidates),fetch=download)
             if apparent:
                 from .queue import Queue
                 from .price_memory import priority_observation_batch

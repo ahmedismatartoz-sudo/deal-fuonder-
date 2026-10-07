@@ -220,7 +220,7 @@ def market_status():
 def latest_price_test(price_band: int | None = None,damage_category: str | None = None):
     if price_band is not None and price_band not in range(4):
         raise HTTPException(status_code=422,detail='Invalid price band')
-    if damage_category is not None and damage_category not in ('clean','minimal','non_severe'):
+    if damage_category is not None and damage_category not in ('clean','minimal','non_severe','unknown'):
         raise HTTPException(status_code=422,detail='Invalid damage category')
     from .archive import Archive
     from .price_memory import PriceMemory,priority_observation_batch

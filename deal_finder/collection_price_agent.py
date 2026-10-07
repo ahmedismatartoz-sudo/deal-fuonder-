@@ -8,7 +8,7 @@ from .damage_screening import classify
 from .margin_policy import minimum_net_margin_eur
 from .agents.market_prices import assess
 
-VERSION = 'collection-price-agent-v2'
+VERSION = 'collection-price-agent-v3'
 
 
 def enabled():
@@ -26,11 +26,12 @@ class CollectionPriceAgent:
                       net_margin_eur=None, basis='published_asking_prices')
         if not amount_usable(target) or market_restricted(target):
             return dict(result, status='excluded', reason='unusable_total_price_or_market_restriction')
-        if target.get('identity_dossier', {}).get('conflicts'):
+        discovery=os.getenv('DEAL_FINDER_FIRST_TEST_PROFILE')=='discovery'
+        if not discovery and target.get('identity_dossier', {}).get('conflicts'):
             return dict(result, reason='identity_conflict')
         if classify(target)['category'] == 'severe':
             return dict(result, status='excluded', reason='severe_damage')
-        if not all(target.get(k) for k in ('make', 'model', 'fuel', 'transmission')) or any(
+        if not all(target.get(k) for k in (('make','model') if discovery else ('make', 'model', 'fuel', 'transmission'))) or any(
                 type(target.get(k)) is not int for k in ('year', 'mileage_km')):
             return dict(result, reason='missing_search_identity')
         key = (normalized(target['make']), normalized(target['model']))
@@ -43,6 +44,16 @@ class CollectionPriceAgent:
             while len(self.cache) > 8:
                 self.cache.popitem(last=False)
         rows = self.cache[key][1]
+        if discovery:
+            from .opportunity_discovery import signal,identity_present
+            if not identity_present(target):return dict(result,reason='missing_search_identity')
+            context=signal(target,rows)
+            if context is None:return dict(result,reason='fewer_than_two_broad_comparables',screening_stage='broad_discovery')
+            opportunity=context['apparent_opportunity']
+            return dict(result,status='apparent_opportunity' if opportunity else 'not_apparent_opportunity',
+                detail_fetch_recommended=opportunity,market_price_agent=context,screening_stage='broad_discovery',
+                gross_headroom_before_all_costs_eur=context['gross_headroom_before_all_costs_eur'],
+                final_cost_and_damage_analysis_required=True)
         cohort = [q for q in rows if amount_usable(q) and not market_restricted(q)
                   and classify(q)['category'] == 'clean'
                   and type(q.get('year')) is int and type(q.get('mileage_km')) is int

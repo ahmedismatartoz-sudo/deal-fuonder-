@@ -107,6 +107,23 @@ class OpportunityPhotoTests(unittest.TestCase):
             self.assertIsNone(BackgroundPhotoArchive(self.path).step('test'))
             fetch.assert_not_called()
 
+    def test_large_discovery_rotates_bounded_photo_groups(self):
+        from deal_finder.price_memory import PriceMemory,SCREENING_VERSION
+        from deal_finder.photo_archive import BackgroundPhotoArchive
+        from deal_finder.archive import canonical
+        PriceMemory(self.archive.db)
+        candidates=[dict(source='export',source_id=str(i),observed_at=NOW.isoformat()) for i in range(45)]
+        with self.archive.db:
+            self.archive.db.execute('INSERT INTO price_test_reports VALUES (?,?,?)',
+                ('large',NOW.isoformat(),canonical(dict(screening_version=SCREENING_VERSION,candidates=candidates))))
+        worker=BackgroundPhotoArchive(self.path)
+        with patch.dict(os.environ,DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED='0'),patch('deal_finder.photo_archive.PhotoArchive.step',return_value=dict(photo_archive='idle')) as step:
+            worker.step('large');worker.last_poll=None
+            worker.step('large')
+        first=step.call_args_list[0].args[0]['candidates'];second=step.call_args_list[1].args[0]['candidates']
+        self.assertEqual(len(first),20);self.assertEqual(len(second),20)
+        self.assertFalse({p['source_id'] for p in first}&{p['source_id'] for p in second})
+
     def test_apparent_opportunity_alone_gets_photos_and_one_source_bound_review(self):
         from datetime import datetime,timezone
         from deal_finder.price_memory import PriceMemory

@@ -85,13 +85,15 @@ def execute(raw, db, as_of):
         apparent_photo_review=(os.getenv('DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED')=='1'
             and payload.get('collection_price_screen',{}).get('status')=='apparent_opportunity')
         value['photo_opportunity_review']=apparent_photo_review
-        if listing['identity_dossier']['conflicts']:
+        discovery_review=research_policy()['profile']=='discovery'
+        value['discovery_review']=discovery_review
+        if listing['identity_dossier']['conflicts'] and not discovery_review:
             value['research_execution']=dict(status='needs_identity_review',conflicts=listing['identity_dossier']['conflicts'])
             value['tasks'].insert(0,dict(name='resolve_identity_conflicts',requires=[],conflicts=listing['identity_dossier']['conflicts']))
-        elif (value['damage_screening']['category']=='severe' or (not apparent_photo_review and
+        elif (value['damage_screening']['category']=='severe' or (not apparent_photo_review and not discovery_review and
                 (not value['damage_screening']['eligible_for_opportunity_research'] if research_policy()['profile']=='opportunities' else risky(listing)))):
             value['research_execution'] = dict(status='blocked', reason='Severe or insufficiently described damage excluded')
-        elif not value['market_triage']['priority_enrichment'] and not apparent_photo_review:
+        elif not value['market_triage']['priority_enrichment'] and not apparent_photo_review and not discovery_review:
             value['research_execution'] = dict(status='blocked', reason='Comparable price signal required before external research')
         else:
             from ..agent_runtime import connections
