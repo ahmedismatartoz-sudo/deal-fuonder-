@@ -28,6 +28,11 @@ def review(listing, db, as_of):
             continue
         if p.get('seller_type') != listing.get('seller_type'):
             continue
+        if (not isinstance(listing.get('transmission'), str)
+                or not isinstance(p.get('transmission'), str)
+                or not listing['transmission'].strip() or not p['transmission'].strip()
+                or normalize(listing['transmission']) != normalize(p['transmission'])):
+            continue
         if any(type(p.get(key)) is not int or type(listing.get(key)) is not int
                or abs(p[key]-listing[key]) > tolerance
                for key,tolerance in (('year',1), ('mileage_km',20000))):
