@@ -194,15 +194,19 @@ class Archive:
         return dict(idempotent=False, **self.run_status(source, run_id))
 
     def run_status(self, source, run_id):
-        rows = self.db.execute('SELECT mode, scope, next_cursor, complete, accepted, rejected FROM collection_pages WHERE source=? AND run_id=? ORDER BY sequence',
-                               (normalize(source), run_id)).fetchall()
-        if not rows:
+        source = normalize(source)
+        row = self.db.execute("""SELECT p.mode,p.scope,p.next_cursor,p.complete,
+            totals.pages,totals.accepted,totals.rejected
+            FROM (SELECT mode,scope,next_cursor,complete FROM collection_pages
+                WHERE source=? AND run_id=? ORDER BY sequence DESC LIMIT 1) p
+            CROSS JOIN (SELECT count(*) AS pages,coalesce(sum(accepted),0) AS accepted,
+                coalesce(sum(rejected),0) AS rejected FROM collection_pages
+                WHERE source=? AND run_id=?) totals""", (source,run_id,source,run_id)).fetchone()
+        if row is None:
             raise KeyError('Collection run not found')
-        last = rows[-1]
-        return dict(source=normalize(source), run_id=run_id, mode=last[0], scope=self.db.json_decode(last[1]),
-                    next_cursor=last[2], complete=bool(last[3]), pages=len(rows),
-                    accepted=sum(r[4] for r in rows), quarantined=sum(r[5] for r in rows),
-                    market_coverage_verified=False)
+        return dict(source=source, run_id=run_id, mode=row[0], scope=self.db.json_decode(row[1]),
+                    next_cursor=row[2], complete=bool(row[3]), pages=row[4],
+                    accepted=row[5], quarantined=row[6],market_coverage_verified=False)
 
     def history(self, source, source_id, *, offset=0, limit=100):
         if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
