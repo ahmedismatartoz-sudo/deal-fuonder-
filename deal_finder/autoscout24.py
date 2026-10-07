@@ -21,7 +21,7 @@ from .archive import canonical
 from .collectors import CollectionAgent, Page
 
 ORIGIN = 'https://www.autoscout24.it'
-VERSION = 'autoscout24-public-html-v2'
+VERSION = 'autoscout24-public-html-v3'
 USER_AGENT = 'DealFinder/0.3 (+public vehicle market research)'
 _collection_lock = threading.Lock()
 
@@ -247,6 +247,9 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
     put('model', vehicle.get('model'), 'vehicle.model')
     put('version_text', vehicle.get('modelVersionInput'), 'vehicle.modelVersionInput')
     raw = vehicle.get('rawData') or {}
+    for key, field, maximum in (('power_hp', 'rawPowerInHp', 3000),
+                                ('displacement_cc', 'rawCylinderCapacity', 20000)):
+        put(key, whole_number(vehicle.get(field), maximum), 'vehicle.' + field)
     classification = raw.get('classification') or {}
     for key, field in (('generation', 'modelGeneration'), ('trim', 'trimLine')):
         spec = classification.get(field) or {}
@@ -284,7 +287,8 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
         if not finance_condition and not ambiguous_payment and price.get('isConditionalPrice') is False and (not detailed or
                 (item.get('prices', {}).get('isFinalPrice') is True and public.get('onRequestOnly') is False)):
             put('price_kind', 'total', 'price.isConditionalPrice=false; public EUR price')
-    seller_type = {'Dealer': 'dealer', 'Private': 'private'}.get(seller.get('type'))
+    seller_type = {'Dealer': 'dealer', 'Private': 'private',
+                   'PrivateSeller': 'private'}.get(seller.get('type'))
     put('seller_type', seller_type, 'seller.type')
     put('city', location.get('city'), 'location.city')
     # No guessed province from a free-text city or postal code.

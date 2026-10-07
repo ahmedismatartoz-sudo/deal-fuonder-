@@ -40,12 +40,21 @@ class Listing:
     price_kind: str = 'total'
     damage_severity: str = 'unknown'
     damage_indicators: list[str] | None = None
+    version_text: str | None = None
+    power_hp: int | None = None
+    displacement_cc: int | None = None
 
     @classmethod
     def parse(cls, row):
         if not isinstance(row, dict):
             raise ValueError('Listing must be an object')
         data = dict(row)
+        if data.get('version_text') is not None and not isinstance(data['version_text'], str):
+            raise ValueError('version_text must be text')
+        for key, maximum in (('power_hp', 3000), ('displacement_cc', 20000)):
+            value = data.get(key)
+            if value is not None and (type(value) is not int or not 1 <= value <= maximum):
+                raise ValueError(f'{key} must be a positive whole number')
         for key in ('source', 'make', 'model', 'generation', 'trim',
                     'fuel', 'transmission', 'province', 'seller_type', 'condition'):
             data[key] = normalize(data[key])

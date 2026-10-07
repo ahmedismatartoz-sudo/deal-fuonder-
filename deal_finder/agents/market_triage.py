@@ -15,7 +15,7 @@ def review(listing, db, as_of):
     price = listing.get('price_eur')
     if type(price) is not int or price <= 0:
         return dict(output, reason='Published acquisition amount unresolved')
-    from ..price_memory import PriceMemory, amount_usable
+    from ..price_memory import PriceMemory, amount_usable, risky, same_variant
     memory = PriceMemory(db)
     # Development callers may ingest directly; deployed worker builds memory
     # before consuming jobs. Read only new raw observations, never whole families.
@@ -24,7 +24,13 @@ def review(listing, db, as_of):
     amounts, sources = [], []
     for p in memory.current(as_of, make=make, model=model, source=listing['source']):
         source_id, amount = p['source_id'], p.get('price_eur')
-        if source_id == listing['source_id'] or not amount_usable(p):
+        if source_id == listing['source_id'] or not amount_usable(p) or risky(p) or not same_variant(listing,p):
+            continue
+        if p.get('seller_type') != listing.get('seller_type'):
+            continue
+        if any(type(p.get(key)) is not int or type(listing.get(key)) is not int
+               or abs(p[key]-listing[key]) > tolerance
+               for key,tolerance in (('year',1), ('mileage_km',20000))):
             continue
         fuel, condition = p.get('fuel'), p.get('condition')
         if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)

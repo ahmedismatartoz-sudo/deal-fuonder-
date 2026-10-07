@@ -91,6 +91,20 @@ class AutoScoutTests(unittest.TestCase):
         self.assertNotIn('province', payload)
         self.assertNotIn('vehicle_id', payload)
 
+    def test_retained_production_shape_recovers_private_seller_and_engine_without_guessing(self):
+        value = detail()
+        value['seller']['type'] = 'PrivateSeller'
+        value['vehicle'].update(rawPowerInHp=84, rawCylinderCapacity=1248)
+        value['vehicle']['rawData']['classification'] = dict(modelGeneration=None, trimLine=None)
+        value['prices']['isFinalPrice'] = False
+        payload = record_event(value, url=BASE + value['url'], observed_at=NOW, detailed=True)['payload']
+        self.assertEqual(payload['seller_type'], 'private')
+        self.assertEqual(payload['power_hp'], 84)
+        self.assertEqual(payload['displacement_cc'], 1248)
+        self.assertNotIn('generation', payload)
+        self.assertNotIn('trim', payload)
+        self.assertEqual(payload['price_kind'], 'unknown')
+
     def test_all_images_original_html_and_search_fields_survive_collection(self):
         original = detail()
         original['images'] = [f'https://example.com/{i}.jpg' for i in range(150)]
