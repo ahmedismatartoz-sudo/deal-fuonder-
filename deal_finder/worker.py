@@ -114,7 +114,7 @@ def main():
             with open(args.config) as handle:
                 config = json.load(handle)
         else:
-            config = json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+            config = json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG') or '{}')
         archive = Archive(args.db)
         try:
             output = collect(config, archive, run_id=args.run_id, mode=args.mode, max_pages=args.max_pages)
@@ -172,8 +172,8 @@ def main():
                         with open(args.config) as handle:
                             config = json.load(handle)
                     else:
-                        config = json.loads(os.getenv('DEAL_FINDER_COLLECTION_CONFIG', '{}'))
-                    native_config = config.get('autoscout24') or json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG', '{}'))
+                        config = json.loads(os.getenv('DEAL_FINDER_COLLECTION_CONFIG') or '{}')
+                    native_config = config.get('autoscout24') or json.loads(os.getenv('DEAL_FINDER_AUTOSCOUT24_CONFIG') or '{}')
                     from .bootstrap import bootstrap_config, bootstrap_status
                     bootstrap_spec = bootstrap_config()
                     if bootstrap_spec and not native_config:
@@ -245,6 +245,9 @@ def main():
             from .bootstrap import Bootstrap, bootstrap_config
             spec = bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
+            from .bootstrap import OpportunityCollection
+            from .collection_price_agent import enabled as price_collection_enabled
+            opportunity_collection = OpportunityCollection(args.db, spec) if spec and price_collection_enabled() else None
             from .agent_runtime import BackgroundScreening, connections
             print(json.dumps({'agent_connections': connections()}), flush=True)
             screening = (BackgroundScreening(args.db)
@@ -322,6 +325,12 @@ def main():
                             break
                     if bootstrap:
                         progress = bootstrap.step()
+                        if progress:
+                            print(json.dumps(progress), flush=True)
+                        if stopping:
+                            break
+                    if opportunity_collection:
+                        progress = opportunity_collection.step()
                         if progress:
                             print(json.dumps(progress), flush=True)
                         if stopping:

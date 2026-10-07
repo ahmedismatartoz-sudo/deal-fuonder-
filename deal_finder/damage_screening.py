@@ -49,7 +49,9 @@ def classify(p):
         elif p.get('condition')=='damaged' or current is True or source.get('hadAccident') is True or declared or signals(text,r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*)\b'):
             category='unknown';evidence=[]
         elif p.get('condition')=='undamaged' or current is False:category='clean';evidence=[]
-        else:category='unknown';evidence=[]
+        else:
+            good=signals(text,r'\b(?:auto|vettura|macchina).{0,35}(?:in\s+)?(?:buone|ottime|perfette)\s+condizioni|\b(?:ottime|perfette)\s+condizioni\s+(?:generali|meccaniche\s+e\s+di\s+carrozzeria)')
+            category='clean' if good else 'unknown';evidence=good
     return dict(version=VERSION,category=category,evidence=evidence,
                 severity_verified=False,inspection_required=True,
                 eligible_for_opportunity_research=category in MIX,

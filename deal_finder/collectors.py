@@ -71,7 +71,8 @@ def sources():
                  collection_schedule='configured_in_apify', live_scraping=False),
             dict(source='autoscout24', status='native_collector_available', modes=['initial', 'incremental'],
                  requires=['DEAL_FINDER_AUTOSCOUT24_CONFIG'], live_scraping=True,
-                 paid_actor_required=False, refresh_existing=False,
+                 paid_actor_required=False, refresh_existing='price_changes_and_seven_day_search_refresh_when_screening_enabled',
+                 collection_price_screening='DEAL_FINDER_AUTOSCOUT24_PRICE_SCREENING_ENABLED',
                  market_coverage_verified=False)] + [
         dict(source=s, status='adapter_not_configured', live_scraping=False)
         for s in ('facebook_marketplace', 'subito', 'automobile_it')]
