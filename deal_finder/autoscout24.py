@@ -247,6 +247,11 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
     put('model', vehicle.get('model'), 'vehicle.model')
     put('version_text', vehicle.get('modelVersionInput'), 'vehicle.modelVersionInput')
     raw = vehicle.get('rawData') or {}
+    # Every published detail remains in original; expose these named sections
+    # as source declarations rather than making the downstream agent guess.
+    payload['declared_specs'] = {key:raw[key] for key in (
+        'classification','engine','condition','maintenance','environment',
+        'bodyType','numberOfDoors','interior') if raw.get(key) is not None}
     for key, field, maximum in (('power_hp', 'rawPowerInHp', 3000),
                                 ('displacement_cc', 'rawCylinderCapacity', 20000)):
         put(key, whole_number(vehicle.get(field), maximum), 'vehicle.' + field)
@@ -312,6 +317,11 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
         'title', 'description', 'image_urls', 'make', 'model', 'version_text',
         'generation', 'trim', 'fuel', 'transmission', 'year', 'mileage_km',
         'price_eur', 'province', 'seller_type') if payload.get(key) in (None, '', [])]
+    payload['source_completeness'] = dict(detail_fetched=detailed,
+        published_specs_preserved=True,
+        absent_from_source=[key for key in ('generation','trim','power_hp','displacement_cc')
+                            if payload.get(key) is None],
+        unknown_fields_are_not_zero=True)
     if detailed and item.get('status') != 'Active':
         raise CollectionBlocked('Unsupported listing availability; cannot assume it is active or sold')
     return {'source_id': source_id, 'url': url, 'active': True,
