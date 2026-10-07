@@ -55,7 +55,11 @@ def review(listing, db, as_of):
     ordered = sorted(amounts)
     p25 = ordered[(len(ordered)-1)//4]
     minimum = policy['minimum_comparables'] if policy['profile']=='exploratory' else 5
-    priority = len(amounts) >= minimum and (p25-price)*10 >= p25
+    if policy['profile']=='exploratory':
+        priority = (len(amounts) >= minimum and p25-price >= policy['minimum_headroom_eur']
+                    and (p25-price)*100 >= price*policy['minimum_discount_percent'])
+    else:
+        priority = len(amounts) >= minimum and (p25-price)*10 >= p25
     return dict(output, status='provisional_family_context', priority_enrichment=priority,
                 observed_envelope_eur=dict(low=min(amounts), typical=round(median(amounts)), high=max(amounts)),
                 potential_before_repairs_eur=dict(low=min(amounts)-price, high=max(amounts)-price),
