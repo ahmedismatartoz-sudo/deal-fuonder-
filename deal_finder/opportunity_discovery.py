@@ -1,6 +1,6 @@
 """Broad lead collection. Approximate asking signals never approve a purchase."""
 from collections import defaultdict
-from statistics import median
+from statistics import mean
 from .damage_screening import classify
 
 
@@ -31,13 +31,16 @@ def peers_for(target, rows):
 def signal(target, rows):
     peers=peers_for(target,rows)
     if len(peers)<2:return None
-    reference=round(median(q['price_eur'] for q in peers))
+    reference=round(mean(q['price_eur'] for q in peers))
     gap=reference-target['price_eur']
-    return dict(method='broad_model_year_mileage_asking_median',confidence='low',
+    from .margin_policy import minimum_net_margin_eur
+    required=minimum_net_margin_eur(target['price_eur'])
+    return dict(method='broad_model_year_mileage_asking_mean',confidence='low',
                 comparable_count=len(peers),asking_typical_eur=reference,
                 asking_low_eur=min(q['price_eur'] for q in peers),
                 gross_headroom_before_all_costs_eur=gap,
-                apparent_opportunity=gap>=500 and gap*100>=target['price_eur']*5,
+                minimum_required_asking_discount_eur=required,
+                apparent_opportunity=gap>=required,
                 exact_variant_comparison=False,net_margin_eur=None,buy_recommendation=False,
                 unresolved_factors=['exact_engine_generation_trim','damage','resale','all_costs'],
                 sources=[dict(source=q['source'],source_id=q['source_id'],observed_at=q['observed_at'],

@@ -160,8 +160,10 @@ per il ruolo applicativo.
 ## Prima raccolta elastica delle opportunità
 
 Il profilo `discovery` considera marca/modello, anno ±3 e km ±60.000.
-Almeno due riferimenti distinti e uno scarto dalla mediana degli annunci di
-almeno 500 € e 5% generano una segnalazione preliminare. Motore/allestimento
+Almeno due riferimenti distinti e uno scarto dalla media degli annunci di
+almeno 2.000 € sotto la media generano una segnalazione preliminare sotto
+6.000 € di acquisto; da 6.000 € servono 3.000 €, da 10.000 € 4.000 € e
+da 15.000 € fino a 20.000 € servono 5.000 €. Motore/allestimento
 incerti, conflitti e condizioni sconosciute restano da verificare. Danni
 gravi espliciti e prezzi non totali restano esclusi. Il confronto è indicativo
 e non una valutazione della rivendita. Nessun margine netto viene certificato.

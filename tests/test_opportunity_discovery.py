@@ -15,7 +15,7 @@ class DiscoveryTests(unittest.TestCase):
         common=dict(model='Panda',generation=None,trim=None,version_text=None,
                     fuel=None,transmission=None,condition='unknown')
         return [complete('cheap',price_eur=5000,**common)]+[
-            complete('peer'+str(i),price_eur=6500+i*100,mileage_km=80000+i,**common) for i in range(3)]
+            complete('peer'+str(i),price_eur=8000+i*100,mileage_km=80000+i,**common) for i in range(3)]
 
     def test_unknown_condition_and_missing_variant_are_discovery_only(self):
         self.ingest(self.records())
@@ -52,7 +52,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertFalse(result['buy_recommendation'])
 
     def test_more_than_two_leads_per_family_are_retained(self):
-        records=[complete('peer'+str(i),price_eur=6500+i*100,model='Panda',mileage_km=80000+i,
+        records=[complete('peer'+str(i),price_eur=10000+i*100,model='Panda',mileage_km=80000+i,
             fuel=None,transmission=None,condition='unknown') for i in range(12)]+[complete('cheap'+str(i),price_eur=4000+i*100,
             model='Panda',mileage_km=80000+i,condition='unknown') for i in range(8)]
         self.ingest(records)
@@ -73,3 +73,17 @@ class DiscoveryTests(unittest.TestCase):
         result=review(target,self.archive.db,NOW)
         self.assertTrue(result['priority_enrichment'])
         self.assertFalse(result['exact_variant_verified'])
+
+    def test_price_discount_tiers_include_exact_boundaries(self):
+        from deal_finder.opportunity_discovery import signal
+        for price,required in [(2000,2000),(5999,2000),(6000,3000),(9999,3000),
+                               (10000,4000),(14999,4000),(15000,5000),(20000,5000)]:
+            for gap,expected in [(required-1,False),(required,True)]:
+                with self.subTest(price=price,gap=gap):
+                    target=dict(source='export',source_id='target',make='Fiat',model='Panda',year=2018,
+                        mileage_km=80000,price_eur=price,price_kind='total',observed_at=NOW.isoformat())
+                    peers=[dict(target,source_id='peer'+str(i),mileage_km=80000+i,price_eur=price+gap) for i in range(2)]
+                    result=signal(target,peers)
+                    self.assertEqual(result['minimum_required_asking_discount_eur'],required)
+                    self.assertEqual(result['apparent_opportunity'],expected)
+                    self.assertIsNone(result['net_margin_eur'])

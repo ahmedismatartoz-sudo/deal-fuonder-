@@ -36,8 +36,9 @@ def research_policy(profile=None):
     profile = profile or os.getenv('DEAL_FINDER_FIRST_TEST_PROFILE', 'strict')
     if profile=='discovery':
         return dict(profile=profile,minimum_comparables=2,year_tolerance=3,
-                    mileage_tolerance_km=60000,minimum_headroom_eur=500,
-                    minimum_discount_percent=5,asking_stress_percent=0,
+                    mileage_tolerance_km=60000,minimum_headroom_eur=2000,
+                    asking_discount_policy='purchase_price_tiers_2000_3000_4000_5000',
+                    minimum_discount_percent=0,asking_stress_percent=0,
                     final_conservative_filter_required=True)
     if profile in ('exploratory','opportunities'):
         return dict(profile=profile, minimum_comparables=3, year_tolerance=2,
