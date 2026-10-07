@@ -1,7 +1,18 @@
 """Broad lead collection. Approximate asking signals never approve a purchase."""
 from collections import defaultdict
 from statistics import mean
-from .damage_screening import classify
+from .damage_screening import classify,signals
+
+
+def damage_group(p):
+    if p.get('_discovery_group'):return p['_discovery_group']
+    category=(p.get('_discovery_damage') or classify(p))['category']
+    if category!='unknown':return category
+    source=p.get('damage_source_claims') or {}
+    disclosed=(p.get('condition')=='damaged' or any(source.get(k) is True for k in ('hadAccident','isCurrentlyDamaged'))
+        or (source.get('rawData.condition.damage') or {}).get('isCurrentlyDamaged') is True
+        or signals(str(p.get('title') or '')+' '+str(p.get('description') or ''),r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*)\b'))
+    return 'damaged_unspecified' if disclosed else 'condition_unknown'
 
 
 def identity_present(p):
@@ -19,10 +30,7 @@ def peers_for(target, rows):
         if any(normalized(q.get(k)) != normalized(target.get(k)) for k in ('make','model')):continue
         if abs(q['year']-target['year'])>3 or abs(q['mileage_km']-target['mileage_km'])>60000:continue
         if any(q.get(k) and target.get(k) and normalized(q[k])!=normalized(target[k]) for k in ('fuel','transmission')):continue
-        if (q.get('_discovery_damage') or classify(q))['category'] not in ('clean','unknown'):continue
-        source=q.get('damage_source_claims') or {}
-        if q.get('condition')=='damaged' or any(source.get(k) is True for k in ('hadAccident','isCurrentlyDamaged')):continue
-        if (source.get('rawData.condition.damage') or {}).get('isCurrentlyDamaged') is True:continue
+        if damage_group(q)!=damage_group(target) or damage_group(q)=='severe':continue
         key=(q['year'],q['mileage_km'],q['price_eur'],q.get('city'))
         unique.setdefault(key,q)
     return list(unique.values())
@@ -40,6 +48,7 @@ def signal(target, rows):
                 asking_low_eur=min(q['price_eur'] for q in peers),
                 gross_headroom_before_all_costs_eur=gap,
                 minimum_required_asking_discount_eur=required,
+                damage_comparison_group=damage_group(target),damaged_and_healthy_compared_directly=False,
                 apparent_opportunity=gap>=required,
                 exact_variant_comparison=False,net_margin_eur=None,buy_recommendation=False,
                 unresolved_factors=['exact_engine_generation_trim','damage','resale','all_costs'],
@@ -52,6 +61,7 @@ def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
     from .margin_policy import policy as net_policy,minimum_net_margin_eur
     groups=defaultdict(list)
     rows=[dict(p,_discovery_damage=classify(p)) for p in rows]
+    for p in rows:p['_discovery_group']=damage_group(p)
     for p in rows:groups[(normalized(p.get('make')),normalized(p.get('model')))].append(p)
     exclusions=defaultdict(int);leads=[];seen=set()
     for p in rows:
@@ -74,7 +84,7 @@ def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
         if p.get('identity_dossier',{}).get('conflicts'):flags.append('identity_conflicts_to_review')
         if damage['category']=='unknown':flags.append('condition_unknown')
         if not p.get('city'):flags.append('location_to_verify')
-        public={k:v for k,v in p.items() if k!='_discovery_damage'}
+        public={k:v for k,v in p.items() if not k.startswith('_discovery_')}
         leads.append(dict(public,status='discovery_lead',screening_stage='broad_discovery',
             damage_category=damage['category'],price_band=min(3,p['price_eur']//5000),
             discovery_context=context,market_price_agent=context,comparable_count=context['comparable_count'],

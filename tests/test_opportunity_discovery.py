@@ -87,3 +87,16 @@ class DiscoveryTests(unittest.TestCase):
                     self.assertEqual(result['minimum_required_asking_discount_eur'],required)
                     self.assertEqual(result['apparent_opportunity'],expected)
                     self.assertIsNone(result['net_margin_eur'])
+
+    def test_damaged_targets_never_compare_directly_with_healthy_or_unknown_cars(self):
+        from deal_finder.opportunity_discovery import signal
+        target=dict(source='export',source_id='target',make='Fiat',model='Panda',year=2018,
+            mileage_km=80000,price_eur=2000,price_kind='total',condition='damaged',observed_at=NOW.isoformat())
+        healthy=[dict(target,source_id='peer'+str(i),mileage_km=80000+i,price_eur=8000,condition='undamaged') for i in range(2)]
+        self.assertIsNone(signal(target,healthy))
+        self.assertIsNone(signal(target,[dict(p,condition='unknown') for p in healthy]))
+        damaged=[dict(p,condition='damaged',price_eur=4500) for p in healthy]
+        context=signal(target,damaged)
+        self.assertTrue(context['apparent_opportunity'])
+        self.assertEqual(context['damage_comparison_group'],'damaged_unspecified')
+        self.assertFalse(context['damaged_and_healthy_compared_directly'])

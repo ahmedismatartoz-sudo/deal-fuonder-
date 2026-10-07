@@ -174,3 +174,8 @@ delle segnalazioni è riportato. Il collector adotta la stessa logica. Foto
 e verifica visiva seguono le segnalazioni in lotti limitati. Il successivo
 filtro prudente continua a richiedere identità, danni, costi, rivendita e
 i margini netti concordati.
+
+I riferimenti discovery appartengono allo stesso gruppo di condizioni:
+sane, danni minimi, danni non gravi, danni non precisati o condizioni
+sconosciute. Non si ricava uno sconto diretto da un'auto incidentata
+confrontandola con una sana. L'entità e i costi dei danni restano da verificare.
