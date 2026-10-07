@@ -49,6 +49,10 @@ def connections():
              and bool(os.getenv('DEAL_FINDER_PARTS_MODEL', '').strip()))
     from .technical_web import configured as risk_configured
     return dict(archive_to_market=os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1',
+                api_key_present=bool(os.getenv('OPENAI_API_KEY','').strip()),
+                vision_model_present=bool(os.getenv('DEAL_FINDER_VISION_MODEL','').strip()),
+                parts_model_present=bool(os.getenv('DEAL_FINDER_PARTS_MODEL','').strip()),
+                risk_model_present=bool(os.getenv('DEAL_FINDER_RISK_MODEL','').strip()),
                 photo_web_provider_configured=vision, parts_web_provider_configured=parts,
                 technical_risk_web_provider_configured=risk_configured(),
                 paid_provider_calls_opt_in=True, parts_labor_price_enabled=False,
