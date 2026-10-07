@@ -291,7 +291,7 @@ def main():
                         if analysis_stop.is_set():
                             break
                         progress = (photo_archive.step(first_test_id)
-                                    if os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
+                                    if not facebook_screening and os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
                         if progress:
                             print(json.dumps(progress), flush=True)
                     except Exception as error:
@@ -324,7 +324,7 @@ def main():
                         if memory_progress:
                             print(json.dumps(memory_progress), flush=True)
                         photo_progress = (photo_archive.step(first_test_id)
-                                    if os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
+                                    if not facebook_screening and os.getenv('DEAL_FINDER_PHOTO_ARCHIVE_ENABLED') == '1' else None)
                         if photo_progress:
                             print(json.dumps(photo_progress), flush=True)
                     if screening and price_memory.ready and not first_test_id:

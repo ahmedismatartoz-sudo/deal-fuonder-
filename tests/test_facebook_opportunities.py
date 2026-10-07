@@ -69,6 +69,11 @@ class FacebookEvidenceTests(unittest.TestCase):
 
 
 class FacebookRankingTests(unittest.TestCase):
+    def test_purchase_service_is_not_a_vehicle_sale(self):
+        r=build_report([car(description='Ritiriamo auto usate di qualsiasi tipo. Se vuoi vendere la tua auto, contattaci.')],peers(),NOW)
+        self.assertEqual(r['candidates'],[])
+        self.assertEqual(r['exclusions']['vehicle_purchase_service_not_sale'],1)
+
     def test_pessimistic_low_reference_never_becomes_unknown_cost_net(self):
         r=build_report([car()],peers(),NOW)
         self.assertEqual(r['total_research_candidates'],1)
@@ -162,7 +167,8 @@ class FacebookPersistenceTests(unittest.TestCase):
             result=FacebookScreening(path).step()
             self.assertEqual(result['facebook_ads_examined'],110)
             self.assertEqual(result['research_observations_queued_total'],2)
-            restarted=FacebookScreening(path).step()
+            with patch.object(PriceMemory,'sync',side_effect=AssertionError('unchanged archive must not reproject')):
+                restarted=FacebookScreening(path).step()
             self.assertEqual(restarted['facebook_screening'],'already_completed')
             queue=Queue(path)
             self.assertEqual(queue.db.execute('SELECT count(*) FROM batches WHERE batch_id LIKE ?',(PREFIX+'%',)).fetchone()[0],2)

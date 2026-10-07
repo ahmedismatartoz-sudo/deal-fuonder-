@@ -17,7 +17,7 @@ from .margin_policy import minimum_net_margin_eur, policy
 from .vehicle_identity import normalize_field
 from .damage_screening import classify
 
-VERSION = 'facebook-top50-evidence-v1'
+VERSION = 'facebook-top50-evidence-v2'
 SOURCE = 'facebook_marketplace'
 PREFIX = 'facebook-finalists-v1-'
 
@@ -47,6 +47,12 @@ def transmission(value):
 def conditional_price(row):
     text=norm(str(row.get('title') or '')+' '+str(row.get('description') or ''))
     return bool(re.search(r'(?:prezzo.{0,40}(?:solo con|con obbligo|vincolato|soggetto).{0,25}finanziament|finanziamento obbligatorio|prezzo.{0,25}con finanziament|iva\s*esclusa|\+\s*iva|(?:solo|per)\s*ricambi|fermo amministrativo|senza documenti)',text))
+
+
+def acquisition_service(row):
+    text=norm(str(row.get('description') or ''))
+    return bool(re.search(r'\b(?:ritiriamo|compriamo|acquistiamo)\s+(?:le\s+)?auto\s+usate\b',text)
+                and re.search(r'\b(?:qualsiasi tipo|se vuoi vendere|valutazioni|pagamento rapido)\b',text))
 
 
 def instant(value):
@@ -146,6 +152,8 @@ def build_report(facebook, market, as_of, *, reviews=None, limit=50):
         if not p.get('active',True) or seen is None or not timedelta(0) <= as_of-seen <= timedelta(days=30):
             exclusions['inactive_stale_or_future'] += 1; continue
         price = p.get('price_eur')
+        if acquisition_service(p):
+            exclusions['vehicle_purchase_service_not_sale'] += 1; continue
         if type(price) is not int or not 1000 <= price <= 20000:
             exclusions['outside_purchase_budget'] += 1; continue
         from .price_memory import amount_usable
@@ -227,6 +235,15 @@ def build_report(facebook, market, as_of, *, reviews=None, limit=50):
             opportunities.append(public)
     candidates.sort(key=lambda p:(-p['maximum_margin_before_unknown_costs_eur'],-p['comparable_count'],p['source_id']))
     opportunities.sort(key=lambda p:(-p['net_margin_estimate_eur'],p['source_id']))
+    research_statuses=Counter()
+    research_blocks=Counter()
+    for p in facebook:
+        research=reviews.get((p['source_id'],p['observed_at']),{}).get('enrichment',{}).get('identity_research') or {}
+        if research:
+            research_statuses[research.get('status','unknown')]+=1
+            reason=research.get('reason')
+            if reason:
+                research_blocks[str(reason)]+=1
     return dict(screening_version=VERSION,as_of=as_of.isoformat(),autonomous=True,
         screening_policy=dict(profile='facebook_finalists',comparison_year_tolerance=1,
             comparison_mileage_tolerance_km=20000,minimum_comparables=3,sale_stress_percent=15,
@@ -234,6 +251,7 @@ def build_report(facebook, market, as_of, *, reviews=None, limit=50):
         status='completed_archive_screen',requested_opportunities=limit,
         facebook_ads_examined=len(facebook),market_rows_examined=len(market),
         recovered_field_counts=dict(profile),exclusions=dict(exclusions),peer_exclusions=dict(peer_exclusions),
+        research_execution_statuses=dict(research_statuses),research_blocking_reasons=dict(research_blocks),
         net_margin_policy=policy(),total_research_candidates=len(candidates),
         candidates=candidates[:limit],opportunities=opportunities[:limit],
         qualifying_opportunities=len(opportunities),returned_opportunities=min(limit,len(opportunities)),
@@ -248,6 +266,7 @@ class FacebookScreening:
         self.last_poll=None
         self.last_revision=None
         self.failures=0
+        self.projection_cursor=None
 
     def step(self):
         if self.last_poll is not None and time.monotonic()-self.last_poll < 60:
@@ -261,7 +280,6 @@ class FacebookScreening:
             archive=Archive(self.path)
             memory=PriceMemory(archive.db)
             now=datetime.now(timezone.utc)
-            projected=memory.sync(now,limit=100,recover_identity=False)
             revision=archive.db.execute('SELECT count(*),max(observed_at) FROM listing_events WHERE source=? AND observed_at<=?',
                                         (SOURCE,now.isoformat())).fetchone()
             price_revision=archive.db.execute('SELECT count(*),max(observed_at) FROM price_observations WHERE observed_at<=?',
@@ -281,7 +299,12 @@ class FacebookScreening:
             saved=archive.db.execute('SELECT 1 FROM price_test_reports WHERE run_id=?',(run_id,)).fetchone()
             if saved:
                 self.last_revision=revision
-                return dict(facebook_screening='already_completed',run_id=run_id,projected_this_step=projected)
+                return dict(facebook_screening='already_completed',run_id=run_id,projected_this_step=0)
+            # Check the persisted archive/review fingerprint before projection.
+            # An unchanged, fully reviewed archive must not scan all original
+            # observations repeatedly just to discover that nothing is missing.
+            projected=memory.sync(now,limit=100,after=self.projection_cursor,recover_identity=False)
+            self.projection_cursor=memory.next_cursor
             facebook=[]
             cursor=''
             while True:
