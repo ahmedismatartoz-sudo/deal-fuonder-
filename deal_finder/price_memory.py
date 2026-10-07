@@ -13,6 +13,17 @@ from .collection_geography import published_location
 
 SCREENING_VERSION = 'source-facts-and-variant-screening-v3'
 
+
+def priority_batch_id(run_id):
+    """A configured provider gets one fresh attempt after blocked enrichment.
+
+    Do not reuse jobs completed without a key, or retry paid research on every
+    poll/restart. Readiness is a boolean, never a credential in the batch ID.
+    """
+    from .agent_runtime import connections
+    state = 'identity-ready' if connections()['photo_web_provider_configured'] else 'identity-blocked'
+    return 'first-test-'+run_id+'-'+SCREENING_VERSION+'-'+state
+
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
           'province','seller_type','damage_severity','damage_indicators','active',
@@ -351,7 +362,7 @@ class BackgroundPriceMemory:
                     from .agents.enrichment import listing_input
                     queue=Queue(self.path)
                     try:
-                        batch='first-test-'+run_id+'-'+SCREENING_VERSION
+                        batch=priority_batch_id(run_id)
                         if not queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(batch,)).fetchone():
                             records=[]
                             for p in report['candidates']:
