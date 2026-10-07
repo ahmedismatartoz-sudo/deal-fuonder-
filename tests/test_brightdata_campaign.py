@@ -94,12 +94,24 @@ class CampaignTests(unittest.TestCase):
         archive.close()
         client = FakeClient(); client.rows = [car(), car()]; client.state = 'ready'
         campaign = BackgroundCampaign(self.path, spec(ceiling=5, batch=10), client=client)
-        with patch.object(client, 'start', wraps=client.start) as start:
+        with patch.dict('os.environ',{'DEAL_FINDER_BRIGHTDATA_NEXT_BATCH_LIMIT':'100'}), patch.object(client, 'start', wraps=client.start) as start:
             self.assertEqual(campaign.step()['credit_units_reserved_or_returned'], 5)
             self.assertEqual(start.call_args.args[0]['limit'], 2)
         campaign.last_poll = None
         self.assertEqual(campaign.step()['reason'], 'credit_ceiling_reached')
         self.assertEqual(client.starts, 1)
+
+    def test_inflight_batch_limit_is_preserved_after_speed_change(self):
+        client=FakeClient()
+        campaign=BackgroundCampaign(self.path,spec(ceiling=200,batch=10),client=client)
+        campaign.step()
+        with patch.dict('os.environ',{'DEAL_FINDER_BRIGHTDATA_NEXT_BATCH_LIMIT':'100'}):
+            resumed=BackgroundCampaign(self.path,spec(ceiling=200,batch=10),client=client)
+            resumed.step()
+        self.assertEqual(client.starts,1)
+        archive=Archive(self.path)
+        self.assertEqual(credit_ledger(archive),10)
+        archive.close()
 
     def test_uncertain_trigger_keeps_reservation_and_never_reposts(self):
         client = FakeClient()

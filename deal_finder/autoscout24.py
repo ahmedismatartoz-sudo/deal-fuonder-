@@ -397,6 +397,21 @@ class AutoScout24Connector:
         applied = props.get('pageQuery')
         if not isinstance(applied, dict) or any(str(applied.get(key)) != value for key, value in expected.items()):
             raise CollectionBlocked('AutoScout24 did not apply all requested search filters; checkpoint retained')
+        # One compact lookup per search page, rather than one database round trip per car.
+        fields = ('native_run_id','price_eur','mileage_km','year','version_text','detail_fetched')
+        expressions = ["e.payload->>'"+k+"'" if self.archive.db.dialect == 'postgres'
+                       else "json_extract(e.payload,'$."+k+"')" for k in fields]
+        identifiers=sorted({item['id'] for item in items if isinstance(item,dict)
+                            and isinstance(item.get('id'),str) and item['id']})
+        known_by_id={}
+        if identifiers:
+            placeholders=','.join('?' for _ in identifiers)
+            known_rows=self.archive.db.execute('SELECT e.source_id,e.observed_at,'+','.join(expressions)+
+                ' FROM listing_events e WHERE e.source=? AND e.source_id IN ('+placeholders+')'
+                ' AND NOT EXISTS (SELECT 1 FROM listing_events n WHERE n.source=e.source'
+                ' AND n.source_id=e.source_id AND n.observed_at>e.observed_at)',
+                (self.source,*identifiers)).fetchall()
+            known_by_id={row[0]:row[1:] for row in known_rows}
         records, seen = [], set()
         for item in items:
             if not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id']:
@@ -410,13 +425,7 @@ class AutoScout24Connector:
             except ValueError:
                 records.append({'payload': {'original': item, 'adapter_issue': 'Invalid public listing URL'}})
                 continue
-            # Named scalars avoid transferring the large retained detail HTML/JSON.
-            fields = ('native_run_id','price_eur','mileage_km','year','version_text','detail_fetched')
-            expressions = ["payload->>'"+k+"'" if self.archive.db.dialect == 'postgres'
-                           else "json_extract(payload,'$."+k+"')" for k in fields]
-            known = self.archive.db.execute('SELECT observed_at,'+','.join(expressions)+
-                ' FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',
-                (self.source,item['id'])).fetchone()
+            known = known_by_id.get(item['id'])
             observed = datetime.now(timezone.utc).isoformat()
             screening = self.price_agent is not None
             try:
