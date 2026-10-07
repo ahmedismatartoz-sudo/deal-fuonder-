@@ -72,6 +72,8 @@ def signal(target, rows):
     gap=reference-target['price_eur']
     from .margin_policy import minimum_net_margin_eur
     required=minimum_net_margin_eur(target['price_eur'])
+    from .conservative_prices import screen
+    conservative = screen(target, peers)
     # All compatible prices contribute to the mean; keep a bounded audit sample.
     evidence=peers
     if len(peers)>50:
@@ -85,6 +87,7 @@ def signal(target, rows):
                 minimum_required_asking_discount_eur=required,
                 damage_comparison_group=damage_group(target),damaged_and_healthy_compared_directly=False,
                 apparent_opportunity=gap>=required,
+                conservative_price_screen=conservative,
                 exact_variant_comparison=False,net_margin_eur=None,buy_recommendation=False,
                 source_evidence_is_sample=len(peers)>50,source_evidence_count=len(evidence),
                 unresolved_factors=['exact_engine_generation_trim','damage','resale','all_costs'],
@@ -123,14 +126,18 @@ def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
         leads.append(dict(public,status='discovery_lead',screening_stage='broad_discovery',
             damage_category=damage['category'],price_band=min(3,p['price_eur']//5000),
             discovery_context=context,market_price_agent=context,comparable_count=context['comparable_count'],
+            price_priority_passed=context['conservative_price_screen']['price_priority_passed'],
+            conservative_price_screen=context['conservative_price_screen'],
             sources=context['sources'],gross_headroom_before_all_costs_eur=context['gross_headroom_before_all_costs_eur'],
             uncertainty_flags=flags,blocking_reasons=flags,minimum_required_net_margin_eur=minimum_net_margin_eur(p['price_eur']),
             net_margin_eur=None,buy_recommendation=False,next_tasks=['verify_identity_and_damage','rerun_conservative_economics']))
-    leads.sort(key=lambda p:(-p['gross_headroom_before_all_costs_eur']/p['price_eur'],-p['comparable_count'],p['source'],p['source_id']))
+    leads.sort(key=lambda p:(not p['price_priority_passed'],-p['gross_headroom_before_all_costs_eur']/p['price_eur'],-p['comparable_count'],p['source'],p['source_id']))
     return dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=version,status='completed_research_test',
         autonomous=autonomous,screening_stage='broad_discovery',screening_policy=policy,
         active_recent_observations=len(rows),exclusions=dict(exclusions),candidates=leads[:limit],
         total_discovery_leads=len(leads),returned_limit=limit,approved_buys=0,
+        total_price_priority_leads=sum(p['price_priority_passed'] for p in leads),
+        returned_price_priority_leads=sum(p['price_priority_passed'] for p in leads[:limit]),
         net_margin_policy=net_policy(),final_conservative_filter_required=True,
         basis='approximate_asking_signal_not_resale_or_net_profit',
         severity_policy='known_severe_excluded_unknown_condition_allowed_for_review',

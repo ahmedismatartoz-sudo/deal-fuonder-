@@ -10,7 +10,7 @@ from .contracts import bounded_cost, cents, evidence, instant
 from ..models import normalize
 from ..margin_policy import minimum_net_margin_eur, policy as margin_policy
 
-VERSION = 'professional-opportunity-v2'
+VERSION = 'professional-opportunity-v3'
 POLICY = dict(version=VERSION, minimum_margin_cents=200000,
               net_margin_schedule=margin_policy(),
               minimum_return_bps=2500, severe_minimum_return_bps=3000,
@@ -441,6 +441,9 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
     blockers.extend(holding['blocking_reasons'])
     required_margin=minimum_net_margin_eur(target.price_eur)*100 if target is not None else POLICY['minimum_margin_cents']
     value = dict(policy=dict(POLICY), basis='asking_price_stress_scenario_only',
+                 resale_reference_basis='lowest_reviewed_comparable_asking',
+                 fast_sale_scenario_cents=None, expected_days_to_sell=None,
+                 sale_speed_guaranteed=False,
                  margin_low_cents=None, maximum_offer_cents=None, total_investment_cents=None,
                  minimum_margin_cents=required_margin, passes_margin=False,
                  passes_return=False, passes_resilience=False, sensitivity_scenarios=[],
@@ -455,8 +458,9 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
         reference = cents(interval['p25']*100)
         rows=market.get('reviewed_comparables',market.get('comparables',[]))
         valid_prices=[r['price_eur']*100 for r in rows if isinstance(r,dict) and type(r.get('price_eur')) is int and r['price_eur']>0]
-        if valid_prices:
-            reference=min(reference,min(valid_prices))
+        if not valid_prices:
+            raise ValueError('Reviewed comparable prices required; quartile alone is insufficient')
+        reference=min(reference,min(valid_prices))
         if type(interval['p25']) is not int or reference == 0:
             raise ValueError('Positive whole-EUR price reference required')
         if repairs_high is None or operations_high is None:
@@ -491,6 +495,7 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
         maximum = min(exit_low-required_margin-costs,
                       exit_low*10000//(10000+rate)-costs, POLICY['maximum_purchase_cents'])
         value.update(reference_cents=reference, conservative_exit_cents=exit_low,
+                     fast_sale_scenario_cents=exit_low,
                      sale_stress_cents=sale_stress, repair_stress_cents=repair_stress,
                      reserve_cents=reserve, total_cost_high_cents=costs,
                      base_exit_cents=scenarios[0]['exit_cents'],base_cost_high_cents=base_costs,
@@ -529,6 +534,8 @@ class IndependentReviewAgent:
         from .repair_planning import execute as check_repairs
         planning = check_repairs(raw, target, as_of)
         audit = comparable_audit(raw, target, market, as_of, risk)
+        # An empty audit must never fall back to unaudited asking prices.
+        market = dict(market, reviewed_comparables=audit['included'])
         if audit['reviewed_range_eur']:
             market = dict(market, observed_range_eur=audit['reviewed_range_eur'],reviewed_comparables=audit['included'])
         economics = conservative_economics(raw, target, market, repair, opportunity, risk, as_of)

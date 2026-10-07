@@ -144,9 +144,17 @@ def analyze(raw, candidates, as_of, **kwargs):
                                           professional_policy=dict(POLICY),
                                           professional_blocking_reasons=review['blocking_reasons'])
     components['opportunity']['data']['conservative_scenario'] = review['economics']
+    components['resale']['data'].update(
+        fast_sale_scenario_cents=review['economics']['fast_sale_scenario_cents'],
+        scenario_basis=review['economics']['resale_reference_basis'],
+        scenario_calibrated=False, expected_days_to_sell=None,
+        sale_speed_guaranteed=False)
     if out['candidate_card'] is not None:
         economics = review['economics']
         out['candidate_card'].update(conservative_margin_low_cents=economics['margin_low_cents'],
+                                     fast_sale_scenario_cents=economics['fast_sale_scenario_cents'],
+                                     resale_reference_basis=economics['resale_reference_basis'],
+                                     sale_speed_guaranteed=False,
                                      maximum_offer_cents=economics['maximum_offer_cents'],
                                      total_investment_cents=economics['total_investment_cents'],
                                      minimum_required_margin_cents=economics['minimum_margin_cents'],
