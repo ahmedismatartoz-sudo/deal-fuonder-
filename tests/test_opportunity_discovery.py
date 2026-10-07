@@ -125,6 +125,20 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual([p['source_id'] for p in report['candidates']],['cheap'])
         self.assertIsNone(report['candidates'][0]['net_margin_eur'])
 
+    def test_discovery_compacts_provenance_but_preserves_values_and_conflicts(self):
+        records=self.records()
+        records[0]['payload'].update(power_hp=143,description='150 CV')
+        self.ingest(records)
+        full=next(p for p in self.memory.current(NOW) if p['source_id']=='cheap')
+        compact=next(p for p in self.memory.current(NOW,recover_identity=False) if p['source_id']=='cheap')
+        self.assertIn('fields',full['identity_dossier'])
+        self.assertNotIn('fields',compact['identity_dossier'])
+        self.assertTrue(compact['identity_dossier']['full_field_evidence_deferred'])
+        self.assertEqual(full['identity_dossier']['conflicts'],compact['identity_dossier']['conflicts'])
+        self.assertEqual(full['power_hp'],compact['power_hp'])
+        self.assertFalse(compact['identity_dossier']['physical_identity_verified'])
+        self.assertEqual(self.archive.history('export','cheap')[0]['payload']['description'],'150 CV')
+
     def test_price_calculation_uses_all_peers_but_bounds_duplicate_audit_evidence(self):
         from deal_finder.opportunity_discovery import signal
         target=dict(source='export',source_id='target',make='Fiat',model='Panda',year=2018,

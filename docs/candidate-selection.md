@@ -1,6 +1,6 @@
 # Filtro300 candidati — 7 ottobre 2026
 
-`candidate-evidence-balanced-v1`, report `evidence-balanced-candidates-v17`.
+`candidate-evidence-balanced-v1`, report `evidence-balanced-compact-v18`.
 La skill personale `judge-car-candidates` guida la revisione; il software
 esegue `candidate_selection.py`. Non è un modello addestrato o una garanzia.
 
@@ -30,3 +30,8 @@ Mix può deviare per preservare priorità forti o carenze. Esporre target,
 disponibile/selezionato, carenze, redistribuzione e cap rilassato.
 Fasce di presentazione diverse dal confine6000 della policy netta. La lista
 è materiale prioritario da verificare, non300 acquisti approvati.
+
+Per il worker512MB, la discovery mantiene valori normalizzati/conflitti e
+riepilogo identità, rinviando gli alberi completi di claims al percorso preciso.
+Originali e storico non sono modificati. Le verifiche in coda rileggono lo
+snapshot originale. Il report evita una copia del dizionario per ogni peer.

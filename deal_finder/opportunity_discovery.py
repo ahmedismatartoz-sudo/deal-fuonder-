@@ -111,8 +111,10 @@ def signal(target, rows):
 def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
     from .price_memory import amount_usable,normalized
     from .margin_policy import policy as net_policy,minimum_net_margin_eur
-    rows=[dict(p,_discovery_damage=classify(p)) for p in rows]
-    for p in rows:p['_discovery_group']=damage_group(p)
+    rows=list(rows)
+    for p in rows:
+        p['_discovery_damage']=classify(p)
+        p['_discovery_group']=damage_group(p)
     peers=PeerIndex(rows)
     exclusions=defaultdict(int);leads=[];seen=set()
     for p in rows:

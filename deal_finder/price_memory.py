@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'evidence-balanced-candidates-v17'
+SCREENING_VERSION = 'evidence-balanced-compact-v18'
 
 
 def autonomous_enabled():
@@ -180,7 +180,16 @@ class PriceMemory:
                     value=self.db.json_decode(payload)
                     value.update(source=source_name,source_id=identifier,observed_at=observed)
                     from .vehicle_identity import enrich
-                    yield enrich(value,source_url=value.get("url"))
+                    value=enrich(value,source_url=value.get("url"))
+                    dossier=value['identity_dossier']
+                    # Tens of thousands of peer rows need normalized values and
+                    # conflicts, not a repeated full provenance tree per field.
+                    # Originals and the strict recovery path keep full evidence.
+                    value['identity_dossier']={key:dossier[key] for key in
+                        ('version','status','conflicts','missing_fields',
+                         'physical_identity_verified','usable_for_price_comparison')}
+                    value['identity_dossier']['full_field_evidence_deferred']=True
+                    yield value
                 if len(rows)<1000:break
                 continue
             from .identity_source_cache import IdentitySourceCache,VERSION as source_version
