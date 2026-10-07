@@ -17,6 +17,12 @@ def review(listing, db, as_of):
         return dict(output, reason='Published acquisition amount unresolved')
     from ..price_memory import PriceMemory, amount_usable, risky, same_variant, research_policy
     policy = research_policy()
+    from ..damage_screening import classify,feasibility
+    if listing.get('identity_dossier',{}).get('conflicts'):
+        return dict(output,reason='Open identity contradictions require review')
+    opportunity_profile=policy['profile']=='opportunities'
+    if opportunity_profile and not classify(listing)['eligible_for_opportunity_research']:
+        return dict(output,reason='Severe or unspecified damage requires review')
     memory = PriceMemory(db)
     # Development callers may ingest directly; deployed worker builds memory
     # before consuming jobs. Read only new raw observations, never whole families.
@@ -41,7 +47,9 @@ def review(listing, db, as_of):
         if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)
                 and listing['fuel'].strip() and fuel.strip() and normalize(listing['fuel']) != normalize(fuel)):
             continue
-        if listing.get('condition') in ('damaged', 'undamaged') and condition in ('damaged', 'undamaged') and listing['condition'] != condition:
+        if opportunity_profile and classify(p)['category']!='clean':
+            continue
+        if not opportunity_profile and listing.get('condition') in ('damaged', 'undamaged') and condition in ('damaged', 'undamaged') and listing['condition'] != condition:
             continue
         cohort.append(p)
         if (abs(p['year']-listing['year'])>policy['year_tolerance']
@@ -60,12 +68,16 @@ def review(listing, db, as_of):
     output['market_price_agent']=price_context
     ordered = sorted(amounts)
     p25 = price_context['asking_low_eur']
-    minimum = policy['minimum_comparables'] if policy['profile']=='exploratory' else 5
-    if policy['profile']=='exploratory':
+    minimum = policy['minimum_comparables'] if policy['profile'] in ('exploratory','opportunities') else 5
+    if policy['profile'] in ('exploratory','opportunities'):
         priority = (len(amounts) >= minimum and p25-price >= policy['minimum_headroom_eur']
                     and (p25-price)*100 >= price*policy['minimum_discount_percent'])
     else:
         priority = len(amounts) >= minimum and (p25-price)*10 >= p25
+    economics=feasibility(listing,price_context)
+    if opportunity_profile:
+        priority=priority and economics['passes_necessary_budget']
+    output['economic_screen']=economics
     return dict(output, status='provisional_family_context', priority_enrichment=priority,
                 observed_envelope_eur=dict(low=min(amounts), typical=round(median(amounts)), high=max(amounts)),
                 potential_before_repairs_eur=dict(low=min(amounts)-price, high=max(amounts)-price),

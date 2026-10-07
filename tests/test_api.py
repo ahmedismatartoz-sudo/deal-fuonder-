@@ -64,6 +64,17 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(value['candidates'][0]['minimum_required_net_margin_eur'],3000)
         self.assertEqual(self.client.get('/price-tests/latest?price_band=3').json()['returned_candidates'],0)
         self.assertEqual(self.client.get('/price-tests/latest?price_band=4').status_code,422)
+        self.assertEqual(self.client.get('/price-tests/latest?damage_category=clean').json()['returned_candidates'],1)
+        self.assertEqual(self.client.get('/price-tests/latest?damage_category=non_severe').json()['returned_candidates'],0)
+        self.assertEqual(self.client.get('/price-tests/latest?damage_category=severe').status_code,422)
+
+    def test_identity_evaluation_requires_labels_and_bearer(self):
+        request=dict(training_vehicle_ids=[],records=[])
+        result=self.client.post('/identity/evaluations',json=request)
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(result.json()['status'],'needs_reviewed_holdout_labels')
+        with patch.dict(os.environ,{'DEAL_FINDER_API_TOKEN':'test-token'}):
+            self.assertEqual(self.client.post('/identity/evaluations',json=request).status_code,401)
     def test_evaluation_persists_report_without_enabling_forecasts(self):
         response=self.client.post('/evaluations',json={'model_version':'m1','training_vehicle_ids':[],'records':[]})
         self.assertEqual(response.status_code,200)

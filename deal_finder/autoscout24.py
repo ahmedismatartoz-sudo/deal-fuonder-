@@ -21,7 +21,7 @@ from .archive import canonical
 from .collectors import CollectionAgent, Page
 
 ORIGIN = 'https://www.autoscout24.it'
-VERSION = 'autoscout24-public-html-v3'
+VERSION = 'autoscout24-public-html-v4'
 USER_AGENT = 'DealFinder/0.3 (+public vehicle market research)'
 _collection_lock = threading.Lock()
 
@@ -324,6 +324,10 @@ def record_event(item, *, url, observed_at, search_url=None, detailed=False,
         unknown_fields_are_not_zero=True)
     if detailed and item.get('status') != 'Active':
         raise CollectionBlocked('Unsupported listing availability; cannot assume it is active or sold')
+    from .vehicle_identity import enrich
+    payload=enrich(payload,source_url=url)
+    payload['missing_fields']=[key for key in payload['missing_fields'] if payload.get(key) is None or payload.get(key) in ('',[])]
+    payload['source_completeness']['absent_from_source']=payload['identity_dossier']['missing_fields']
     return {'source_id': source_id, 'url': url, 'active': True,
             'observed_at': observed_at, 'payload': payload}
 

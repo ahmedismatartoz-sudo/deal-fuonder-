@@ -44,6 +44,13 @@ class Listing:
     power_hp: int | None = None
     displacement_cc: int | None = None
     declared_specs: dict | None = None
+    power_kw: int | float | None = None
+    engine_code: str | None = None
+    engine_name: str | None = None
+    drivetrain: str | None = None
+    body_type: str | None = None
+    identity_dossier: dict | None = None
+    damage_source_claims: dict | None = None
 
     @classmethod
     def parse(cls, row):
@@ -58,9 +65,23 @@ class Listing:
             value = data.get(key)
             if value is not None and (type(value) is not int or not 1 <= value <= maximum):
                 raise ValueError(f'{key} must be a positive whole number')
+        kw=data.get('power_kw')
+        if kw is not None and (type(kw) not in (int,float) or not isfinite(kw) or not 0<kw<=3000):
+            raise ValueError('power_kw must be a positive finite number')
+        for key in ('engine_code','engine_name','drivetrain','body_type'):
+            if data.get(key) is not None:
+                from .vehicle_identity import normalize_field
+                data[key]=normalize_field(key,normalize(data[key]))
+        if data.get('identity_dossier') is not None and not isinstance(data['identity_dossier'],dict):
+            raise ValueError('identity_dossier must be an evidence object')
+        if data.get('damage_source_claims') is not None and not isinstance(data['damage_source_claims'],dict):
+            raise ValueError('damage_source_claims must be a source object')
         for key in ('source', 'make', 'model', 'generation', 'trim',
                     'fuel', 'transmission', 'province', 'seller_type', 'condition'):
             data[key] = normalize(data[key])
+            if key in ('fuel','transmission'):
+                from .vehicle_identity import normalize_field
+                data[key]=normalize_field(key,data[key])
             if key in ('make', 'model', 'generation', 'trim', 'fuel', 'transmission') and data[key] in ('unknown', 'n/a', 'na', 'sconosciuto', '-'):
                 raise ValueError(f'{key} cannot be an unknown placeholder')
         if not isinstance(data.get('source_id'), str) or not data['source_id'].strip():

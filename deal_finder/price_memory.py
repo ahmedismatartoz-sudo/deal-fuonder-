@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'learned-market-prices-v7'
+SCREENING_VERSION = 'identity-damage-opportunities-v8'
 
 
 def autonomous_enabled():
@@ -34,7 +34,7 @@ def priority_observation_batch(candidate, **options):
 
 def research_policy(profile=None):
     profile = profile or os.getenv('DEAL_FINDER_FIRST_TEST_PROFILE', 'strict')
-    if profile == 'exploratory':
+    if profile in ('exploratory','opportunities'):
         return dict(profile=profile, minimum_comparables=3, year_tolerance=2,
                     mileage_tolerance_km=40000, minimum_headroom_eur=500,
                     minimum_discount_percent=10, asking_stress_percent=0)
@@ -58,7 +58,7 @@ def priority_batch_id(run_id):
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
           'province','seller_type','damage_severity','damage_indicators','active',
-          'power_hp','displacement_cc')
+          'power_hp','power_kw','displacement_cc','engine_code','engine_name','drivetrain','body_type','damage_source_claims')
 PAYMENT = re.compile(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*/\s*mese', re.I)
 DAMAGE = re.compile(r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*|grandin\w*|airbag.{0,15}(?:scoppi|esplos)|alluvionat\w*|incendiat\w*|uso ricambi|non marciante|motore\s+(?:da\s+(?:cambiare|sostituire|rifare)|rotto|fuso)|(?:problemi|guasto|guasti)\s+(?:al\s+)?(?:motore|cambio)|carrozzeria\s+scolorita|crepa\s+sul\s+parafango)\b',re.I)
 
@@ -160,9 +160,10 @@ class PriceMemory:
                     AND n.source_id=p.source_id AND n.observed_at>p.observed_at AND n.observed_at<=?)'''
                 +filters+''' AND (p.source,p.source_id,p.observed_at)>(?,?,?)
                 ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''')
-            fields = ("e.payload#>>'{original,seller,type}',e.payload#>'{original,vehicle,rawPowerInHp}',e.payload#>'{original,vehicle,rawCylinderCapacity}'"
-                      if self.db.dialect == 'postgres' else
-                      "json_extract(e.payload,'$.original.seller.type'),json_extract(e.payload,'$.original.vehicle.rawPowerInHp'),json_extract(e.payload,'$.original.vehicle.rawCylinderCapacity')")
+            from .vehicle_identity import compact_source_sql
+            seller=("e.payload#>>'{original,seller,type}'" if self.db.dialect=='postgres'
+                    else "json_extract(e.payload,'$.original.seller.type')")
+            fields=seller+','+compact_source_sql(self.db.dialect)
             materialized = 'MATERIALIZED ' if self.db.dialect == 'postgres' else ''
             rows = self.db.execute('WITH source_page AS '+materialized+'('+page_sql+') SELECT p.source,p.source_id,p.observed_at,p.payload,'+fields+'''
                 FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
@@ -179,8 +180,10 @@ class PriceMemory:
                     if facts:
                         seller={'PrivateSeller':'private','Private':'private','Dealer':'dealer'}.get(facts[0])
                         if seller: value['seller_type']=seller
-                        for key,fact in zip(('power_hp','displacement_cc'),facts[1:]):
-                            if type(fact) is int and fact>0: value[key]=fact
+                        value['identity_source_fields']=self.db.json_decode(facts[1]) if facts[1] else {}
+                from .vehicle_identity import enrich
+                value=enrich(value,source_url=value.get('url'))
+                value.pop('identity_source_fields',None)
                 yield value
             if len(rows)<100:
                 break
@@ -206,21 +209,30 @@ class PriceMemory:
         exclusions = defaultdict(int)
         eligible = []
         learning=[]
+        from .damage_screening import classify,feasibility,MIX,quotas
+        opportunity_profile=policy['profile']=='opportunities'
+        damage_counts=defaultdict(int)
         for p in all_rows:
+            p['damage_screening']=classify(p)
+            damage_counts[p['damage_screening']['category']]+=1
+            if p.get('identity_dossier',{}).get('conflicts'):
+                exclusions['identity_conflicts']+=1
+                continue
             if market_restricted(p):
                 exclusions['export_or_registration_restriction']+=1
                 continue
             if not amount_usable(p) or not p.get('make') or not p.get('model'):
                 exclusions['price_or_family_missing']+=1
                 continue
-            if risky(p):
+            if (not p['damage_screening']['eligible_for_opportunity_research'] if opportunity_profile else risky(p)):
                 exclusions['damage_signal_or_unknown_damaged_scope']+=1
                 continue
             if (type(p.get('year')) is not int or type(p.get('mileage_km')) is not int
                     or not normalized(p.get('fuel')) or not normalized(p.get('transmission'))):
                 exclusions['year_mileage_fuel_or_gearbox_missing']+=1
                 continue
-            groups[(p['make'],p['model'],normalized(p.get('fuel')),normalized(p.get('transmission')))].append(p)
+            if not opportunity_profile or p['damage_screening']['category']=='clean':
+                groups[(p['make'],p['model'],normalized(p.get('fuel')),normalized(p.get('transmission')))].append(p)
             eligible.append(p)
         bands = defaultdict(list)
         for p in eligible:
@@ -253,6 +265,10 @@ class PriceMemory:
             from .agents.market_prices import assess
             price_context=assess(p,training_pool,peers)
             learning.append(price_context)
+            economics=feasibility(p,price_context)
+            if opportunity_profile and not economics['passes_necessary_budget']:
+                exclusions['cannot_cover_required_net_and_minimum_reserve_under_stress']+=1
+                continue
             # Exploratory research ranks published asking prices without
             # imposing the strict profile's resale stress. Neither is net profit.
             stressed=price_context['asking_low_eur']*(100-policy['asking_stress_percent'])//100
@@ -266,6 +282,11 @@ class PriceMemory:
                       'supervisor_review','forecast_calibration']
             lead=dict(p,location=location,price_band=band,comparable_count=len(peers),
                 market_price_agent=price_context,
+                economic_screen=economics,
+                damage_category=p['damage_screening']['category'],
+                selection_rationale=dict(comparable_count=len(peers),confidence=price_context['confidence'],
+                    remaining_cost_budget_eur=economics['remaining_cost_budget_eur'],
+                    priority_score=economics['priority_score'],inspection_required=True),
                 published_median_eur=round(median(prices)),published_p25_eur=p25,
                 stressed_asking_reference_eur=stressed,gross_headroom_before_all_costs_eur=gap,
                 net_margin_eur=None,buy_recommendation=False,status='research_priority',
@@ -279,22 +300,47 @@ class PriceMemory:
             lead['minimum_required_net_margin_eur']=minimum_net_margin_eur(p['price_eur'])
             lead['net_margin_policy_status']='awaiting_verified_costs_and_resale_evidence'
             bands[band].append(lead)
-        for band in bands:
-            bands[band].sort(key=lambda p:(-p['gross_headroom_before_all_costs_eur']/p['price_eur'],
-                                          -p['comparable_count'],p['source'],p['source_id']))
-        selected=[]
-        families=defaultdict(int)
-        # Equal turns per available price band; never relax admission to fill it.
-        while len(selected)<limit:
-            added=False
-            for band in range(4):
-                while bands[band] and families[(bands[band][0]['make'],bands[band][0]['model'])]>=2:
-                    bands[band].pop(0)
-                if bands[band] and len(selected)<limit:
-                    p=bands[band].pop(0)
-                    families[(p['make'],p['model'])]+=1
-                    selected.append(p); added=True
-            if not added: break
+        if opportunity_profile:
+            mix_targets=quotas(limit)
+            pools={category:{band:[] for band in range(4)} for category in MIX}
+            for band,rows in bands.items():
+                for lead in rows:pools[lead['damage_category']][band].append(lead)
+            for categories in pools.values():
+                for rows in categories.values():
+                    rows.sort(key=lambda p:(-p['economic_screen']['priority_score'],-p['comparable_count'],p['source'],p['source_id']))
+            selected=[];families=defaultdict(int);seen_targets=set()
+            def target_identity(lead):
+                return (lead['make'],lead['model'],lead['year'],lead['mileage_km'],lead['price_eur'],lead.get('version_text'),lead.get('city'))
+            for category,target in mix_targets.items():
+                count=0
+                while count<target:
+                    added=False
+                    for band in range(4):
+                        rows=pools[category][band]
+                        rows.sort(key=lambda p:(families[(p['make'],p['model'])]>=2,-p['economic_screen']['priority_score'],-p['comparable_count']))
+                        rows[:]=[p for p in rows if target_identity(p) not in seen_targets]
+                        if rows and count<target:
+                            lead=rows.pop(0);selected.append(lead);count+=1;added=True
+                            seen_targets.add(target_identity(lead))
+                            families[(lead['make'],lead['model'])]+=1
+                    if not added:break
+        else:
+            for band in bands:
+                bands[band].sort(key=lambda p:(-p['gross_headroom_before_all_costs_eur']/p['price_eur'],
+                                              -p['comparable_count'],p['source'],p['source_id']))
+            selected=[]
+            families=defaultdict(int)
+            # Equal turns per available price band; never relax admission to fill it.
+            while len(selected)<limit:
+                added=False
+                for band in range(4):
+                    while bands[band] and families[(bands[band][0]['make'],bands[band][0]['model'])]>=2:
+                        bands[band].pop(0)
+                    if bands[band] and len(selected)<limit:
+                        p=bands[band].pop(0)
+                        families[(p['make'],p['model'])]+=1
+                        selected.append(p); added=True
+                if not added: break
         report=dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=SCREENING_VERSION,status='completed_research_test',
                     autonomous=autonomous,
                     price_bands=[dict(band=i,min_price_eur=max(1000,i*5000),
@@ -304,10 +350,23 @@ class PriceMemory:
                     active_recent_observations=len(all_rows),projected_events=self.db.execute(
                         'SELECT count(*) FROM price_observations WHERE observed_at<=?',(as_of.isoformat(),)).fetchone()[0],
                     exclusions=dict(exclusions),candidates=selected,approved_buys=0,
-                    severity_policy='damaged_or_damage_signal_excluded_from_first_test',
+                    severity_policy='non_severe_damage_mix_with_inspection_required' if opportunity_profile else 'damaged_or_damage_signal_excluded_from_first_test',
                     basis='published_asking_amounts_not_resale_or_net_profit',
                     repair_search='awaiting_verified_identity_and_required_parts',
                     price_memory_incremental=True)
+        report['damage_mix']=dict(requested_percentages={k:round(v*100) for k,v in MIX.items()},
+            enforced=opportunity_profile,available_observations=dict(damage_counts),
+            categories=[dict(category=k,target=quotas(limit)[k],selected=sum(p['damage_category']==k for p in selected),
+                shortage=max(0,quotas(limit)[k]-sum(p['damage_category']==k for p in selected))) for k in MIX],
+            shortages_are_not_filled_with_unverified_or_severe_vehicles=True)
+        dossiers=[p['identity_dossier'] for p in all_rows]
+        report['identity_quality']=dict(version=dossiers[0]['version'] if dossiers else None,
+            observations=len(dossiers),conflicted_observations=sum(bool(d['conflicts']) for d in dossiers),
+            fields={field:dict(present=sum(d['fields'][field]['value'] is not None for d in dossiers),
+                recovered_normalization_gaps=sum(d['fields'][field]['recovery_status']=='normalization_gap' for d in dossiers),
+                conflicts=sum(d['fields'][field]['status']=='conflict' for d in dossiers)) for field in dossiers[0]['fields']} if dossiers else {},
+            physical_identity_accuracy=None,verified_holdout_vehicles=0,
+            verification_status='awaiting_independently_reviewed_vehicle_documents')
         from .margin_policy import policy as margin_policy
         validation=[p['validation']['median_absolute_error_eur'] for p in learning if p.get('validation')]
         report['net_margin_policy']=margin_policy()
@@ -351,9 +410,12 @@ def same_variant(p, q):
     Equal published version text is provisional, not an identity attestation.
     Prefer losing an analogy to mixing GR/ST/4x4 or different engines.
     """
-    for key in ('generation', 'trim', 'power_hp', 'displacement_cc'):
+    if any(row.get('identity_dossier',{}).get('conflicts') for row in (p,q)):
+        return False
+    from .vehicle_identity import normalize_field
+    for key in ('generation', 'trim', 'power_hp', 'power_kw', 'displacement_cc','engine_code','engine_name','drivetrain','body_type'):
         a, b = p.get(key), q.get(key)
-        if a is not None and b is not None and normalized(str(a)) != normalized(str(b)):
+        if a is not None and b is not None and normalize_field(key,a) != normalize_field(key,b):
             return False
     a, b = normalized(p.get('version_text')), normalized(q.get('version_text'))
     if a or b:
