@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'identity-damage-opportunities-v10'
+SCREENING_VERSION = 'identity-photo-opportunities-v11'
 
 
 def autonomous_enabled():
@@ -58,7 +58,7 @@ def priority_batch_id(run_id):
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
           'province','seller_type','damage_severity','damage_indicators','active',
-          'power_hp','power_kw','displacement_cc','engine_code','engine_name','drivetrain','body_type','damage_source_claims')
+          'power_hp','power_kw','displacement_cc','engine_code','engine_name','drivetrain','body_type','damage_source_claims','collection_price_screen','detail_fetched')
 PAYMENT = re.compile(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*/\s*mese', re.I)
 DAMAGE = re.compile(r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*|grandin\w*|airbag.{0,15}(?:scoppi|esplos)|alluvionat\w*|incendiat\w*|uso ricambi|non marciante|motore\s+(?:da\s+(?:cambiare|sostituire|rifare)|rotto|fuso)|(?:problemi|guasto|guasti)\s+(?:al\s+)?(?:motore|cambio)|carrozzeria\s+scolorita|crepa\s+sul\s+parafango)\b',re.I)
 
@@ -161,14 +161,22 @@ class PriceMemory:
                 +filters+''' AND (p.source,p.source_id,p.observed_at)>(?,?,?)
                 ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''')
             from .vehicle_identity import compact_source_sql
-            seller=("e.payload#>>'{original,seller,type}'" if self.db.dialect=='postgres'
-                    else "json_extract(e.payload,'$.original.seller.type')")
-            fields=seller+','+compact_source_sql(self.db.dialect)
-            materialized = 'MATERIALIZED ' if self.db.dialect == 'postgres' else ''
-            rows = self.db.execute('WITH source_page AS '+materialized+'('+page_sql+') SELECT p.source,p.source_id,p.observed_at,p.payload,'+fields+'''
-                FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
-                AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at
-                ORDER BY p.source,p.source_id,p.observed_at''',(True,*args,*cursor)).fetchall()
+            if self.db.dialect=='postgres':
+                # Decompress original JSON only twice per row, not once per field.
+                # Materialize the small vehicle object before extracting its scalars.
+                sql='WITH source_page AS MATERIALIZED ('+page_sql+"""), source_facts AS MATERIALIZED (
+                    SELECT p.*,e.payload#>>'{original,seller,type}' AS seller,
+                        e.payload#>'{original,vehicle}' AS vehicle
+                    FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
+                    AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at)
+                    SELECT o.source,o.source_id,o.observed_at,o.payload,o.seller,"""+compact_source_sql('postgres',vehicle_column='o.vehicle')+" FROM source_facts o ORDER BY o.source,o.source_id,o.observed_at"
+            else:
+                fields="json_extract(e.payload,'$.original.seller.type'),"+compact_source_sql('sqlite')
+                sql='WITH source_page AS ('+page_sql+') SELECT p.source,p.source_id,p.observed_at,p.payload,'+fields+"""
+                    FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
+                    AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at
+                    ORDER BY p.source,p.source_id,p.observed_at"""
+            rows=self.db.execute(sql,(True,*args,*cursor)).fetchall()
             for s,i,t,p,*facts in rows:
                 cursor = (s,i,t)
                 value=self.db.json_decode(p)

@@ -118,3 +118,28 @@ class PhotoTests(unittest.TestCase):
                 value=research(plan(raw()))
         self.assertEqual(value['status'],'configuration_required')
         self.assertNotIn(secret,str(value))
+
+
+class VisibleDamageTests(unittest.TestCase):
+    def assess(self,observations):
+        output=response([])
+        output['findings']['damage_observations']=observations
+        return execute(raw(),NOW,lambda _:output)
+    def damage(self,**changes):
+        result=dict(area='front bumper',visible_signals=['visible crack'],severity='non_severe',confidence='medium',photo_indexes=[0])
+        result.update(changes);return result
+    def test_visible_damage_is_source_bound_and_never_repair_cost_or_inspection(self):
+        value=self.assess([self.damage()])['photo_damage_assessment']
+        self.assertEqual(value['observations'][0]['photo_indexes'],[0])
+        self.assertTrue(value['inspection_required']);self.assertFalse(value['verified'])
+        self.assertFalse(value['hidden_damage_ruled_out']);self.assertIsNone(value['repair_cost_eur'])
+    def test_possible_airbag_damage_requires_review(self):
+        value=self.assess([self.damage(area='steering wheel',visible_signals=['visible deployed restraint'],severity='possible_severe')])
+        self.assertEqual(value['status'],'needs_review')
+        self.assertTrue(value['photo_damage_assessment']['possible_severe_damage'])
+    def test_invalid_photo_evidence_cannot_be_used(self):
+        value=self.assess([self.damage(photo_indexes=[9])])
+        self.assertEqual(value['status'],'needs_review');self.assertNotIn('photo_damage_assessment',value)
+    def test_no_visible_signals_never_prove_healthy_condition(self):
+        value=self.assess([])['photo_damage_assessment']
+        self.assertFalse(value['hidden_damage_ruled_out']);self.assertTrue(value['inspection_required'])

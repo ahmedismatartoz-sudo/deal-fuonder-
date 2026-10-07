@@ -78,3 +78,50 @@ class PhotoArchiveTests(unittest.TestCase):
                         main()
         self.assertTrue(progressed.is_set())
         self.assertEqual(queue.work_one.call_count,1)
+
+
+class OpportunityPhotoTests(unittest.TestCase):
+    setUp = PhotoArchiveTests.setUp
+    tearDown = PhotoArchiveTests.tearDown
+    def test_background_uses_actual_versioned_report_not_base_run_id(self):
+        from deal_finder.price_memory import PriceMemory, SCREENING_VERSION
+        from deal_finder.photo_archive import BackgroundPhotoArchive
+        from deal_finder.archive import canonical
+        PriceMemory(self.archive.db)
+        report=dict(screening_version=SCREENING_VERSION,candidates=[dict(source='export',source_id='one',observed_at=self.record['observed_at'])])
+        with self.archive.db:
+            self.archive.db.execute('INSERT INTO price_test_reports VALUES (?,?,?)',('archive-continuous-auto-day-'+SCREENING_VERSION,NOW.isoformat(),canonical(report)))
+        with patch('deal_finder.photo_archive.download',return_value=(JPEG,'image/jpeg')):
+            # The source URL is intentionally unapproved in an ordinary record;
+            # setUp uses the permitted marketplace CDN.
+            result=BackgroundPhotoArchive(self.path).step('archive-continuous')
+        self.assertEqual(result['saved'],1)
+    def test_no_opportunity_means_no_photo_download(self):
+        from deal_finder.price_memory import PriceMemory, SCREENING_VERSION
+        from deal_finder.photo_archive import BackgroundPhotoArchive
+        from deal_finder.archive import canonical
+        PriceMemory(self.archive.db)
+        with self.archive.db:
+            self.archive.db.execute('INSERT INTO price_test_reports VALUES (?,?,?)',('test',NOW.isoformat(),canonical(dict(screening_version=SCREENING_VERSION,candidates=[]))))
+        with patch('deal_finder.photo_archive.download') as fetch:
+            self.assertIsNone(BackgroundPhotoArchive(self.path).step('test'))
+            fetch.assert_not_called()
+
+    def test_apparent_opportunity_alone_gets_photos_and_one_source_bound_review(self):
+        from datetime import datetime,timezone
+        from deal_finder.price_memory import PriceMemory
+        from deal_finder.photo_archive import BackgroundPhotoArchive
+        now=datetime.now(timezone.utc)
+        opportunity=complete('opportunity',observed_at=now.isoformat(),image_urls=[URL_IMAGE])
+        opportunity['payload']['collection_price_screen']=dict(status='apparent_opportunity')
+        ordinary=complete('ordinary',observed_at=now.isoformat(),image_urls=[URL_IMAGE.replace('one','ordinary')])
+        ordinary['payload']['collection_price_screen']=dict(status='not_apparent_opportunity')
+        self.archive.ingest(page([opportunity,ordinary],run_id='photo-test'),as_of=now)
+        memory=PriceMemory(self.archive.db);memory.sync(now)
+        with patch.dict(os.environ,DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED='1'),patch('deal_finder.photo_archive.download',return_value=(JPEG,'image/jpeg')) as fetch:
+            first=BackgroundPhotoArchive(self.path).step('archive-continuous')
+            second=BackgroundPhotoArchive(self.path).step('archive-continuous')
+        self.assertEqual(first['saved'],1);self.assertEqual(first['queued_photo_reviews'],1)
+        self.assertEqual(fetch.call_count,1);self.assertIsNone(second)
+        refs=self.archive.db.execute('SELECT source_id FROM photo_references').fetchall()
+        self.assertEqual(refs,[('opportunity',)])

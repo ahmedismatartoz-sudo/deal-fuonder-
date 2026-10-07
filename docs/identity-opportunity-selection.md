@@ -55,3 +55,31 @@ as a seller declaration of current damage, including explicit false values. This
 allows a search observation to establish provisional healthy asking evidence and
 match an engine-specific prefixed version without an unnecessary detail request.
 Missing flags remain unknown; severe text and current damage still take precedence.
+
+
+## Autonomous opportunity photo test
+
+Enable `DEAL_FINDER_PHOTO_ARCHIVE_ENABLED=1` and
+`DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED=1` to retain source-bound photographs
+only for current internal research candidates or search observations explicitly
+classified `apparent_opportunity`. Other listings never enter the photo download
+queue. The existing 32 MiB global storage cap, CDN allowlist, immutable source
+references and per-photo retry limits remain in force. The actual latest versioned
+price report is resolved; the base worker run name is not a report key.
+
+Apparent opportunities get one queued enrichment review per observation, policy
+and provider-readiness state. Photo review can precede the final net-cost gate;
+it cannot bypass a source identity conflict or known severe damage. The visual
+agent compares photos with declarations, recognizes body/generation, and records
+visible damage with photo indexes and uncertainty. Possible severe visible damage
+requires review. Empty findings do not establish a healthy vehicle; hidden faults,
+engine identity, repair costs and verified net proceeds remain unresolved.
+
+The visual provider requires the already configured model and opt-in plus a valid
+server-side `OPENAI_API_KEY`. Missing credentials produce `configuration_required`,
+not fictitious image findings. Configuring a provider later enables a fresh source
+review under its readiness state. No credential is stored in a report or batch ID.
+
+Original JSON is materialized into one small vehicle object before scalar recovery,
+avoiding repeated decompression per field. Transient statement timeouts/deadlocks
+retain collection checkpoints and back off instead of terminating the worker.

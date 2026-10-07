@@ -105,12 +105,16 @@ def agents():
     from .agents.professional import POLICY, registry as professional_tasks
     from .agents.market_prices import skills as price_skills, VERSION as price_version
     from .collection_price_agent import enabled as collection_price_enabled, VERSION as collection_price_version
+    from .agents.photo_identity import VERSION as photo_version
     return {'pipeline_version': PIPELINE_VERSION, 'agents': registry(), 'controls': control_registry(),
             'market_price_agent':dict(version=price_version,skills=price_skills(),
                 data='retained_archive',paid_provider_required=False,result='/price-tests/latest'),
             'collection_price_agent':dict(version=collection_price_version,enabled=collection_price_enabled(),
                 minimum_comparables=3,reference='lowest_observed_or_adjusted_comparable',
                 detail_fetch='apparent_opportunities_only',buy_recommendation=False),
+            'photo_agent':dict(version=photo_version,
+                skills=['recognize_body_and_generation','compare_photos_with_seller_claims','assess_visible_damage','flag_possible_severe_damage','record_uncertainty'],
+                retention='opportunity_candidates_only',inspection_required=True),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
             'identity_agent':dict(version='vehicle-identity-evidence-v2',
                 evaluation='/identity/evaluations',evidence='field_claims_sources_conflicts_and_recovery_gaps',

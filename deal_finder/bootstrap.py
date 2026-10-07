@@ -56,10 +56,12 @@ class Bootstrap:
     def __init__(self, path, spec):
         self.path, self.spec = path, spec
         self.finished = False
+        self.retry_at = 0
         self.paused = False
 
     def step(self):
-        if self.finished or self.paused:
+        import time
+        if self.finished or self.paused or time.monotonic()<self.retry_at:
             return None
         archive = Archive(self.path)
         try:
@@ -86,6 +88,11 @@ class Bootstrap:
                 self.finished = True
             return dict(bootstrap='complete' if self.finished else 'collecting',
                         run_id=self.spec['run_id'], **progress)
+        except Exception as error:
+            if getattr(error,'sqlstate',None) not in ('57014','40001','40P01'):
+                raise
+            self.retry_at=time.monotonic()+30
+            return dict(bootstrap='retry_later',error_type=type(error).__name__,checkpoint_retained=True)
         finally:
             archive.close()
 
@@ -139,5 +146,10 @@ class OpportunityCollection:
                 self.run_id = None
                 self.completed_day = today
             return progress
+        except Exception as error:
+            if getattr(error,'sqlstate',None) not in ('57014','40001','40P01'):
+                raise
+            self.last_step=time.monotonic()+20
+            return dict(opportunity_collection='retry_later',error_type=type(error).__name__,checkpoint_retained=True)
         finally:
             archive.close()

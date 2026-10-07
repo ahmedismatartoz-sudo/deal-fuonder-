@@ -176,14 +176,14 @@ def enrich(payload, *, source_url=None):
     return result
 
 
-def compact_source_sql(dialect):
+def compact_source_sql(dialect, *, vehicle_column=None):
     paths=[path for values in SOURCE_PATHS.values() for path in values]+list(DAMAGE_PATHS)
     # Only named scalars leave PostgreSQL: never transfer equipment/images/original blobs.
     pairs=[]
     for path in paths:
         key="'"+path+"'"
         if dialect=='postgres':
-            value="e.payload#>'{original,vehicle,"+path.replace('.',',')+"}'"
+            value=(vehicle_column+"#>'{"+path.replace('.',',')+"}'" if vehicle_column else "e.payload#>'{original,vehicle,"+path.replace('.',',')+"}'" )
         else:
             value="json_extract(e.payload,'$.original.vehicle."+path+"')"
         pairs.extend((key,value))

@@ -299,3 +299,31 @@ class WorkerDrainTests(unittest.TestCase):
         self.run_worker(queue,2,bootstrap=bootstrap,clock=lambda:elapsed[0])
         self.assertEqual(bootstrap.step.call_count,2)
         self.assertEqual(queue.work_one.call_count,2)
+
+
+class PhotoOpportunityEnrichmentTests(unittest.TestCase):
+    setUp = RuntimeTests.setUp
+    tearDown = RuntimeTests.tearDown
+    def test_apparent_price_signal_can_get_photo_review_before_net_gate(self):
+        from deal_finder.agents.enrichment import execute,listing_input
+        record=complete('photo',image_urls=['https://prod.pictures.autoscout24.net/one.jpg'])
+        record['payload']['collection_price_screen']=dict(status='apparent_opportunity')
+        self.market.archive.ingest(page([record]),as_of=NOW)
+        listing=listing_input('export','photo',record['observed_at'],record['url'],record['payload'])
+        findings=dict(status='needs_review',photo_damage_assessment=dict(inspection_required=True,verified=False))
+        with patch.dict(os.environ,DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED='1'),patch('deal_finder.agent_runtime.connections',return_value=dict(photo_web_provider_configured=True)),patch('deal_finder.agents.photo_identity.execute',return_value=findings) as identify:
+            result=execute(dict(listing=listing),self.market.db,NOW)
+        identify.assert_called_once()
+        self.assertTrue(result['enrichment']['photo_opportunity_review'])
+        self.assertFalse(result['validation']['data']['buy_recommendation'])
+        self.assertFalse(result['enrichment']['photo_damage_assessment']['verified'])
+    def test_severe_damage_cannot_bypass_photo_research_exclusion(self):
+        from deal_finder.agents.enrichment import execute,listing_input
+        record=complete('photo',description='Motore fuso',image_urls=['https://prod.pictures.autoscout24.net/one.jpg'])
+        record['payload']['collection_price_screen']=dict(status='apparent_opportunity')
+        self.market.archive.ingest(page([record]),as_of=NOW)
+        listing=listing_input('export','photo',record['observed_at'],record['url'],record['payload'])
+        with patch.dict(os.environ,DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED='1'),patch('deal_finder.agents.photo_identity.execute') as identify:
+            result=execute(dict(listing=listing),self.market.db,NOW)
+        identify.assert_not_called()
+        self.assertEqual(result['enrichment']['research_execution']['status'],'blocked')
