@@ -133,6 +133,15 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(output['sources']), 6)
         self.assertFalse(output['calibrated'])
 
+    def test_triage_does_not_mix_manual_and_automatic_gearboxes(self):
+        from deal_finder.agents.market_triage import review
+        records = [complete(i, price_eur=10000, version_text='1.2 Easy', transmission='automatic') for i in range(6)]
+        cheap = complete('manual', price_eur=5000, version_text='1.2 Easy', transmission='manual')
+        self.market.archive.ingest(page(records+[cheap]), as_of=NOW)
+        output = review(dict(cheap['payload'], source='export', source_id='manual'), self.market.db, NOW)
+        self.assertFalse(output['priority_enrichment'])
+        self.assertEqual(output['sources'], [])
+
     def test_prioritized_enrichment_runs_configured_identity_research_and_keeps_it_provisional(self):
         from deal_finder.agents.enrichment import execute
         from deal_finder.agents.enrichment import listing_input
