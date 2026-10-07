@@ -486,7 +486,9 @@ class BackgroundPriceMemory:
         self.ready=False
         self.failures=0
         self.last_poll=None
-        self.batch_size=25
+        self.max_batch_size=max(1,min(250,int(os.getenv('DEAL_FINDER_PRICE_PROJECTION_MAX_BATCH','100'))))
+        self.batch_size=min(self.max_batch_size,max(1,int(os.getenv('DEAL_FINDER_PRICE_PROJECTION_BATCH','25'))))
+        self.last_report=None
         self.retry_at=None
         self.sync_cursor=None
 
@@ -495,7 +497,8 @@ class BackgroundPriceMemory:
         started=time.monotonic()
         if self.retry_at is not None and started<self.retry_at:
             return None
-        if self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
+        discovery=research_policy()['profile']=='discovery'
+        if not discovery and self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
             return None
         self.last_poll=time.monotonic()
         from .archive import Archive
@@ -520,7 +523,8 @@ class BackgroundPriceMemory:
             self.ready=discovery or (count<self.batch_size and not memory.pending(now))
             out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
             automatic=autonomous_enabled()
-            if self.ready and (run_id or automatic):
+            report_due=not discovery or self.last_report is None or started-self.last_report>=60
+            if self.ready and (run_id or automatic) and report_due:
                 run_id=run_id or 'archive-continuous'
                 if automatic:
                     run_id=memory.automatic_run_id(run_id,now)
@@ -529,6 +533,7 @@ class BackgroundPriceMemory:
                 if report['status']=='waiting_for_price_memory':
                     self.ready=False
                     return dict(price_memory='building',projected_this_step=count)
+                self.last_report=time.monotonic()
                 stage='enqueue_verifications'
                 if report.get('candidates'):
                     from .queue import Queue
@@ -565,7 +570,7 @@ class BackgroundPriceMemory:
             if projection_seconds>5:
                 self.batch_size=max(1,self.batch_size//2)
             elif projection_seconds<2:
-                self.batch_size=min(100,self.batch_size*2)
+                self.batch_size=min(self.max_batch_size,self.batch_size*2)
             out['projection_seconds']=round(projection_seconds,3)
             out['next_projection_batch']=self.batch_size
             return out if count or run_id else None
