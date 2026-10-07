@@ -1,5 +1,6 @@
 """One durable, bounded Facebook market-sample campaign on the existing worker."""
 import json
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -106,7 +107,7 @@ class BackgroundCampaign:
         return result['next_cursor']
 
     def step(self):
-        if self.finished or (self.last_poll is not None and time.monotonic() - self.last_poll < 60):
+        if self.finished or (self.last_poll is not None and time.monotonic() - self.last_poll < max(15,min(300,int(os.getenv('DEAL_FINDER_BRIGHTDATA_POLL_SECONDS','60'))))):
             return None
         self.last_poll = time.monotonic()
         archive = Archive(self.path)
@@ -143,7 +144,8 @@ class BackgroundCampaign:
                 self.finished = True
                 return dict(brightdata='campaign_complete', reason=reason, rows=state['rows'],
                             new_unique=unique_count(archive) - state['unique_start'])
-            state.update(stage='inflight', limit=min(self.spec['batch_limit'], remaining),
+            next_limit=max(1,min(100,int(os.getenv('DEAL_FINDER_BRIGHTDATA_NEXT_BATCH_LIMIT',str(self.spec['batch_limit'])))))
+            state.update(stage='inflight', limit=min(next_limit, remaining),
                          unique_before=unique_count(archive), read_retries=0)
             cursor = self.checkpoint(archive, state, 'allocated-' + str(state['index']), cursor)
         config = config_for(self.spec, state['index'], state['limit'])

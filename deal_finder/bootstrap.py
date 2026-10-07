@@ -1,10 +1,16 @@
-"""One initial page per worker iteration; persisted cursors survive restarts."""
+"""Bounded collection batches; persisted cursors survive restarts."""
 import json
 import os
 import re
 from .archive import Archive
 from .autoscout24 import (VERSION, CollectionBlocked, CollectionBusy,
                          collect, validate_config, compatible_initial_scope)
+
+
+def collection_pages_per_step():
+    value=int(os.getenv('DEAL_FINDER_AUTOSCOUT24_PAGES_PER_STEP','1'))
+    if not 1<=value<=10:raise ValueError('collection pages per step must be 1..10')
+    return value
 
 
 def milano_config():
@@ -67,7 +73,7 @@ class Bootstrap:
         try:
             try:
                 result = collect(self.spec['config'], archive,
-                                 run_id=self.spec['run_id'], mode='initial', max_pages=1)
+                                 run_id=self.spec['run_id'], mode='initial', max_pages=collection_pages_per_step())
             except CollectionBusy:
                 return None  # No request to the source; the next iteration can retry.
             except CollectionBlocked as error:
@@ -133,7 +139,7 @@ class OpportunityCollection:
                 if self.run_id is None:
                     self.run_id = cycle_run_id(self.spec['config'],'incremental')
             try:
-                result = collect(self.spec['config'],archive,run_id=self.run_id,mode='incremental',max_pages=1)
+                result = collect(self.spec['config'],archive,run_id=self.run_id,mode='incremental',max_pages=collection_pages_per_step())
             except CollectionBusy:
                 return None
             except CollectionBlocked as error:

@@ -38,7 +38,7 @@ class CollectionPriceAgent:
         now = time.monotonic()
         cached = self.cache.get(key)
         if cached is None or now-cached[0] > 300:
-            rows = list(self.memory.current(datetime.now(timezone.utc), make=key[0], model=key[1]))
+            rows = list(self.memory.current(datetime.now(timezone.utc), make=key[0], model=key[1], recover_identity=not discovery))
             self.cache[key] = (now, rows)
             self.cache.move_to_end(key)
             while len(self.cache) > 8:

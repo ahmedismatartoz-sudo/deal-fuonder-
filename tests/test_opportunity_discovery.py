@@ -100,3 +100,27 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(context['apparent_opportunity'])
         self.assertEqual(context['damage_comparison_group'],'damaged_unspecified')
         self.assertFalse(context['damaged_and_healthy_compared_directly'])
+
+    def test_discovery_does_not_wait_for_unrelated_backlog(self):
+        from test_archive import page
+        self.ingest(self.records())
+        self.archive.ingest(page([complete('unprojected')],run='backlog'),as_of=NOW)
+        with patch.object(self.memory,'pending',side_effect=AssertionError('global recovery must not gate discovery')):
+            report=self.memory.first_test('streaming',NOW,profile='discovery')
+        self.assertEqual([p['source_id'] for p in report['candidates']],['cheap'])
+        self.assertEqual(report['archive_projection_basis'],'available_compact_observations')
+        self.assertTrue(report['identity_recovery_required_for_final_filter'])
+
+    def test_discovery_autoscout_prices_work_before_source_identity_recovery(self):
+        records=self.records()
+        from test_archive import page
+        self.archive.ingest(page(records,source='autoscout24'),as_of=NOW)
+        while self.memory.sync(NOW):pass
+        self.archive.db.execute('DELETE FROM identity_source_cache')
+        self.archive.db.connection.commit()
+        self.assertEqual(list(self.memory.current(NOW)),[])
+        with patch('deal_finder.identity_source_cache.IdentitySourceCache.sync',side_effect=AssertionError('no original recovery')):
+            self.memory.sync(NOW,recover_identity=False)
+            report=self.memory.first_test('early',NOW,profile='discovery')
+        self.assertEqual([p['source_id'] for p in report['candidates']],['cheap'])
+        self.assertIsNone(report['candidates'][0]['net_margin_eur'])

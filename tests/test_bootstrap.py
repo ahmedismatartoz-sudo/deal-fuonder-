@@ -99,3 +99,18 @@ class TransientBootstrapTests(unittest.TestCase):
                 self.assertEqual(value['bootstrap'],'retry_later');self.assertTrue(value['checkpoint_retained'])
                 self.assertFalse(boot.paused);self.assertFalse(boot.finished)
                 self.assertIsNone(boot.step());self.assertEqual(request.call_count,1)
+
+
+class CollectionBatchTests(unittest.TestCase):
+    @patch.dict(os.environ,{'DEAL_FINDER_AUTOSCOUT24_PAGES_PER_STEP':'5'})
+    def test_larger_batch_reuses_client_and_preserves_completion_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=str(Path(tmp)/'base.db');spec=dict(run_id='fast',config=config(fetch_details=False))
+            fake=FakeClient([[item('a')],[item('b')],[item('c')]])
+            with patch('deal_finder.autoscout24.PublicClient',return_value=fake) as factory,patch('deal_finder.autoscout24.time.sleep'):
+                result=Bootstrap(path,spec).step()
+                self.assertTrue(result['complete'])
+                self.assertEqual(result['accepted'],3)
+                self.assertEqual(factory.call_count,1)
+                self.assertTrue(Bootstrap(path,spec).step()['complete'])
+                self.assertEqual(len(fake.calls),3)

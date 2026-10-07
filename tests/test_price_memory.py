@@ -298,3 +298,22 @@ class BackgroundPriceMemoryTests(unittest.TestCase):
             self.assertEqual(result['retry_after_seconds'],4)
             self.assertEqual(opened.call_count,2)
         self.assertEqual(archive.close.call_count,2)
+
+
+class StreamingCadenceTests(unittest.TestCase):
+    @patch.dict(os.environ,{'DEAL_FINDER_FIRST_TEST_PROFILE':'discovery','DEAL_FINDER_AUTONOMOUS_SCREENING_ENABLED':'1'})
+    def test_new_prices_project_between_reports_without_waiting_for_identity(self):
+        clock=[0]
+        memory=Mock();memory.sync.return_value=25;memory.next_cursor=None
+        memory.first_test.return_value=dict(status='completed_research_test',candidates=[])
+        memory.automatic_run_id.return_value='auto'
+        archive=Mock();worker=BackgroundPriceMemory('unused')
+        with patch('deal_finder.archive.Archive',return_value=archive),patch('deal_finder.price_memory.PriceMemory',return_value=memory),patch('time.monotonic',side_effect=lambda:clock[0]):
+            worker.step()
+            clock[0]=2;worker.step()
+            self.assertEqual(memory.sync.call_count,2)
+            self.assertEqual(memory.first_test.call_count,1)
+            memory.pending.assert_not_called()
+            self.assertFalse(memory.sync.call_args.kwargs['recover_identity'])
+            clock[0]=61;worker.step()
+            self.assertEqual(memory.first_test.call_count,2)

@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'broad-discovery-second-filter-v13'
+SCREENING_VERSION = 'broad-discovery-streaming-v14'
 
 
 def autonomous_enabled():
@@ -128,13 +128,13 @@ class PriceMemory:
               AND p.source_id=e.source_id AND p.observed_at=e.observed_at) LIMIT 1''',
             (as_of.isoformat(),)).fetchone())
 
-    def sync(self, as_of, limit=100, *, after=None):
+    def sync(self, as_of, limit=100, *, after=None, recover_identity=True):
         after=after or ('','','0001-01-01T00:00:00+00:00')
         if self.db.dialect == 'postgres':
             result=self.db.execute(postgres_projection_sql(),(as_of.isoformat(),*after,limit)).fetchone()
             self.next_cursor=tuple(result[1:]) if result[1] is not None else None
             from .identity_source_cache import IdentitySourceCache
-            self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit)
+            self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit) if recover_identity else 0
             return result[0] or self.cached_source_count
         rows = self.db.execute('''SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload
             FROM listing_events e WHERE e.observed_at<=? AND (e.source,e.source_id,e.observed_at)>(?,?,?) AND NOT EXISTS (
@@ -154,10 +154,10 @@ class PriceMemory:
                 self.db.executemany('''INSERT INTO price_observations VALUES (?,?,?,?,?,?,?)
                     ON CONFLICT(source,source_id,observed_at) DO NOTHING''',compact)
         from .identity_source_cache import IdentitySourceCache
-        self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit)
+        self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit) if recover_identity else 0
         return len(rows) or self.cached_source_count
 
-    def current(self, as_of, *, make=None, model=None, source=None):
+    def current(self, as_of, *, make=None, model=None, source=None, recover_identity=True):
         cursor = ('','','0001-01-01T00:00:00+00:00')
         args = [(as_of-timedelta(days=30)).isoformat(),as_of.isoformat(),as_of.isoformat()]
         filters = ''
@@ -172,6 +172,16 @@ class PriceMemory:
                     AND n.source_id=p.source_id AND n.observed_at>p.observed_at AND n.observed_at<=?)'''
                 +filters+''' AND (p.source,p.source_id,p.observed_at)>(?,?,?)
                 ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''')
+            if not recover_identity:
+                rows=self.db.execute(page_sql.replace("LIMIT 100", "LIMIT 1000"),(True,*args,*cursor)).fetchall()
+                for source_name,identifier,observed,payload in rows:
+                    cursor=(source_name,identifier,observed)
+                    value=self.db.json_decode(payload)
+                    value.update(source=source_name,source_id=identifier,observed_at=observed)
+                    from .vehicle_identity import enrich
+                    yield enrich(value,source_url=value.get("url"))
+                if len(rows)<1000:break
+                continue
             from .identity_source_cache import IdentitySourceCache,VERSION as source_version
             IdentitySourceCache(self.db)
             materialized='MATERIALIZED ' if self.db.dialect=='postgres' else ''
@@ -215,14 +225,15 @@ class PriceMemory:
             cached = self.db.json_decode(old[0])
             if cached.get('screening_version') == SCREENING_VERSION:
                 return cached
-        if self.pending(as_of):
+        if policy['profile']!='discovery' and self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
-        all_rows = list(self.current(as_of))
+        all_rows = list(self.current(as_of,recover_identity=policy['profile']!='discovery'))
         if policy['profile']=='discovery':
             from .opportunity_discovery import build_report
             discovery_limit=max(1,min(500,int(os.getenv('DEAL_FINDER_DISCOVERY_LIMIT',str(limit)))))
             report=build_report(all_rows,run_id,as_of,SCREENING_VERSION,policy,discovery_limit,autonomous)
-            if self.pending(as_of):return dict(status='waiting_for_price_memory',run_id=run_id)
+            report['identity_recovery_required_for_final_filter']=True
+            report['archive_projection_basis']='available_compact_observations'
             with self.db:
                 self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO NOTHING',
                     (storage_run_id,as_of.isoformat(),self.db.json_param(canonical(report))))
@@ -475,7 +486,9 @@ class BackgroundPriceMemory:
         self.ready=False
         self.failures=0
         self.last_poll=None
-        self.batch_size=25
+        self.max_batch_size=max(1,min(250,int(os.getenv('DEAL_FINDER_PRICE_PROJECTION_MAX_BATCH','100'))))
+        self.batch_size=min(self.max_batch_size,max(1,int(os.getenv('DEAL_FINDER_PRICE_PROJECTION_BATCH','25'))))
+        self.last_report=None
         self.retry_at=None
         self.sync_cursor=None
 
@@ -484,7 +497,8 @@ class BackgroundPriceMemory:
         started=time.monotonic()
         if self.retry_at is not None and started<self.retry_at:
             return None
-        if self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
+        discovery=research_policy()['profile']=='discovery'
+        if not discovery and self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
             return None
         self.last_poll=time.monotonic()
         from .archive import Archive
@@ -496,17 +510,21 @@ class BackgroundPriceMemory:
             now=datetime.now(timezone.utc)
             stage='project_new_observations'
             projection_started=time.monotonic()
-            count=memory.sync(now,limit=self.batch_size,after=self.sync_cursor)
+            discovery=research_policy()['profile']=='discovery'
+            if discovery:
+                count=memory.sync(now,limit=self.batch_size,after=self.sync_cursor,recover_identity=False)
+            else:
+                count=memory.sync(now,limit=self.batch_size,after=self.sync_cursor)
             self.sync_cursor=memory.next_cursor
             projection_seconds=time.monotonic()-projection_started
             stage='check_completion'
-            # A full batch cannot prove completion. Only a short/empty batch
-            # needs the global missing-event check; this also catches a late
-            # arrival behind the cursor before any comparison is allowed.
-            self.ready=count<self.batch_size and not memory.pending(now)
+            # Broad discovery can use the compact observations already available.
+            # Strict comparisons still wait for complete source identity recovery.
+            self.ready=discovery or (count<self.batch_size and not memory.pending(now))
             out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
             automatic=autonomous_enabled()
-            if self.ready and (run_id or automatic):
+            report_due=not discovery or self.last_report is None or started-self.last_report>=60
+            if self.ready and (run_id or automatic) and report_due:
                 run_id=run_id or 'archive-continuous'
                 if automatic:
                     run_id=memory.automatic_run_id(run_id,now)
@@ -515,6 +533,7 @@ class BackgroundPriceMemory:
                 if report['status']=='waiting_for_price_memory':
                     self.ready=False
                     return dict(price_memory='building',projected_this_step=count)
+                self.last_report=time.monotonic()
                 stage='enqueue_verifications'
                 if report.get('candidates'):
                     from .queue import Queue
@@ -551,7 +570,7 @@ class BackgroundPriceMemory:
             if projection_seconds>5:
                 self.batch_size=max(1,self.batch_size//2)
             elif projection_seconds<2:
-                self.batch_size=min(100,self.batch_size*2)
+                self.batch_size=min(self.max_batch_size,self.batch_size*2)
             out['projection_seconds']=round(projection_seconds,3)
             out['next_projection_batch']=self.batch_size
             return out if count or run_id else None

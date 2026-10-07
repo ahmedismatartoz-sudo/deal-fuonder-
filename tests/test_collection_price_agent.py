@@ -144,3 +144,20 @@ class CollectionPriceTests(unittest.TestCase):
         self.assertEqual(classify(event['payload'])['category'],'clean')
         target=dict(event['payload'],source='autoscout24',source_id='cheap')
         self.assertEqual(CollectionPriceAgent(self.archive.db).screen(target)['status'],'apparent_opportunity')
+
+
+class PageLookupTests(unittest.TestCase):
+    setUp=fixtures.AutoScoutTests.setUp
+    tearDown=fixtures.AutoScoutTests.tearDown
+    def test_twenty_cars_use_one_known_listing_lookup_and_keep_price_changes(self):
+        rows=[item('car'+str(i)) for i in range(20)]
+        client=FakeClient([rows])
+        with patch.object(self.archive.db,'execute',wraps=self.archive.db.execute) as execute:
+            result=collect(config(fetch_details=False),self.archive,run_id='batched',client=client)
+        lookups=[call for call in execute.call_args_list if 'SELECT e.source_id,e.observed_at' in call.args[0]]
+        self.assertEqual(len(lookups),1)
+        self.assertEqual(result['accepted'],20)
+        changed=item('car0');changed['price']['priceRaw']=4000
+        with patch.dict(os.environ,{'DEAL_FINDER_AUTOSCOUT24_PRICE_SCREENING_ENABLED':'1'}):
+            collect(config(fetch_details=False),self.archive,run_id='changed-batched',client=FakeClient([[changed]]))
+        self.assertEqual(self.archive.history('autoscout24','car0')[0]['payload']['price_eur'],4000)
