@@ -121,3 +121,26 @@ class CollectionPriceTests(unittest.TestCase):
         self.assertEqual(result['scope'],scope)
         self.assertEqual(len(client.calls),1)
         self.assertEqual(self.archive.history('autoscout24','new')[0]['payload']['collection_price_screen']['status'],'needs_market_evidence')
+
+    @patch.dict(os.environ,{'DEAL_FINDER_AUTOSCOUT24_PRICE_SCREENING_ENABLED':'1'})
+    def test_search_displacement_and_condition_unlock_prefixed_variant_comparison(self):
+        from deal_finder.autoscout24 import record_event
+        from deal_finder.price_memory import PriceMemory
+        from deal_finder.vehicle_identity import enrich
+        from deal_finder.damage_screening import classify
+        records=[]
+        for i in range(3):
+            row=detail('peer'+str(i));row['prices']['public']['priceRaw']=10000+i*500
+            row['vehicle'].update(rawCylinderCapacity=1242,rawPowerInHp=69,modelVersionInput='Panda III 2011 1.2 Easy 69cv')
+            row['vehicle']['mileageInKmRaw']=80000+i*1000
+            records.append(record_event(row,url=BASE+row['url'],observed_at=datetime.now(timezone.utc).isoformat(),detailed=True))
+        self.archive.ingest(dict(source='autoscout24',run_id='accurate-peers',page_id='0',mode='initial',scope={'country':'IT'},records=records,complete=True))
+        PriceMemory(self.archive.db).sync(datetime.now(timezone.utc))
+        row=item('cheap');row['vehicle'].update(engineDisplacementInCCM='1.242 cm³',isCurrentlyDamaged=False,modelVersionInput='1.2 Easy 69cv')
+        row['price']['priceRaw']=5000
+        event=record_event(row,url=BASE+row['url'],observed_at=datetime.now(timezone.utc).isoformat())
+        self.assertEqual(event['payload']['displacement_cc'],1242)
+        self.assertEqual(event['payload']['condition'],'undamaged')
+        self.assertEqual(classify(event['payload'])['category'],'clean')
+        target=dict(event['payload'],source='autoscout24',source_id='cheap')
+        self.assertEqual(CollectionPriceAgent(self.archive.db).screen(target)['status'],'apparent_opportunity')
