@@ -85,6 +85,31 @@ class PriceMemoryTests(unittest.TestCase):
             self.assertEqual(q.claim()['raw']['listing']['source_id'],'ordinary')
         finally:q.close()
 
+    def test_configuration_resume_enqueues_once_without_reusing_blocked_jobs(self):
+        from deal_finder.price_memory import priority_batch_id
+        records=[complete('cheap',price_eur=1000,version_text='1.2 Easy')]
+        records += [complete('peer'+str(i),price_eur=10000+i*10,version_text='1.2 Easy') for i in range(9)]
+        self.ingest(records)
+        with patch('deal_finder.price_memory.datetime') as clock, \
+             patch('deal_finder.agent_runtime.connections') as connections:
+            clock.now.return_value=NOW
+            connections.return_value=dict(photo_web_provider_configured=False)
+            blocked=priority_batch_id('resume')
+            BackgroundPriceMemory(self.path).step('resume')
+            BackgroundPriceMemory(self.path).step('resume')
+            connections.return_value=dict(photo_web_provider_configured=True)
+            ready=priority_batch_id('resume')
+            BackgroundPriceMemory(self.path).step('resume')
+            BackgroundPriceMemory(self.path).step('resume')
+        self.assertNotEqual(blocked,ready)
+        q=Queue(self.path)
+        try:
+            self.assertEqual(q.db.execute('SELECT count(*) FROM batches').fetchone()[0],2)
+            self.assertIsNotNone(q.claim(batch_id=blocked))
+            self.assertIsNotNone(q.claim(batch_id=ready))
+            self.assertIsNone(q.claim(batch_id=ready))
+        finally:q.close()
+
     def test_real_description_damage_signals_cannot_enter_clean_first_test(self):
         for text in ('motore da cambiare, carrozzeria scolorita sul cofano e tetto',
                      'GRANDINATA SU FIANCO DX, TETTO, COFANO',
