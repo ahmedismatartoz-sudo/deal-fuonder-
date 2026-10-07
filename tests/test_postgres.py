@@ -16,6 +16,36 @@ URL=os.getenv('DEAL_FINDER_TEST_DATABASE_URL')
 
 @unittest.skipUnless(URL, 'Disposable PostgreSQL test database not configured')
 class PostgresQueueTests(test_queue.QueueTests):
+    def test_facebook_archive_screen_uses_postgres_and_persists_separate_result(self):
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory
+        from deal_finder.facebook_opportunities import FacebookScreening
+        from test_facebook_opportunities import car, peers
+        from test_archive import page
+        archive=Archive(URL)
+        try:
+            target=car(description='80000 km benzina')
+            def record(p):
+                return dict(source_id=p['source_id'],observed_at=p['observed_at'],url=p['url'],active=p['active'],payload=p)
+            archive.ingest(page([record(target)],source='facebook_marketplace',run='facebook'))
+            archive.ingest(page([record(p) for p in peers()],source='export',run='prices'))
+            memory=PriceMemory(archive.db)
+            now=datetime.now(timezone.utc)
+            while memory.sync(now,recover_identity=False):pass
+        finally:
+            archive.close()
+        with patch.dict(os.environ,{'DEAL_FINDER_FACEBOOK_RESEARCH_LIMIT':'0'}):
+            result=FacebookScreening(URL).step()
+            self.assertEqual(result['facebook_screening'],'completed')
+            self.assertEqual(result['facebook_ads_examined'],1)
+            self.assertEqual(result['research_candidates'],1)
+            saved=self.queue.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(result['run_id'],)).fetchone()[0]
+            self.assertEqual(saved['opportunities'],[])
+            self.assertEqual(saved['net_margin_policy']['version'],'tiered-net-margin-v2')
+            self.assertEqual(FacebookScreening(URL).step()['facebook_screening'],'already_completed')
+
     def setUp(self):
         parsed=urlparse(URL)
         if parsed.hostname not in ('127.0.0.1','localhost') or parsed.path != '/deal_finder_test':

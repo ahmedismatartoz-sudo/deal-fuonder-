@@ -31,6 +31,14 @@ class MarketPriceSkillsTests(unittest.TestCase):
         self.assertIsNone(result['validation'])
         self.assertEqual(result['confidence'],'low')
 
+    def test_valid_fit_without_independent_holdout_cannot_adjust_prices(self):
+        target=dict(source='export',source_id='cheap',year=2018,mileage_km=100000)
+        data=[p for p in self.dataset() if p['year'] in (2017,2018,2019) and p['mileage_km'] in (60000,80000,100000,120000,140000)]
+        result=assess(target,data,data)
+        self.assertEqual(len(data),15)
+        self.assertEqual(result['method'],'unadjusted_comparables')
+        self.assertIsNone(result['adjustments'])
+
     def test_does_not_extrapolate_outside_archive_coverage(self):
         target=dict(source='export',source_id='outside',year=2025,mileage_km=10000)
         data=self.dataset()

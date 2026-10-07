@@ -24,13 +24,13 @@ def doc(raw, **changes):
 
 
 def reviewed(severe=False):
-    raw=envelope(listing=row(99,price_eur=5000,condition='damaged' if severe else 'undamaged'),
+    raw=envelope(listing=row(99,price_eur=4000,condition='damaged' if severe else 'undamaged'),
                  operating_costs={name:cost(10000,10000) for name in ('transfer','transport','preparation','warranty','taxes','fees','contingency')})
     candidates=[Listing.parse(row(i,price_eur=20000 if severe else 10000)) for i in range(20 if severe else 12)]
     listing=Listing.parse(raw['listing'])
     specifications={key:getattr(listing,key) for key in ('make','model','generation','trim','fuel','transmission','year')}
     data=dict(acquisition=doc(raw,total_price_confirmed=True,available=True,documents_checked=True,
-                             mileage_checked=True,purchase_price_cents=500000),
+                             mileage_checked=True,purchase_price_cents=400000),
               damage_assessment=doc(raw,severity='severe' if severe else 'none'),
               model_risk_review=doc(raw,coverage_complete=True,specifications=specifications,
                   sources_consulted=['https://example.com/oem','https://example.com/recalls']),
@@ -69,6 +69,16 @@ def reviewed(severe=False):
 
 
 class ProfessionalTests(unittest.TestCase):
+    def test_maximum_offer_recomputes_margin_at_its_own_band(self):
+        raw,candidates=reviewed()
+        value=analyze(raw,candidates,NOW)['independent_review']['economics']
+        self.assertEqual(value['maximum_offer_cents'],499900)
+        from deal_finder.margin_policy import minimum_net_margin_eur
+        offer=value['maximum_offer_cents']//100
+        available=value['conservative_exit_cents']-value['total_cost_high_cents']
+        self.assertGreaterEqual(available-offer*100,minimum_net_margin_eur(offer)*100)
+        self.assertLess(available-(offer+1)*100,minimum_net_margin_eur(offer+1)*100)
+
     def test_complete_high_margin_candidate_still_cannot_bypass_uncalibrated_models(self):
         raw,candidates=reviewed()
         result=analyze(raw,candidates,NOW)
@@ -82,15 +92,17 @@ class ProfessionalTests(unittest.TestCase):
 
     def test_2000_margin_is_hard_inclusive_threshold_after_all_costs(self):
         raw,candidates=reviewed()
-        target=Listing.parse(row(99,price_eur=5050))
+        # Keep this test in the <5k / 2k band, with an extra evidenced cost.
+        raw['operating_costs']['transport']=cost(110000,110000)
+        target=Listing.parse(row(99,price_eur=4050))
         analysis=analyze(raw,candidates,NOW)
         risk=analysis['technical_risk'];market=analysis['market']['data']
         repairs=analysis['repair'];opportunity=analysis['opportunity']
         economics=conservative_economics(raw,target,market,repairs,opportunity,risk,NOW)
         self.assertEqual(economics['margin_low_cents'],200000)
         self.assertTrue(economics['passes_margin'])
-        self.assertEqual(economics['maximum_offer_cents'],505000)
-        economics=conservative_economics(raw,Listing.parse(row(99,price_eur=5051)),market,repairs,opportunity,risk,NOW)
+        self.assertEqual(economics['maximum_offer_cents'],405000)
+        economics=conservative_economics(raw,Listing.parse(row(99,price_eur=4051)),market,repairs,opportunity,risk,NOW)
         self.assertFalse(economics['passes_margin'])
 
     def test_increasing_costs_or_lowering_resale_never_improves_opportunity(self):
@@ -370,11 +382,11 @@ class ProfessionalTests(unittest.TestCase):
 
     def test_holding_costs_reduce_margin_and_maximum_offer_without_disabling_stress(self):
         raw,candidates=reviewed();base=analyze(raw,candidates,NOW)['independent_review']['economics']
-        raw['professional_evidence']['holding_plan']['daily_costs']['storage']=dict(cost(1000,1000),unit='day')
+        raw['professional_evidence']['holding_plan']['daily_costs']['storage']=dict(cost(3000,3000),unit='day')
         value=analyze(raw,candidates,NOW)['independent_review']['economics']
-        self.assertEqual(value['holding']['high_cents'],45000)
-        self.assertEqual(value['margin_low_cents'],base['margin_low_cents']-45000)
-        self.assertEqual(value['maximum_offer_cents'],base['maximum_offer_cents']-45000)
+        self.assertEqual(value['holding']['high_cents'],135000)
+        self.assertEqual(value['margin_low_cents'],base['margin_low_cents']-135000)
+        self.assertLess(value['maximum_offer_cents'],base['maximum_offer_cents'])
         self.assertFalse(value['passes_margin'])
 
     def test_base_margin_alone_cannot_pass_when_simultaneous_stress_fails(self):

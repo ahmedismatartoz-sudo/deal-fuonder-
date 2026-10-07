@@ -107,8 +107,8 @@ def assess(target, cohort, nearby):
                 result['confidence']='medium' if ratio>0.10 or len(cohort)<40 else 'high'
                 if len(nearby)<8:
                     result['confidence']='medium'
-        elif trial is not None and not validation:
-            beta=trial
+        # A fit without independent validation never adjusts prices. Retain
+        # the unadjusted low peer instead of treating training error as skill.
     adjusted=[]
     for p in nearby:
         value=p['price_eur']
