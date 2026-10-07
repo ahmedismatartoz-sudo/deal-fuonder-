@@ -33,8 +33,9 @@ market learning, with an explicit `not_apparent_opportunity` or
 Known IDs are reconsidered after price/specification changes, on a seven-day
 refresh, or when a deferred search-only observation can now qualify. Existing
 original details remain immutable; unrefreshed detail facts are not presented as
-fresh verified evidence. Initial full baselines remain full baselines, and a
-completed compatible v3 baseline is reused without downloading it again.
+fresh verified evidence. A cold archive retains search observations until comparisons exist. Compatible v2/v3
+initial checkpoints resume without deleting or downloading the existing archive again;
+when screening is enabled the remaining pages also prioritize opportunity details.
 
 The worker resumes one incremental search page per iteration (at least ten
 seconds between iterations and the existing request delay). Incomplete compatible

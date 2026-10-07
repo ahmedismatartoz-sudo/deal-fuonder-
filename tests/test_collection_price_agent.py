@@ -105,3 +105,19 @@ class CollectionPriceTests(unittest.TestCase):
             self.assertEqual(blocked.step()['opportunity_collection'],'paused')
             self.assertIsNone(blocked.step())
             self.assertEqual(factory.return_value.get.call_count,1)
+
+    @patch.dict(os.environ,{'DEAL_FINDER_AUTOSCOUT24_PRICE_SCREENING_ENABLED':'1'})
+    def test_partial_v2_baseline_resumes_with_price_triage(self):
+        from deal_finder.autoscout24 import validate_config
+        from deal_finder.archive import canonical
+        from deal_finder.bootstrap import bootstrap_status
+        cfg=validate_config(config())
+        scope=dict(country='IT',adapter='autoscout24-public-html-v2',configuration=cfg,purpose='initial_base',snapshot_consistent=False)
+        self.archive.ingest(dict(source='autoscout24',run_id='native-partial',page_id='0',mode='initial',scope=scope,records=[],complete=False,next_cursor=canonical(dict(search=0,page=2))))
+        self.assertFalse(bootstrap_status(self.archive,dict(run_id='partial',config=cfg))['complete'])
+        client=FakeClient([[item('old')],[item('new')]])
+        result=collect(cfg,self.archive,run_id='partial',mode='initial',client=client)
+        self.assertTrue(result['complete']);self.assertEqual(result['pages'],2)
+        self.assertEqual(result['scope'],scope)
+        self.assertEqual(len(client.calls),1)
+        self.assertEqual(self.archive.history('autoscout24','new')[0]['payload']['collection_price_screen']['status'],'needs_market_evidence')

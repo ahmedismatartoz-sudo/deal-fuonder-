@@ -418,7 +418,7 @@ class AutoScout24Connector:
                 ' FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',
                 (self.source,item['id'])).fetchone()
             observed = datetime.now(timezone.utc).isoformat()
-            screening = mode == 'incremental' and self.price_agent is not None
+            screening = self.price_agent is not None
             try:
                 preliminary = record_event(item, url=listing_url, observed_at=observed,
                                            search_url=search, detailed=False, original_search=item)
@@ -489,8 +489,10 @@ def collect(config, archive, *, run_id, mode='incremental', max_pages=100, clien
             prior = archive.run_status('autoscout24', 'native-' + run_id)
         except KeyError:
             prior = None
-        if prior and prior['complete'] and compatible_initial_scope(prior, scope):
-            return prior
+        if prior and compatible_initial_scope(prior, scope):
+            if prior['complete']:
+                return prior
+            scope = prior['scope']  # Continue immutable compatible legacy checkpoints.
     if mode == 'incremental' and connector.price_agent is not None:
         from .collection_price_agent import VERSION as price_version
         scope['price_prescreen'] = price_version
@@ -517,5 +519,5 @@ def compatible_initial_scope(status, expected):
     adapter = scope.pop('adapter', None)
     other = dict(expected)
     other.pop('adapter', None)
-    return (status['mode'] == 'initial' and status['complete']
-            and adapter in ('autoscout24-public-html-v3', VERSION) and scope == other)
+    return (status['mode'] == 'initial'
+            and adapter in ('autoscout24-public-html-v2', 'autoscout24-public-html-v3', VERSION) and scope == other)
