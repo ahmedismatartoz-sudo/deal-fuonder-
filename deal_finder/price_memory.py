@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'broad-discovery-streaming-v14'
+SCREENING_VERSION = 'broad-discovery-streaming-v15'
 
 
 def autonomous_enabled():
@@ -161,12 +161,13 @@ class PriceMemory:
         cursor = ('','','0001-01-01T00:00:00+00:00')
         args = [(as_of-timedelta(days=30)).isoformat(),as_of.isoformat(),as_of.isoformat()]
         filters = ''
+        compact_payload="(p.payload - 'collection_price_screen')" if self.db.dialect=='postgres' else "json_remove(p.payload,'$.collection_price_screen')"
         for key,value in (('make',make),('model',model),('source',source)):
             if value is not None:
                 filters += ' AND p.'+key+'=?'
                 args.append(value)
         while True:
-            page_sql = ('''SELECT p.source,p.source_id,p.observed_at,p.payload
+            page_sql = ('''SELECT p.source,p.source_id,p.observed_at,'''+compact_payload+''' AS payload
                 FROM price_observations p WHERE p.active=? AND p.observed_at BETWEEN ? AND ?
                 AND NOT EXISTS (SELECT 1 FROM price_observations n WHERE n.source=p.source
                     AND n.source_id=p.source_id AND n.observed_at>p.observed_at AND n.observed_at<=?)'''

@@ -124,3 +124,45 @@ class DiscoveryTests(unittest.TestCase):
             report=self.memory.first_test('early',NOW,profile='discovery')
         self.assertEqual([p['source_id'] for p in report['candidates']],['cheap'])
         self.assertIsNone(report['candidates'][0]['net_margin_eur'])
+
+    def test_price_calculation_uses_all_peers_but_bounds_duplicate_audit_evidence(self):
+        from deal_finder.opportunity_discovery import signal
+        target=dict(source='export',source_id='target',make='Fiat',model='Panda',year=2018,
+            mileage_km=80000,price_eur=2000,price_kind='total',observed_at=NOW.isoformat())
+        peers=[dict(target,source_id='p'+str(i),price_eur=5000+i*10,mileage_km=80000+i) for i in range(200)]
+        result=signal(target,peers)
+        self.assertEqual(result['comparable_count'],200)
+        self.assertEqual(result['asking_typical_eur'],5995)
+        self.assertEqual(len(result['sources']),50)
+        self.assertTrue(result['source_evidence_is_sample'])
+        self.assertEqual(result['sources'][0]['price_eur'],5000)
+        self.assertEqual(result['sources'][-1]['price_eur'],6990)
+
+    def test_nested_collection_evidence_is_not_reloaded_for_price_comparison(self):
+        records=self.records()
+        records[0]['payload']['collection_price_screen']=dict(status='apparent_opportunity',sources=['duplicated-evidence']*1000)
+        self.ingest(records)
+        target=next(p for p in self.memory.current(NOW,recover_identity=False) if p['source_id']=='cheap')
+        self.assertNotIn('collection_price_screen',target)
+        stored=self.archive.history('export','cheap')[0]['payload']
+        self.assertEqual(stored['collection_price_screen']['status'],'apparent_opportunity')
+        report=self.memory.first_test('compact-audit',NOW,profile='discovery')
+        self.assertEqual([p['source_id'] for p in report['candidates']],['cheap'])
+
+    def test_indexed_comparisons_preserve_boundaries_fuel_and_condition_groups(self):
+        from deal_finder.opportunity_discovery import PeerIndex,peers_for,signal
+        rows=[]
+        for i in range(500):
+            rows.append(dict(source='export',source_id=str(i),make='Fiat' if i%3 else 'Ford',model='Panda',
+                year=2015+i%9,mileage_km=10000+i*1000,price_eur=3000+i*20,price_kind='total',
+                condition=['unknown','undamaged','damaged'][i%3],fuel=None if i%5==0 else ['diesel','petrol'][i%2],
+                transmission=None if i%7==0 else 'manual',observed_at=NOW.isoformat()))
+        indexed=PeerIndex(rows)
+        for km in [60000,60001,120000,120001]:
+            target=dict(rows[101],source_id='target',year=2018,mileage_km=km,price_eur=2000)
+            expected=peers_for(target,rows);actual=peers_for(target,indexed)
+            self.assertEqual({p['source_id'] for p in expected},{p['source_id'] for p in actual})
+            old,new=signal(target,rows),signal(target,indexed)
+            self.assertEqual(old['asking_typical_eur'],new['asking_typical_eur'])
+            self.assertEqual(old['comparable_count'],new['comparable_count'])
+            self.assertEqual(old['apparent_opportunity'],new['apparent_opportunity'])
