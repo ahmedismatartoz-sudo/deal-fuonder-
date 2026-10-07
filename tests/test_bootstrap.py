@@ -86,3 +86,16 @@ class BootstrapTests(unittest.TestCase):
                       {'run_id': 'base', 'config': config(), 'unexpected': True}):
             with patch.dict(os.environ, {'DEAL_FINDER_AUTOSCOUT24_BOOTSTRAP': json.dumps(value)}):
                 with self.assertRaises(ValueError): bootstrap_config()
+
+
+class TransientBootstrapTests(unittest.TestCase):
+    def test_statement_timeout_keeps_worker_alive_and_checkpoint_for_retry(self):
+        class TimeoutError(Exception):sqlstate='57014'
+        with tempfile.TemporaryDirectory() as tmp:
+            path=str(Path(tmp)/'base.db')
+            boot=Bootstrap(path,dict(run_id='base',config=config()))
+            with patch('deal_finder.bootstrap.collect',side_effect=TimeoutError()) as request:
+                value=boot.step()
+                self.assertEqual(value['bootstrap'],'retry_later');self.assertTrue(value['checkpoint_retained'])
+                self.assertFalse(boot.paused);self.assertFalse(boot.finished)
+                self.assertIsNone(boot.step());self.assertEqual(request.call_count,1)

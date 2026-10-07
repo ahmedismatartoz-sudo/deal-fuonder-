@@ -4,7 +4,7 @@ import os
 from ..models import Listing
 from .photo_identity import plan
 
-VERSION = 'archive-enrichment-identity-damage-v3'
+VERSION = 'archive-enrichment-photo-opportunities-v4'
 
 
 def listing_input(source, source_id, observed_at, url, payload):
@@ -82,12 +82,16 @@ def execute(raw, db, as_of):
                           dict(name='research_parts_web', requires=['price_selection', 'identified_variant', 'required_parts'])]
         value['reason'] = 'Source evidence or reviewed enrichment is required; unknown fields remain unknown.'
         from ..price_memory import risky,research_policy
+        apparent_photo_review=(os.getenv('DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED')=='1'
+            and payload.get('collection_price_screen',{}).get('status')=='apparent_opportunity')
+        value['photo_opportunity_review']=apparent_photo_review
         if listing['identity_dossier']['conflicts']:
             value['research_execution']=dict(status='needs_identity_review',conflicts=listing['identity_dossier']['conflicts'])
             value['tasks'].insert(0,dict(name='resolve_identity_conflicts',requires=[],conflicts=listing['identity_dossier']['conflicts']))
-        elif (not value['damage_screening']['eligible_for_opportunity_research'] if research_policy()['profile']=='opportunities' else risky(listing)):
+        elif (value['damage_screening']['category']=='severe' or (not apparent_photo_review and
+                (not value['damage_screening']['eligible_for_opportunity_research'] if research_policy()['profile']=='opportunities' else risky(listing)))):
             value['research_execution'] = dict(status='blocked', reason='Severe or insufficiently described damage excluded')
-        elif not value['market_triage']['priority_enrichment']:
+        elif not value['market_triage']['priority_enrichment'] and not apparent_photo_review:
             value['research_execution'] = dict(status='blocked', reason='Comparable price signal required before external research')
         else:
             from ..agent_runtime import connections
@@ -102,6 +106,7 @@ def execute(raw, db, as_of):
                 from .photo_identity import execute as identify
                 value['automatic_paid_calls'] = True
                 value['identity_research'] = identify(dict(listing=listing),as_of)
+                value['photo_damage_assessment']=value['identity_research'].get('photo_damage_assessment')
                 value['research_execution'] = dict(status=value['identity_research']['status'],
                     evidence_persisted=True, identity_attestation=False,
                     next_stage='review_variant_and_inspection_scope')

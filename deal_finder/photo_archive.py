@@ -4,6 +4,7 @@ Download from approved marketplace CDNs only, without redirects or login.
 Failure never becomes an archived photo. Cover photos get priority over galleries.
 """
 import hashlib
+import os
 import re
 import time
 from datetime import datetime, timezone, timedelta
@@ -150,9 +151,40 @@ class BackgroundPhotoArchive:
         try:
             archive=Archive(self.path)
             row=archive.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(run_id,)).fetchone()
-            if not row: return None
-            result=PhotoArchive(archive.db).step(archive.db.json_decode(row[0]))
-            return result if result['photo_archive']!='idle' else None
+            if not row:
+                from .price_memory import SCREENING_VERSION
+                field="payload->>'screening_version'" if archive.db.dialect=='postgres' else "json_extract(payload,'$.screening_version')"
+                row=archive.db.execute('SELECT payload FROM price_test_reports WHERE '+field+'=? ORDER BY as_of DESC LIMIT 1',(SCREENING_VERSION,)).fetchone()
+            candidates=list((archive.db.json_decode(row[0]) if row else {}).get('candidates',[]))
+            apparent=[]
+            if os.getenv('DEAL_FINDER_PHOTO_OPPORTUNITY_REVIEW_ENABLED')=='1':
+                field="p.payload#>>'{collection_price_screen,status}'" if archive.db.dialect=='postgres' else "json_extract(p.payload,'$.collection_price_screen.status')"
+                rows=archive.db.execute("""SELECT p.source,p.source_id,p.observed_at FROM price_observations p
+                    WHERE p.active=? AND p.observed_at>=? AND """+field+"""=? AND NOT EXISTS (
+                        SELECT 1 FROM price_observations n WHERE n.source=p.source AND n.source_id=p.source_id
+                            AND n.observed_at>p.observed_at) ORDER BY p.observed_at DESC LIMIT 20""",
+                        (True,(datetime.now(timezone.utc)-timedelta(days=7)).isoformat(),'apparent_opportunity')).fetchall()
+                apparent=[dict(source=s,source_id=i,observed_at=t) for s,i,t in rows]
+                candidates.extend(apparent)
+            candidates=list({(p['source'],p['source_id'],p['observed_at']):p for p in candidates}.values())
+            result=PhotoArchive(archive.db).step(dict(candidates=candidates),fetch=download)
+            if apparent:
+                from .queue import Queue
+                from .price_memory import priority_observation_batch
+                from .agents.enrichment import listing_input
+                queue=Queue(self.path)
+                try:
+                    queued=0
+                    for p in apparent:
+                        batch=priority_observation_batch(p)
+                        if queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(batch,)).fetchone():continue
+                        latest=archive.db.execute('SELECT observed_at,url,payload,active FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',(p['source'],p['source_id'])).fetchone()
+                        if not latest or not latest[3] or latest[0]!=p['observed_at']:continue
+                        queue.submit(batch,[dict(task='archive_enrichment',listing=listing_input(p['source'],p['source_id'],p['observed_at'],latest[1],archive.db.json_decode(latest[2])))])
+                        queued+=1
+                    result['queued_photo_reviews']=queued
+                finally:queue.close()
+            return result if result['photo_archive']!='idle' or result.get('queued_photo_reviews') else None
         except Exception as error:
             return dict(photo_archive='retry_later',error_type=type(error).__name__)
         finally:
