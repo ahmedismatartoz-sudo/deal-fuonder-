@@ -11,7 +11,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'source-facts-and-variant-screening-v3'
+SCREENING_VERSION = 'source-facts-and-variant-screening-v4'
 
 
 def priority_batch_id(run_id):
@@ -303,12 +303,15 @@ def same_variant(p, q):
             model=normalized(row.get('model'))
             if model:
                 value=re.sub(r'^(?:'+re.escape(model)+r'\s+)+','',value)
+            generation=re.match(r'^(i|ii|iii|iv|v|vi|vii|viii)\b',value)
             value=re.sub(r'^(?:i|ii|iii|iv|v|vi|vii|viii)\b(?:\s+(?:19|20)\d{2})?\s*','',value)
             if type(row.get('year')) is int:
                 value=re.sub(r'\s+'+str(row['year'])+r'$','',value)
-            return value.strip()
+            return value.strip(), generation.group(1) if generation else None
         a,b=signature(p),signature(q)
-        return bool(a and b and a==b)
+        if not a or not b or (a[1] and b[1] and a[1]!=b[1]):
+            return False
+        return bool(a[0] and a[0]==b[0])
     return all(normalized(p.get(key)) and normalized(p.get(key)) == normalized(q.get(key))
                for key in ('generation', 'trim'))
 
