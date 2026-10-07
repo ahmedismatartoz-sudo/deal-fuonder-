@@ -135,7 +135,11 @@ class Queue(Store):
         states = dict(self.db.execute('SELECT j.state, COUNT(*) FROM jobs j JOIN raw_records r ON r.id=j.raw_id WHERE r.batch_id=? GROUP BY j.state', (batch_id,)))
         return dict(record_count=found[0], quarantined_at_intake=invalid, jobs=states)
 
-    def claim(self, *, lease_seconds=300, max_attempts=3, at=None, batch_id=None):
+    def claim(self, *, lease_seconds=300, max_attempts=3, at=None, batch_id=None, batch_prefix=None):
+        if batch_id is not None and batch_prefix is not None:
+            raise ValueError('Use one batch filter')
+        if batch_prefix is not None and (not isinstance(batch_prefix,str) or not batch_prefix or len(batch_prefix)>250):
+            raise ValueError('Invalid batch prefix')
         if type(lease_seconds) is not int or lease_seconds < 1 or type(max_attempts) is not int or max_attempts < 1:
             raise ValueError('Invalid lease or attempt limit')
         moment = at or datetime.now(timezone.utc)
@@ -149,6 +153,10 @@ class Queue(Store):
             locking = " FOR UPDATE SKIP LOCKED" if self.db.dialect == "postgres" else ""
             batch_filter = '' if batch_id is None else ' AND raw_id IN (SELECT id FROM raw_records WHERE batch_id=?)'
             params = (timestamp, max_attempts) if batch_id is None else (timestamp, max_attempts, batch_id)
+            if batch_prefix is not None:
+                batch_filter = " AND raw_id IN (SELECT id FROM raw_records WHERE batch_id LIKE ? ESCAPE '!')"
+                prefix=batch_prefix.replace('!','!!').replace('%','!%').replace('_','!_')+'%'
+                params=(timestamp,max_attempts,prefix)
             job = self.db.execute("SELECT id, raw_id, attempts FROM jobs WHERE state='pending' AND available_at<=? AND attempts<?" + batch_filter + " ORDER BY id LIMIT 1" + locking, params).fetchone()
             if job is None:
                 self.db.commit()
@@ -209,8 +217,8 @@ class Queue(Store):
         with self.db:
             self.db.execute("UPDATE jobs SET state=?, available_at=?, last_error=?, lease_token=NULL, lease_until=NULL WHERE id=? AND state='running' AND lease_token=?", (state, available, str(error)[:2000], job['id'], job['token']))
 
-    def work_one(self, *, batch_id=None):
-        job = self.claim(batch_id=batch_id) if batch_id is not None else self.claim()
+    def work_one(self, *, batch_id=None, batch_prefix=None):
+        job = self.claim(batch_id=batch_id,batch_prefix=batch_prefix)
         if job is None:
             return None
         try:

@@ -8,13 +8,15 @@ from math import ceil, isfinite
 import re
 from .contracts import bounded_cost, cents, evidence, instant
 from ..models import normalize
+from ..margin_policy import minimum_net_margin_eur, policy as margin_policy
 
-VERSION = 'professional-opportunity-v1'
+VERSION = 'professional-opportunity-v2'
 POLICY = dict(version=VERSION, minimum_margin_cents=200000,
+              net_margin_schedule=margin_policy(),
               minimum_return_bps=2500, severe_minimum_return_bps=3000,
               minimum_comparables=12, severe_minimum_comparables=20,
               severe_repaired_comparables=8, comparable_max_age_days=14,
-              maximum_purchase_cents=1999999,
+              maximum_purchase_cents=2000000,
               sale_stress_bps=1000, severe_sale_stress_bps=1500,
               repair_stress_bps=2500, severe_repair_stress_bps=4000,
               minimum_reserve_cents=75000, severe_minimum_reserve_cents=200000,
@@ -437,9 +439,10 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
     blockers.extend(resale['blocking_reasons'])
     holding = holding_cost(raw,target,severe,as_of)
     blockers.extend(holding['blocking_reasons'])
+    required_margin=minimum_net_margin_eur(target.price_eur)*100 if target is not None else POLICY['minimum_margin_cents']
     value = dict(policy=dict(POLICY), basis='asking_price_stress_scenario_only',
                  margin_low_cents=None, maximum_offer_cents=None, total_investment_cents=None,
-                 minimum_margin_cents=POLICY['minimum_margin_cents'], passes_margin=False,
+                 minimum_margin_cents=required_margin, passes_margin=False,
                  passes_return=False, passes_resilience=False, sensitivity_scenarios=[],
                  bodyshop=bodyshop, repaired_history=resale, holding=holding,
                  repair_cost_high_cents=repairs_high, operating_cost_high_cents=operations_high,
@@ -450,6 +453,10 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
         if target is None or not isinstance(interval, dict):
             raise ValueError('Comparable price reference unavailable')
         reference = cents(interval['p25']*100)
+        rows=market.get('reviewed_comparables',market.get('comparables',[]))
+        valid_prices=[r['price_eur']*100 for r in rows if isinstance(r,dict) and type(r.get('price_eur')) is int and r['price_eur']>0]
+        if valid_prices:
+            reference=min(reference,min(valid_prices))
         if type(interval['p25']) is not int or reference == 0:
             raise ValueError('Positive whole-EUR price reference required')
         if repairs_high is None or operations_high is None:
@@ -475,13 +482,13 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
             investment = target.price_eur*100+base_costs+repair_delta
             margin = exit_low-sale_delta-investment
             scenarios.append(dict(name=name,exit_cents=exit_low-sale_delta,investment_cents=investment,
-                                  margin_cents=margin,passes_margin=margin>=POLICY['minimum_margin_cents'],
+                                  margin_cents=margin,passes_margin=margin>=required_margin,
                                   passes_return=margin*10000>=investment*rate))
         worst = scenarios[-1]
         costs = base_costs+repair_shock
         margin,investment = worst['margin_cents'],worst['investment_cents']
         exit_low = worst['exit_cents']
-        maximum = min(exit_low-POLICY['minimum_margin_cents']-costs,
+        maximum = min(exit_low-required_margin-costs,
                       exit_low*10000//(10000+rate)-costs, POLICY['maximum_purchase_cents'])
         value.update(reference_cents=reference, conservative_exit_cents=exit_low,
                      sale_stress_cents=sale_stress, repair_stress_cents=repair_stress,
@@ -492,18 +499,18 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
                      passes_resilience=all(row['passes_margin'] and row['passes_return'] for row in scenarios),
                      margin_low_cents=margin, total_investment_cents=investment,
                      maximum_offer_cents=max(0, maximum), minimum_return_bps=rate,
-                     passes_margin=margin >= POLICY['minimum_margin_cents'],
+                     passes_margin=margin >= required_margin,
                      passes_return=margin*10000 >= investment*rate,
                      budget_passed=target.price_eur*100 <= POLICY['maximum_purchase_cents'],
                      scenario_calibrated=False)
         if not value['passes_margin']:
-            blockers.append('Conservative margin below 2000 EUR')
+            blockers.append('Conservative margin below '+str(required_margin//100)+' EUR')
         if not value['passes_return']:
             blockers.append('Conservative return on all invested capital below policy')
         if not value['passes_resilience']:
             blockers.append('Margin or return fails simultaneous adverse resale/repair stress')
         if not value['budget_passed']:
-            blockers.append('Purchase must be strictly below 20000 EUR')
+            blockers.append('Purchase must be at most 20000 EUR')
     except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
         blockers.append(str(error))
     value['blocking_reasons'] = list(dict.fromkeys(blockers))
@@ -523,7 +530,7 @@ class IndependentReviewAgent:
         planning = check_repairs(raw, target, as_of)
         audit = comparable_audit(raw, target, market, as_of, risk)
         if audit['reviewed_range_eur']:
-            market = dict(market, observed_range_eur=audit['reviewed_range_eur'])
+            market = dict(market, observed_range_eur=audit['reviewed_range_eur'],reviewed_comparables=audit['included'])
         economics = conservative_economics(raw, target, market, repair, opportunity, risk, as_of)
         blockers = anomaly['blocking_reasons']+risk['blocking_reasons']+audit['blocking_reasons']+economics['blocking_reasons']+planning['blocking_reasons']
         # Reviewed and independently generated analysis remain distinct attestations.

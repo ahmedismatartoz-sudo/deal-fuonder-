@@ -22,7 +22,7 @@ def review(listing, db, as_of):
     # before consuming jobs. Read only new raw observations, never whole families.
     while memory.sync(as_of):
         pass
-    amounts, sources = [], []
+    amounts, sources, cohort, nearby = [], [], [], []
     for p in memory.current(as_of, make=make, model=model, source=listing['source']):
         source_id, amount = p['source_id'], p.get('price_eur')
         if source_id == listing['source_id'] or not amount_usable(p) or risky(p) or not same_variant(listing,p):
@@ -35,9 +35,7 @@ def review(listing, db, as_of):
                 or normalize(listing['transmission']) != normalize(p['transmission'])):
             continue
         if any(type(p.get(key)) is not int or type(listing.get(key)) is not int
-               or abs(p[key]-listing[key]) > tolerance
-               for key,tolerance in (('year',policy['year_tolerance']),
-                                     ('mileage_km',policy['mileage_tolerance_km']))):
+               for key in ('year','mileage_km')):
             continue
         fuel, condition = p.get('fuel'), p.get('condition')
         if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)
@@ -45,6 +43,11 @@ def review(listing, db, as_of):
             continue
         if listing.get('condition') in ('damaged', 'undamaged') and condition in ('damaged', 'undamaged') and listing['condition'] != condition:
             continue
+        cohort.append(p)
+        if (abs(p['year']-listing['year'])>policy['year_tolerance']
+                or abs(p['mileage_km']-listing['mileage_km'])>policy['mileage_tolerance_km']):
+            continue
+        nearby.append(p)
         amounts.append(amount)
         sources.append(dict(source_id=source_id, observed_at=p['observed_at'], url=p['url'],
                             amount_eur=amount, price_kind=p.get('price_kind')))
@@ -52,8 +55,11 @@ def review(listing, db, as_of):
                   unresolved_dimensions=['generation', 'trim/engine', 'year/mileage comparability', 'damage', 'total asking amount'])
     if not amounts:
         return dict(output, reason='No matching source amounts; collect sourced analogies')
+    from .market_prices import assess
+    price_context=assess(listing,cohort,nearby)
+    output['market_price_agent']=price_context
     ordered = sorted(amounts)
-    p25 = ordered[(len(ordered)-1)//4]
+    p25 = price_context['asking_low_eur']
     minimum = policy['minimum_comparables'] if policy['profile']=='exploratory' else 5
     if policy['profile']=='exploratory':
         priority = (len(amounts) >= minimum and p25-price >= policy['minimum_headroom_eur']

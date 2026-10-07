@@ -31,6 +31,39 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get('/jobs/999').status_code,404)
         self.assertEqual(self.client.get('/batches/missing').status_code,404)
         self.assertEqual(self.client.get('/batches/missing/jobs?limit=101').status_code,422)
+
+    def test_latest_price_report_filters_band_and_returns_execution(self):
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory,priority_observation_batch
+        from deal_finder.queue import Queue
+        from test_archive import page
+        from test_market import complete
+        from test_core import NOW
+        self.assertEqual(self.client.get('/price-tests/latest').status_code,404)
+        archive=Archive(os.environ['DEAL_FINDER_DB'])
+        try:
+            memory=PriceMemory(archive.db)
+            archive.ingest(page([complete(i,price_eur=12000,mileage_km=50000+i*1000) for i in range(3)]
+                               +[complete('cheap',price_eur=6000)]),as_of=NOW)
+            while memory.sync(NOW):pass
+            report=memory.first_test('auto-test',NOW,profile='exploratory',autonomous=True)
+            candidate=report['candidates'][0]
+            batch=priority_observation_batch(candidate,profile='exploratory',state='identity-blocked')
+        finally:
+            archive.close()
+        queue=Queue(os.environ['DEAL_FINDER_DB'])
+        try:
+            queue.submit(batch,[envelope()])
+        finally:
+            queue.close()
+        response=self.client.get('/price-tests/latest?price_band=1')
+        self.assertEqual(response.status_code,200)
+        value=response.json()
+        self.assertEqual(value['returned_candidates'],1)
+        self.assertEqual(value['candidates'][0]['agent_execution']['state'],'pending')
+        self.assertEqual(value['candidates'][0]['minimum_required_net_margin_eur'],3000)
+        self.assertEqual(self.client.get('/price-tests/latest?price_band=3').json()['returned_candidates'],0)
+        self.assertEqual(self.client.get('/price-tests/latest?price_band=4').status_code,422)
     def test_evaluation_persists_report_without_enabling_forecasts(self):
         response=self.client.post('/evaluations',json={'model_version':'m1','training_vehicle_ids':[],'records':[]})
         self.assertEqual(response.status_code,200)

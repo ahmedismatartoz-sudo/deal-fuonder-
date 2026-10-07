@@ -105,6 +105,48 @@ class PriceMemoryTests(unittest.TestCase):
             self.assertEqual(q.claim()['raw']['listing']['source_id'],'ordinary')
         finally:q.close()
 
+    def test_autonomous_refreshes_new_data_and_does_not_repeat_unchanged_vehicle_jobs(self):
+        from deal_finder.price_memory import priority_batch_prefix
+        records=[complete('cheap',price_eur=1000,version_text='1.2 Easy')]
+        records += [complete('peer'+str(i),price_eur=10000+i*10,version_text='1.2 Easy') for i in range(9)]
+        self.ingest(records)
+        with patch.dict(os.environ,{'DEAL_FINDER_AUTONOMOUS_SCREENING_ENABLED':'1'}), \
+             patch('deal_finder.price_memory.datetime') as clock:
+            clock.now.return_value=NOW
+            first=BackgroundPriceMemory(self.path).step('continuous')
+            same=BackgroundPriceMemory(self.path).step('continuous')
+            self.assertEqual(first['run_id'],same['run_id'])
+            later=NOW+timedelta(seconds=1)
+            self.ingest([complete('new',model='another',observed_at=later.isoformat())],run='new',now=later)
+            clock.now.return_value=later
+            changed=BackgroundPriceMemory(self.path).step('continuous')
+            self.assertNotEqual(first['run_id'],changed['run_id'])
+            clock.now.return_value=NOW+timedelta(days=1)
+            tomorrow=BackgroundPriceMemory(self.path).step('continuous')
+            self.assertNotEqual(changed['run_id'],tomorrow['run_id'])
+            q=Queue(self.path)
+            try:
+                self.assertEqual(q.db.execute('SELECT count(*) FROM batches').fetchone()[0],1)
+                self.assertIsNotNone(q.claim(batch_prefix=priority_batch_prefix()))
+                self.assertIsNone(q.claim(batch_prefix=priority_batch_prefix()))
+            finally:q.close()
+
+    def test_queue_prefix_treats_wildcards_literally(self):
+        q=Queue(self.path)
+        try:
+            q.submit('prefix-one',[dict(listing=complete('one')['payload'])])
+            q.submit('prefix_two',[dict(listing=complete('two')['payload'])])
+            self.assertIsNone(q.claim(batch_prefix='prefix%'))
+            self.assertIsNotNone(q.claim(batch_prefix='prefix_'))
+            self.assertIsNone(q.claim(batch_prefix='prefix_'))
+        finally:q.close()
+
+    def test_export_only_and_non_registrable_cars_are_excluded(self):
+        self.ingest([complete('export-only',price_eur=1000,description='Vendita esclusivamente per esportazione fuori dall’Unione Europea. Veicolo non immatricolabile.')])
+        report=self.memory.first_test('restrictions',NOW,profile='exploratory')
+        self.assertEqual(report['candidates'],[])
+        self.assertEqual(report['exclusions']['export_or_registration_restriction'],1)
+
     def test_configuration_resume_enqueues_once_without_reusing_blocked_jobs(self):
         from deal_finder.price_memory import priority_batch_id
         records=[complete('cheap',price_eur=1000,version_text='1.2 Easy')]

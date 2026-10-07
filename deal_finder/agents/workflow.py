@@ -136,6 +136,7 @@ def analyze(raw, candidates, as_of, **kwargs):
                   technical_risk_resolved=review['technical_risk']['status']=='completed',
                   strict_comparables_verified=not review['comparable_audit']['blocking_reasons'],
                   conservative_margin_at_least_2000=review['economics']['passes_margin'],
+                  conservative_margin_meets_price_band=review['economics']['passes_margin'],
                   conservative_return_passed=review['economics']['passes_return'],
                   simultaneous_adverse_scenario_passed=review['economics']['passes_resilience'],
                   independent_review_passed=review['approved_for_final_checks'])
@@ -148,7 +149,7 @@ def analyze(raw, candidates, as_of, **kwargs):
         out['candidate_card'].update(conservative_margin_low_cents=economics['margin_low_cents'],
                                      maximum_offer_cents=economics['maximum_offer_cents'],
                                      total_investment_cents=economics['total_investment_cents'],
-                                     minimum_required_margin_cents=POLICY['minimum_margin_cents'],
+                                     minimum_required_margin_cents=economics['minimum_margin_cents'],
                                      severe_controls_required=review['technical_risk']['data']['severe_controls_required'],
                                      professional_policy_ready=review['approved_for_final_checks'],
                                      opportunity_status='research_only', high_opportunity_approved=False,

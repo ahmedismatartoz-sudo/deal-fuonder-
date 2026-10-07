@@ -11,6 +11,15 @@ from deal_finder.agents import analyze
 from deal_finder.models import Listing
 
 class QueueTests(unittest.TestCase):
+    def test_prefix_claim_escapes_wildcards_and_leaves_other_batches(self):
+        self.queue.submit('autoXprice-older',[envelope()])
+        self.queue.submit('auto_price-new',[envelope()])
+        claimed=self.queue.claim(batch_prefix='auto_price-')
+        batch=self.queue.db.execute('SELECT batch_id FROM raw_records WHERE id=?',(claimed['raw_id'],)).fetchone()[0]
+        self.assertEqual(batch,'auto_price-new')
+        self.assertIsNone(self.queue.claim(batch_prefix='auto_price-'))
+        self.assertEqual(self.queue.batch('autoXprice-older')['jobs'],{'pending':1})
+
     def test_parts_research_envelope_is_preserved_and_not_quarantined(self):
         raw=envelope();raw['parts_research']={'vehicle':{'vehicle_id':'vehicle-99'},'parts':[]}
         receipt=self.queue.submit('parts-handoff',[raw])

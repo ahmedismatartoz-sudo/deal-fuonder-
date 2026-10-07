@@ -137,10 +137,35 @@ class ProfessionalTests(unittest.TestCase):
         output=AnnouncementAnomalyAgent().execute(raw,Listing.parse(raw['listing']),candidates,NOW)
         self.assertNotIn('conditional_financing_price',output['data']['signals'])
 
-    def test_budget_strictly_below_20000_eur(self):
-        raw,candidates=reviewed();raw['listing']['price_eur']=20000
-        out=analyze(raw,candidates,NOW)['independent_review']['economics']
+    def test_budget_includes_20000_eur_and_rejects_above(self):
+        raw,candidates=reviewed()
+        analysis=analyze(raw,candidates,NOW)
+        def economics(price):
+            return conservative_economics(raw,Listing.parse(row(99,price_eur=price)),
+                analysis['market']['data'],analysis['repair'],analysis['opportunity'],analysis['technical_risk'],NOW)
+        out=economics(20000)
+        self.assertTrue(out.get('budget_passed',False))
+        self.assertEqual(out['minimum_margin_cents'],500000)
+        out=economics(20001)
         self.assertFalse(out.get('budget_passed',False))
+
+    def test_higher_purchase_requires_band_margin_in_every_scenario(self):
+        raw,candidates=reviewed()
+        analysis=analyze(raw,candidates,NOW)
+        for price,required in ((6000,300000),(10000,400000),(15000,500000)):
+            value=conservative_economics(raw,Listing.parse(row(99,price_eur=price)),
+                analysis['market']['data'],analysis['repair'],analysis['opportunity'],analysis['technical_risk'],NOW)
+            self.assertEqual(value['minimum_margin_cents'],required)
+            for scenario in value['sensitivity_scenarios']:
+                self.assertEqual(scenario['passes_margin'],scenario['margin_cents']>=required)
+
+    def test_resale_uses_lowest_reviewed_asking_not_quartile(self):
+        raw,candidates=reviewed()
+        analysis=analyze(raw,candidates,NOW)
+        market=dict(analysis['market']['data'],reviewed_comparables=[dict(price_eur=8000),dict(price_eur=10000)])
+        value=conservative_economics(raw,Listing.parse(raw['listing']),market,
+            analysis['repair'],analysis['opportunity'],analysis['technical_risk'],NOW)
+        self.assertEqual(value['reference_cents'],800000)
 
     def test_severe_label_overrides_seller_undamaged_or_minor_claim(self):
         raw,candidates=reviewed();raw['listing']['description']='Auto gravemente incidentata, telaio piegato'
@@ -260,7 +285,7 @@ class ProfessionalTests(unittest.TestCase):
                 queue.finish(job,NOW,candidates,outputs)
                 value=PublicationAgent().preview(queue,archive,'forged-publication',as_of=NOW)
                 self.assertEqual(value['items'],[])
-                self.assertIn('Conservative margin below 2000 EUR',value['rejected'][0]['reasons'])
+                self.assertIn('Conservative margin below 3000 EUR',value['rejected'][0]['reasons'])
             finally:queue.close();archive.close()
 
     def test_history_preserves_ribassi_removal_and_shared_photo_uncertainty(self):
