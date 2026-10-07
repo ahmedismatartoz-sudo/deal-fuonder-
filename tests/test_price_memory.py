@@ -128,6 +128,8 @@ class PriceMemoryTests(unittest.TestCase):
                                      dict(base,version_text='Panda III 2016 1.2 Easy 69cv')))
         self.assertFalse(same_variant(dict(base,version_text='1.2 Easy 69cv'),
                                       dict(base,version_text='Panda 1.2 Lounge 69cv')))
+        self.assertFalse(same_variant(dict(base,version_text='Panda II 2011 1.2 Easy 69cv'),
+                                      dict(base,version_text='Panda III 2016 1.2 Easy 69cv')))
 
     def test_yaris_active_does_not_become_deal_against_gr_prices(self):
         records=[complete('active',model='yaris',price_eur=13600,mileage_km=36910,
