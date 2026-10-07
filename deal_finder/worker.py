@@ -333,9 +333,12 @@ def main():
                     while price_memory.ready and not stopping and worked < 10 and time.monotonic()-drain_started < 10:
                         if args.max_jobs and processed >= args.max_jobs:
                             break
-                        from .price_memory import priority_batch_id
-                        result = (queue.work_one(batch_id=priority_batch_id(first_test_id))
-                                  if first_test_id else queue.work_one())
+                        from .price_memory import priority_batch_id, priority_batch_prefix, autonomous_enabled
+                        if autonomous_enabled():
+                            result=queue.work_one(batch_prefix=priority_batch_prefix())
+                        else:
+                            result = (queue.work_one(batch_id=priority_batch_id(first_test_id))
+                                      if first_test_id else queue.work_one())
                         if result is None:
                             break
                         print(json.dumps(result), flush=True)

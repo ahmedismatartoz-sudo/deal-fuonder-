@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from .archive import instant
 from .agents.professional import POLICY, IndependentReviewAgent
 from .models import Listing
+from .margin_policy import minimum_net_margin_eur
 
 
 class PublicationAgent:
@@ -50,12 +51,14 @@ class PublicationAgent:
                 reasons.append('Source identity or timestamp invalid')
             # Future forecast adapters must supply concrete, positive net estimates.
             economics = components.get('opportunity', {}).get('data', {})
+            price=listing.get('price_eur')
+            required=minimum_net_margin_eur(price)*100 if type(price) is int and price>0 else POLICY['minimum_margin_cents']
             profit = economics.get('forecast_profit_cents')
-            if type(profit) is not int or profit < POLICY['minimum_margin_cents']:
-                reasons.append('Documented net forecast profit of at least 2000 EUR unavailable')
+            if type(profit) is not int or profit < required:
+                reasons.append('Documented net forecast profit of at least '+str(required//100)+' EUR unavailable')
             lower_profit = economics.get('forecast_profit_low_cents')
-            if type(lower_profit) is not int or lower_profit < POLICY['minimum_margin_cents']:
-                reasons.append('Conservative calibrated net forecast lower bound of at least 2000 EUR unavailable')
+            if type(lower_profit) is not int or lower_profit < required:
+                reasons.append('Conservative calibrated net forecast lower bound of at least '+str(required//100)+' EUR unavailable')
             try:
                 outputs = run['outputs'] if run else {}
                 checked = IndependentReviewAgent().execute(
@@ -64,8 +67,8 @@ class PublicationAgent:
                 if not checked['approved_for_final_checks']:
                     reasons.extend(checked['blocking_reasons'])
                 stressed = checked['economics']['margin_low_cents']
-                if type(stressed) is not int or stressed < POLICY['minimum_margin_cents']:
-                    reasons.append('Recomputed conservative net scenario below 2000 EUR or unavailable')
+                if type(stressed) is not int or stressed < required:
+                    reasons.append('Recomputed conservative net scenario below '+str(required//100)+' EUR or unavailable')
             except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
                 reasons.append('Independent conservative publication review unavailable')
             if reasons:

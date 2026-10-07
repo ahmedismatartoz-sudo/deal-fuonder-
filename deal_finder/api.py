@@ -103,7 +103,10 @@ class EvaluationRequest(BaseModel):
 def agents():
     from .agent_runtime import connections
     from .agents.professional import POLICY, registry as professional_tasks
+    from .agents.market_prices import skills as price_skills, VERSION as price_version
     return {'pipeline_version': PIPELINE_VERSION, 'agents': registry(), 'controls': control_registry(),
+            'market_price_agent':dict(version=price_version,skills=price_skills(),
+                data='retained_archive',paid_provider_required=False,result='/price-tests/latest'),
             'intake': 'POST /batches', 'evaluation': 'POST /evaluations',
             'connections': connections(),
             'professional_policy': POLICY, 'professional_tasks': professional_tasks(),
@@ -188,6 +191,41 @@ def market_status():
         return market.status()
     finally:
         market.close()
+
+
+@app.get('/price-tests/latest')
+def latest_price_test(price_band: int | None = None):
+    if price_band is not None and price_band not in range(4):
+        raise HTTPException(status_code=422,detail='Invalid price band')
+    from .archive import Archive
+    from .price_memory import PriceMemory,priority_observation_batch
+    archive=Archive(database_target())
+    try:
+        PriceMemory(archive.db)
+        row=archive.db.execute('SELECT payload FROM price_test_reports ORDER BY as_of DESC,run_id DESC LIMIT 1').fetchone()
+        if row is None:
+            raise HTTPException(status_code=404,detail='Price screening not completed')
+        result=archive.db.json_decode(row[0])
+        selected=[p for p in result.get('candidates',[]) if price_band is None or p['price_band']==price_band]
+        profile=result.get('screening_policy',{}).get('profile','strict')
+        ids={priority_observation_batch(p,profile=profile,state=state):p for p in selected
+             for state in ('identity-blocked','identity-ready')}
+        if ids:
+            placeholders=','.join('?' for _ in ids)
+            rows=archive.db.execute('''SELECT r.batch_id,j.id,j.state,a.outputs FROM raw_records r
+                JOIN jobs j ON j.raw_id=r.id LEFT JOIN agent_runs a ON a.job_id=j.id
+                AND NOT EXISTS (SELECT 1 FROM agent_runs n WHERE n.job_id=a.job_id AND n.attempt>a.attempt)
+                WHERE r.batch_id IN ('''+placeholders+') ORDER BY j.id',tuple(ids)).fetchall()
+            for batch,job,state,output in rows:
+                outputs=archive.db.json_decode(output) if output else {}
+                value=outputs.get('enrichment',{})
+                ids[batch]['agent_execution']=dict(job_id=job,state=state,result_url='/jobs/'+str(job),
+                    research=value.get('research_execution'),missing_fields=value.get('missing_fields'))
+        result['candidates']=selected
+        result['returned_candidates']=len(selected)
+        return result
+    finally:
+        archive.close()
 
 
 @app.get('/price-tests/{run_id}')

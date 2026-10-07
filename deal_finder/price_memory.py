@@ -5,6 +5,7 @@ seller descriptions nor family asking prices establish repair scope or profit.
 """
 import re
 import os
+import hashlib
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from statistics import median
@@ -12,7 +13,23 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'research-profiles-v5'
+SCREENING_VERSION = 'learned-market-prices-v7'
+
+
+def autonomous_enabled():
+    return os.getenv('DEAL_FINDER_AUTONOMOUS_SCREENING_ENABLED') == '1'
+
+
+def priority_batch_prefix(*, profile=None, state=None):
+    if state is None:
+        from .agent_runtime import connections
+        state = 'identity-ready' if connections()['photo_web_provider_configured'] else 'identity-blocked'
+    return 'archive-priority-'+SCREENING_VERSION+'-'+research_policy(profile)['profile']+'-'+state+'-'
+
+
+def priority_observation_batch(candidate, **options):
+    key = canonical([candidate[k] for k in ('source','source_id','observed_at')])
+    return priority_batch_prefix(**options)+hashlib.sha256(key.encode()).hexdigest()[:24]
 
 
 def research_policy(profile=None):
@@ -168,7 +185,13 @@ class PriceMemory:
             if len(rows)<100:
                 break
 
-    def first_test(self, run_id, as_of, limit=20, *, profile=None):
+    def automatic_run_id(self, base, as_of):
+        revision = self.db.execute('SELECT count(*),max(observed_at) FROM price_observations WHERE observed_at<=?',
+                                   (as_of.isoformat(),)).fetchone()
+        digest = hashlib.sha256(str(tuple(revision)).encode()).hexdigest()[:16]
+        return base+'-auto-'+as_of.date().isoformat()+'-'+digest
+
+    def first_test(self, run_id, as_of, limit=20, *, profile=None, autonomous=False):
         policy = research_policy(profile)
         storage_run_id = run_id+'-'+SCREENING_VERSION+'-'+policy['profile']
         old = self.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(storage_run_id,)).fetchone()
@@ -182,7 +205,11 @@ class PriceMemory:
         groups = defaultdict(list)
         exclusions = defaultdict(int)
         eligible = []
+        learning=[]
         for p in all_rows:
+            if market_restricted(p):
+                exclusions['export_or_registration_restriction']+=1
+                continue
             if not amount_usable(p) or not p.get('make') or not p.get('model'):
                 exclusions['price_or_family_missing']+=1
                 continue
@@ -197,7 +224,7 @@ class PriceMemory:
             eligible.append(p)
         bands = defaultdict(list)
         for p in eligible:
-            if not 1000<=p['price_eur']<20000:
+            if not 1000<=p['price_eur']<=20000:
                 exclusions['purchase_outside_test_range']+=1
                 continue
             try:
@@ -205,11 +232,11 @@ class PriceMemory:
             except ValueError:
                 exclusions['nearby_location_unresolved']+=1
                 continue
-            peers=[q for q in groups[(p['make'],p['model'],normalized(p.get('fuel')),normalized(p.get('transmission'))) ]
+            training_pool=[q for q in groups[(p['make'],p['model'],normalized(p.get('fuel')),normalized(p.get('transmission'))) ]
                    if (q['source'],q['source_id'])!=(p['source'],p['source_id'])
                    and q.get('seller_type')==p.get('seller_type')
-                   and same_variant(p,q)
-                   and abs(q['year']-p['year'])<=policy['year_tolerance']
+                   and same_variant(p,q)]
+            peers=[q for q in training_pool if abs(q['year']-p['year'])<=policy['year_tolerance']
                    and abs(q['mileage_km']-p['mileage_km'])<=policy['mileage_tolerance_km']]
             # Mixed sources/reposts could be the same vehicle. Collapse identical
             # seller asking specifications/amounts before counting analogies.
@@ -223,9 +250,12 @@ class PriceMemory:
                 continue
             prices=sorted(q['price_eur'] for q in peers)
             p25=prices[(len(prices)-1)//4]
+            from .agents.market_prices import assess
+            price_context=assess(p,training_pool,peers)
+            learning.append(price_context)
             # Exploratory research ranks published asking prices without
             # imposing the strict profile's resale stress. Neither is net profit.
-            stressed=p25*(100-policy['asking_stress_percent'])//100
+            stressed=price_context['asking_low_eur']*(100-policy['asking_stress_percent'])//100
             gap=stressed-p['price_eur']
             if gap<policy['minimum_headroom_eur'] or gap*100<p['price_eur']*policy['minimum_discount_percent']:
                 exclusions['insufficient_gross_headroom']+=1
@@ -235,6 +265,7 @@ class PriceMemory:
                       'exact_variant_market_comparables','resale_value','all_operating_costs',
                       'supervisor_review','forecast_calibration']
             lead=dict(p,location=location,price_band=band,comparable_count=len(peers),
+                market_price_agent=price_context,
                 published_median_eur=round(median(prices)),published_p25_eur=p25,
                 stressed_asking_reference_eur=stressed,gross_headroom_before_all_costs_eur=gap,
                 net_margin_eur=None,buy_recommendation=False,status='research_priority',
@@ -244,6 +275,9 @@ class PriceMemory:
                 next_tasks=['confirm_source_price_availability_and_specifications','inspect_damage',
                             'identify_required_operations_and_oem_parts','search_verified_compatible_all_in_offers',
                             'obtain_external_bodyshop_and_labor_quotes','rerun_conservative_economics'])
+            from .margin_policy import minimum_net_margin_eur
+            lead['minimum_required_net_margin_eur']=minimum_net_margin_eur(p['price_eur'])
+            lead['net_margin_policy_status']='awaiting_verified_costs_and_resale_evidence'
             bands[band].append(lead)
         for band in bands:
             bands[band].sort(key=lambda p:(-p['gross_headroom_before_all_costs_eur']/p['price_eur'],
@@ -262,6 +296,10 @@ class PriceMemory:
                     selected.append(p); added=True
             if not added: break
         report=dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=SCREENING_VERSION,status='completed_research_test',
+                    autonomous=autonomous,
+                    price_bands=[dict(band=i,min_price_eur=max(1000,i*5000),
+                        max_price_eur=20000 if i==3 else (i+1)*5000-1,
+                        selected=sum(p['price_band']==i for p in selected)) for i in range(4)],
                     screening_policy=policy,
                     active_recent_observations=len(all_rows),projected_events=self.db.execute(
                         'SELECT count(*) FROM price_observations WHERE observed_at<=?',(as_of.isoformat(),)).fetchone()[0],
@@ -270,6 +308,13 @@ class PriceMemory:
                     basis='published_asking_amounts_not_resale_or_net_profit',
                     repair_search='awaiting_verified_identity_and_required_parts',
                     price_memory_incremental=True)
+        from .margin_policy import policy as margin_policy
+        validation=[p['validation']['median_absolute_error_eur'] for p in learning if p.get('validation')]
+        report['net_margin_policy']=margin_policy()
+        report['price_learning']=dict(evaluated_targets=len(learning),
+            adjusted_contexts=sum(p['method']=='archive_trained_year_mileage' for p in learning),
+            validated_contexts=len(validation),median_holdout_error_eur=round(median(validation)) if validation else None,
+            asking_prices_only=True,completed_sale_prices_available=False)
         if self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
         with self.db:
@@ -280,8 +325,13 @@ class PriceMemory:
 
 def amount_usable(p):
     amount=p.get('price_eur')
-    return (type(amount) is int and amount>0 and p.get('price_kind') not in ('deposit','installment')
+    return (not market_restricted(p) and type(amount) is int and amount>0 and p.get('price_kind') not in ('deposit','installment')
             and not (p.get('price_kind')!='total' and PAYMENT.search(str(p.get('title') or '')+' '+str(p.get('description') or ''))))
+
+
+def market_restricted(p):
+    text=str(p.get('title') or '')+' '+str(p.get('description') or '')
+    return bool(re.search(r'\bnon\s+immatricolabil\w*|\besclusivamente\s+per\s+esportazione|\besportazione\s+fuori\s+dall[’\x27]\s*unione\s+europea',text,re.I))
 
 
 def risky(p):
@@ -371,9 +421,13 @@ class BackgroundPriceMemory:
             # arrival behind the cursor before any comparison is allowed.
             self.ready=count<self.batch_size and not memory.pending(now)
             out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
-            if self.ready and run_id:
+            automatic=autonomous_enabled()
+            if self.ready and (run_id or automatic):
+                run_id=run_id or 'archive-continuous'
+                if automatic:
+                    run_id=memory.automatic_run_id(run_id,now)
                 stage='compare_archive'
-                report=memory.first_test(run_id,now)
+                report=memory.first_test(run_id,now,autonomous=automatic)
                 if report['status']=='waiting_for_price_memory':
                     self.ready=False
                     return dict(price_memory='building',projected_this_step=count)
@@ -384,17 +438,26 @@ class BackgroundPriceMemory:
                     queue=Queue(self.path)
                     try:
                         batch=priority_batch_id(run_id)
-                        if not queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(batch,)).fetchone():
+                        if automatic or not queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(batch,)).fetchone():
                             records=[]
                             for p in report['candidates']:
+                                observation_batch=priority_observation_batch(p) if automatic else batch
+                                if automatic and queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(observation_batch,)).fetchone():
+                                    continue
                                 original=archive.db.execute('SELECT url,payload FROM listing_events WHERE source=? AND source_id=? AND observed_at=?',
                                     (p['source'],p['source_id'],p['observed_at'])).fetchone()
-                                records.append(dict(task='archive_enrichment',listing=listing_input(p['source'],p['source_id'],p['observed_at'],
-                                    original[0],archive.db.json_decode(original[1]))))
-                            queue.submit(batch,records)
+                                record=dict(task='archive_enrichment',listing=listing_input(p['source'],p['source_id'],p['observed_at'],
+                                    original[0],archive.db.json_decode(original[1])))
+                                if automatic:
+                                    queue.submit(observation_batch,[record])
+                                else:
+                                    records.append(record)
+                            if records:
+                                queue.submit(batch,records)
                     finally:
                         queue.close()
                 out.update(first_test=report['status'],run_id=run_id,candidates=len(report.get('candidates',[])),
+                           autonomous=automatic,price_bands=report.get('price_bands'),
                            approved_buys=report.get('approved_buys',0))
             self.failures=0
             self.retry_at=None
