@@ -21,16 +21,45 @@ def identity_present(p):
                 and 0 <= p['mileage_km'] <= 1000000)
 
 
+class PeerIndex:
+    """Index exact condition cohorts and nearby year/mileage bins for broad discovery."""
+    def __init__(self,rows):
+        from .price_memory import amount_usable,normalized
+        self.bins=defaultdict(list)
+        for row in rows:
+            if not identity_present(row) or not amount_usable(row):continue
+            group=damage_group(row)
+            if group=='severe':continue
+            row['_discovery_fuel']=normalized(row.get('fuel'))
+            row['_discovery_transmission']=normalized(row.get('transmission'))
+            key=(normalized(row['make']),normalized(row['model']),group,row['year'],row['mileage_km']//10000)
+            self.bins[key].append(row)
+
+    def candidates(self,target):
+        from .price_memory import normalized
+        family=(normalized(target['make']),normalized(target['model']),damage_group(target))
+        for year in range(target['year']-3,target['year']+4):
+            for bucket in range(max(0,target['mileage_km']-60000)//10000,(target['mileage_km']+60000)//10000+1):
+                yield from self.bins.get((*family,year,bucket),())
+
+
 def peers_for(target, rows):
     from .price_memory import amount_usable, normalized
-    unique={}
-    for q in rows:
-        if not identity_present(q) or not amount_usable(q):continue
+    unique={};indexed=isinstance(rows,PeerIndex)
+    targets={key:normalized(target.get(key)) for key in ('make','model','fuel','transmission')}
+    group=damage_group(target)
+    for q in rows.candidates(target) if indexed else rows:
+        if not indexed:
+            if not identity_present(q) or not amount_usable(q):continue
+            if any(normalized(q.get(k)) != targets[k] for k in ('make','model')):continue
+            if damage_group(q)!=group or group=='severe':continue
         if (q.get('source'),q.get('source_id')) == (target.get('source'),target.get('source_id')):continue
-        if any(normalized(q.get(k)) != normalized(target.get(k)) for k in ('make','model')):continue
         if abs(q['year']-target['year'])>3 or abs(q['mileage_km']-target['mileage_km'])>60000:continue
-        if any(q.get(k) and target.get(k) and normalized(q[k])!=normalized(target[k]) for k in ('fuel','transmission')):continue
-        if damage_group(q)!=damage_group(target) or damage_group(q)=='severe':continue
+        incompatible=False
+        for key in ('fuel','transmission'):
+            value=q.get('_discovery_'+key) if indexed else normalized(q.get(key))
+            if value and targets[key] and value!=targets[key]:incompatible=True;break
+        if incompatible:continue
         key=(q['year'],q['mileage_km'],q['price_eur'],q.get('city'))
         unique.setdefault(key,q)
     return list(unique.values())
@@ -66,10 +95,9 @@ def signal(target, rows):
 def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
     from .price_memory import amount_usable,normalized
     from .margin_policy import policy as net_policy,minimum_net_margin_eur
-    groups=defaultdict(list)
     rows=[dict(p,_discovery_damage=classify(p)) for p in rows]
     for p in rows:p['_discovery_group']=damage_group(p)
-    for p in rows:groups[(normalized(p.get('make')),normalized(p.get('model')))].append(p)
+    peers=PeerIndex(rows)
     exclusions=defaultdict(int);leads=[];seen=set()
     for p in rows:
         if not identity_present(p) or not amount_usable(p):
@@ -79,7 +107,7 @@ def build_report(rows,run_id,as_of,version,policy,limit,autonomous):
         damage=p['_discovery_damage']
         if damage['category']=='severe':
             exclusions['known_severe_damage']+=1;continue
-        context=signal(p,groups[(normalized(p['make']),normalized(p['model']))])
+        context=signal(p,peers)
         if context is None:
             exclusions['fewer_than_two_broad_comparables']+=1;continue
         if not context['apparent_opportunity']:
