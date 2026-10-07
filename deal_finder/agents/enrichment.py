@@ -1,9 +1,10 @@
 """Organize incomplete source observations before any repair-price research."""
 from dataclasses import fields
+import os
 from ..models import Listing
 from .photo_identity import plan
 
-VERSION = 'archive-enrichment-v1'
+VERSION = 'archive-enrichment-v2'
 
 
 def listing_input(source, source_id, observed_at, url, payload):
@@ -74,6 +75,27 @@ def execute(raw, db, as_of):
                           dict(name='verify_identity_and_damage', requires=['price_selection']),
                           dict(name='research_parts_web', requires=['price_selection', 'identified_variant', 'required_parts'])]
         value['reason'] = 'Source evidence or reviewed enrichment is required; unknown fields remain unknown.'
+        from ..price_memory import risky
+        if risky(listing):
+            value['research_execution'] = dict(status='blocked', reason='Damage or mechanical fault excluded from clean first test')
+        elif not value['market_triage']['priority_enrichment']:
+            value['research_execution'] = dict(status='blocked', reason='Comparable price signal required before external research')
+        else:
+            from ..agent_runtime import connections
+            ready = connections()
+            if not ready['photo_web_provider_configured']:
+                value['research_execution'] = dict(status='configuration_required',
+                    missing_configuration=[key for key,present in (
+                        ('OPENAI_API_KEY',ready['api_key_present']),
+                        ('DEAL_FINDER_VISION_MODEL',ready['vision_model_present'])) if not present],
+                    provider_enabled=os.getenv('DEAL_FINDER_PHOTO_IDENTITY_ENABLED')=='1')
+            else:
+                from .photo_identity import execute as identify
+                value['automatic_paid_calls'] = True
+                value['identity_research'] = identify(dict(listing=listing),as_of)
+                value['research_execution'] = dict(status=value['identity_research']['status'],
+                    evidence_persisted=True, identity_attestation=False,
+                    next_stage='review_variant_and_inspection_scope')
     return dict(enrichment=value, pipeline_version=VERSION,
                 validation=dict(data=dict(analysis_state=state, scenario_ready=False,
                                           forecast_ready=False, buy_recommendation=False)))
