@@ -55,6 +55,7 @@ def plan(raw):
         raise ValueError('Title and description must be text')
     query = ' '.join(str(spec[k]) for k in FIELDS if k in spec)
     return dict(version=VERSION, listing_specs=spec, title=title[:1000], description=description[:16000],
+                version_text=listing.get('version_text'), source_declared_specs=listing.get('declared_specs'),
                 image_urls=photos[:8], images_total=len(photos), images_examined_limit=8,
                 description_truncated=len(description)>16000, title_truncated=len(title)>1000,
                 queries=[query+' brochure ufficiale motorizzazioni', query+' facelift fari interni',

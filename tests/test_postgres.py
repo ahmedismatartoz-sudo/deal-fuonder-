@@ -79,6 +79,29 @@ class PostgresQueueTests(test_queue.QueueTests):
             self.assertEqual(report['approved_buys'],0)
             self.assertEqual(memory.first_test('postgres-test',NOW),report)
         finally: archive.close()
+    def test_source_scalar_recovery_remains_bounded_under_backend_role(self):
+        from deal_finder.archive import Archive
+        from deal_finder.price_memory import PriceMemory
+        from test_market import complete
+        from test_archive import page
+        from test_core import NOW
+        archive=Archive(URL)
+        try:
+            archive.db.execute('SET ROLE deal_finder_backend')
+            record=complete('retained')
+            record['payload'].pop('seller_type')
+            record['payload']['original']=dict(seller=dict(type='PrivateSeller'),
+                vehicle=dict(rawPowerInHp=69,rawCylinderCapacity=1242),unused_large='x'*500000)
+            archive.ingest(page([record],source='autoscout24'),as_of=NOW)
+            memory=PriceMemory(archive.db)
+            self.assertEqual(memory.sync(NOW),1)
+            value=next(memory.current(NOW))
+            self.assertEqual(value['power_hp'],69)
+            self.assertEqual(value['seller_type'],'private')
+            self.assertEqual(value['displacement_cc'],1242)
+            self.assertNotIn('unused_large',str(value))
+        finally:archive.close()
+
     def test_price_projection_skips_busy_projector_and_finds_late_arriving_keys(self):
         from deal_finder.archive import Archive
         from deal_finder.price_memory import PriceMemory
