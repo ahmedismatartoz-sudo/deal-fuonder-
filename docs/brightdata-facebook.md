@@ -159,3 +159,12 @@ all original records, descriptions and photo URLs, including excluded records
 in private quarantine. Market/repair agents must resolve variant, mileage,
 asking-price ambiguity, repair parts, resale evidence and selling costs before
 publishing a margin. Photos remain links, not durable downloaded image files.
+
+## Raggio esteso per Milano e dintorni
+
+Il piano `milano-nearby-v2` usa `radius=100` nelle URL di ricerca Milano.
+Il raggio effettivo dipende dal provider; i veicoli importati restano filtrati
+per comuni/province autorizzati. Il piano precedente conserva `radius=5`
+per non cambiare le richieste già prenotate. La nuova campagna richiede un
+ID distinto, mentre il registro mensile dei crediti resta condiviso: nessun
+reset del limite di 5.000 crediti. Non si attivano ricariche automatiche.

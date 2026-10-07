@@ -15,6 +15,16 @@ def spec(ceiling=100, batch=10):
 
 
 class CampaignTests(unittest.TestCase):
+    def test_nearby_plan_widens_radius_without_changing_legacy_reserved_inputs(self):
+        from deal_finder.brightdata_campaign import NEARBY_PLAN_VERSION
+        from urllib.parse import parse_qs,urlparse
+        legacy=config_for(spec(),0,40)
+        nearby=dict(spec(5000,40),campaign_id='nearby-new',plan_version=NEARBY_PLAN_VERSION)
+        validate_spec(nearby)
+        current=config_for(nearby,0,40)
+        self.assertEqual(parse_qs(urlparse(legacy['input'][0]['url']).query)['radius'],['5'])
+        self.assertEqual(parse_qs(urlparse(current['input'][0]['url']).query)['radius'],['100'])
+        self.assertNotEqual(current['cycle_id'],legacy['cycle_id'])
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = os.path.join(self.temp.name, 'archive.db')

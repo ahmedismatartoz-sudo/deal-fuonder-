@@ -11,6 +11,7 @@ from .vehicle_searches import FAMILIES
 
 CAMPAIGN_SOURCE = 'brightdata_campaign'
 PLAN_VERSION = 'milano-diverse-v1'
+NEARBY_PLAN_VERSION = 'milano-nearby-v2'
 BANDS = ((500, 4999), (5000, 9999), (10000, 14999), (15000, 19999))
 
 
@@ -37,7 +38,7 @@ def config_for(spec, index, limit):
     search = search_plan()[index]
     url = 'https://www.facebook.com/marketplace/milan/search/?' + urlencode({
         'query': search['query'], 'minPrice': search['low'], 'maxPrice': search['high'],
-        'radius': 5, 'exact': 'true'})
+        'radius': 100 if spec['plan_version']==NEARBY_PLAN_VERSION else 5, 'exact': 'true'})
     return dict(cycle_id=spec['campaign_id'] + '-b' + str(index).zfill(4),
                 dataset_id=DETAIL_DATASET, discover_by='url', input=[dict(url=url, country='IT')],
                 limit=limit, schema_verified=True)
@@ -49,7 +50,7 @@ def validate_spec(spec):
             or not re.fullmatch(r'[A-Za-z0-9_-]{1,70}', spec['campaign_id'])
             or type(spec['credit_ceiling']) is not int or not 1 <= spec['credit_ceiling'] <= 5000
             or type(spec['batch_limit']) is not int or not 1 <= spec['batch_limit'] <= 100
-            or spec['plan_version'] != PLAN_VERSION):
+            or spec['plan_version'] not in (PLAN_VERSION,NEARBY_PLAN_VERSION)):
         raise ValueError('Invalid bounded Facebook campaign configuration')
     return spec
 
