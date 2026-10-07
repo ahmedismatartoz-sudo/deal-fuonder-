@@ -149,3 +149,10 @@ normalizzati e riduce automaticamente i lotti dopo un timeout.
 In produzione, memoria prezzi e conservazione foto lavorano su un ciclo
 indipendente con connessioni proprie: i tempi della raccolta non ne limitano
 il progresso. Errori e retry restano isolati; le connessioni vengono chiuse.
+
+Le schede originali AutoScout24 vengono recuperate in `identity_source_cache`
+una sola volta per versione e osservazione. Il recupero arretrato procede
+a lotti limitati; finché manca la scheda, l'auto non è un confronto affidabile.
+I confronti successivi leggono solo proiezioni prezzi e schede compatte,
+senza riaprire gli originali. Cache e originali sono privati e immutabili
+per il ruolo applicativo.

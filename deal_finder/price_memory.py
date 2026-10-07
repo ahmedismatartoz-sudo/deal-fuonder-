@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'identity-photo-opportunities-v11'
+SCREENING_VERSION = 'identity-photo-cache-opportunities-v12'
 
 
 def autonomous_enabled():
@@ -115,6 +115,8 @@ class PriceMemory:
                 run_id TEXT PRIMARY KEY,as_of TEXT NOT NULL,payload TEXT NOT NULL);''')
 
     def pending(self, as_of):
+        from .identity_source_cache import IdentitySourceCache
+        if IdentitySourceCache(self.db).pending(as_of):return True
         return bool(self.db.execute('''SELECT 1 FROM listing_events e WHERE e.observed_at<=?
             AND NOT EXISTS (SELECT 1 FROM price_observations p WHERE p.source=e.source
               AND p.source_id=e.source_id AND p.observed_at=e.observed_at) LIMIT 1''',
@@ -125,7 +127,9 @@ class PriceMemory:
         if self.db.dialect == 'postgres':
             result=self.db.execute(postgres_projection_sql(),(as_of.isoformat(),*after,limit)).fetchone()
             self.next_cursor=tuple(result[1:]) if result[1] is not None else None
-            return result[0]
+            from .identity_source_cache import IdentitySourceCache
+            self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit)
+            return result[0] or self.cached_source_count
         rows = self.db.execute('''SELECT e.source,e.source_id,e.observed_at,e.url,e.active,e.payload
             FROM listing_events e WHERE e.observed_at<=? AND (e.source,e.source_id,e.observed_at)>(?,?,?) AND NOT EXISTS (
               SELECT 1 FROM price_observations p WHERE p.source=e.source AND p.source_id=e.source_id
@@ -143,7 +147,9 @@ class PriceMemory:
             with self.db:
                 self.db.executemany('''INSERT INTO price_observations VALUES (?,?,?,?,?,?,?)
                     ON CONFLICT(source,source_id,observed_at) DO NOTHING''',compact)
-        return len(rows)
+        from .identity_source_cache import IdentitySourceCache
+        self.cached_source_count=IdentitySourceCache(self.db).sync(as_of,limit)
+        return len(rows) or self.cached_source_count
 
     def current(self, as_of, *, make=None, model=None, source=None):
         cursor = ('','','0001-01-01T00:00:00+00:00')
@@ -160,31 +166,24 @@ class PriceMemory:
                     AND n.source_id=p.source_id AND n.observed_at>p.observed_at AND n.observed_at<=?)'''
                 +filters+''' AND (p.source,p.source_id,p.observed_at)>(?,?,?)
                 ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''')
-            from .vehicle_identity import compact_source_sql
-            if self.db.dialect=='postgres':
-                # Decompress original JSON only twice per row, not once per field.
-                # Materialize the small vehicle object before extracting its scalars.
-                sql='WITH source_page AS MATERIALIZED ('+page_sql+"""), source_facts AS MATERIALIZED (
-                    SELECT p.*,e.payload#>>'{original,seller,type}' AS seller,
-                        e.payload#>'{original,vehicle}' AS vehicle
-                    FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
-                    AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at)
-                    SELECT o.source,o.source_id,o.observed_at,o.payload,o.seller,"""+compact_source_sql('postgres',vehicle_column='o.vehicle')+" FROM source_facts o ORDER BY o.source,o.source_id,o.observed_at"
-            else:
-                fields="json_extract(e.payload,'$.original.seller.type'),"+compact_source_sql('sqlite')
-                sql='WITH source_page AS ('+page_sql+') SELECT p.source,p.source_id,p.observed_at,p.payload,'+fields+"""
-                    FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
-                    AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at
-                    ORDER BY p.source,p.source_id,p.observed_at"""
-            rows=self.db.execute(sql,(True,*args,*cursor)).fetchall()
+            from .identity_source_cache import IdentitySourceCache,VERSION as source_version
+            IdentitySourceCache(self.db)
+            materialized='MATERIALIZED ' if self.db.dialect=='postgres' else ''
+            sql='WITH source_page AS '+materialized+'('+page_sql+""" )
+                SELECT p.source,p.source_id,p.observed_at,p.payload,c.seller_type,c.source_fields
+                FROM source_page p LEFT JOIN identity_source_cache c ON c.version=?
+                    AND c.source=p.source AND c.source_id=p.source_id AND c.observed_at=p.observed_at
+                ORDER BY p.source,p.source_id,p.observed_at"""
+            rows=self.db.execute(sql,(True,*args,*cursor,source_version)).fetchall()
             for s,i,t,p,*facts in rows:
                 cursor = (s,i,t)
                 value=self.db.json_decode(p)
                 value.update(source=s,source_id=i,observed_at=t)
-                # Old projections omitted facts that are still retained in the
-                # original detail. Read only specific scalar paths for this
-                # bounded page; never transfer/reparse the full original blob.
+                # A missing cache means recovery is pending, not source absence.
+                # Never use an incomplete legacy projection as a comparison.
                 if s == 'autoscout24':
+                    if not facts or facts[1] is None:
+                        continue
                     if facts:
                         seller={'PrivateSeller':'private','Private':'private','Dealer':'dealer'}.get(facts[0])
                         if seller: value['seller_type']=seller
@@ -447,55 +446,7 @@ def same_variant(p, q):
                 value=re.sub(r'\s+'+str(row['year'])+r'$','',value)
             return value.strip(), generation.group(1) if generation else None
         a,b=signature(p),signature(q)
-        if not a or not b or (a[1] and b[1] and a[1]!=b[1]):
-            return False
-        return bool(a[0] and a[0]==b[0])
-    return all(normalized(p.get(key)) and normalized(p.get(key)) == normalized(q.get(key))
-               for key in ('generation', 'trim'))
-
-
-
-class BackgroundPriceMemory:
-    def __init__(self,path):
-        self.path=path
-        self.ready=False
-        self.failures=0
-        self.last_poll=None
-        self.batch_size=25
-        self.retry_at=None
-        self.sync_cursor=None
-
-    def step(self, run_id=None):
-        import time
-        started=time.monotonic()
-        if self.retry_at is not None and started<self.retry_at:
-            return None
-        if self.last_poll is not None and self.ready and time.monotonic()-self.last_poll<60:
-            return None
-        self.last_poll=time.monotonic()
-        from .archive import Archive
-        archive=None
-        stage='open'
-        try:
-            archive=Archive(self.path)
-            memory=PriceMemory(archive.db)
-            now=datetime.now(timezone.utc)
-            stage='project_new_observations'
-            projection_started=time.monotonic()
-            count=memory.sync(now,limit=self.batch_size,after=self.sync_cursor)
-            self.sync_cursor=memory.next_cursor
-            projection_seconds=time.monotonic()-projection_started
-            stage='check_completion'
-            # A full batch cannot prove completion. Only a short/empty batch
-            # needs the global missing-event check; this also catches a late
-            # arrival behind the cursor before any comparison is allowed.
-            self.ready=count<self.batch_size and not memory.pending(now)
-            out=dict(price_memory='ready' if self.ready else 'building',projected_this_step=count)
-            automatic=autonomous_enabled()
-            if self.ready and (run_id or automatic):
-                run_id=run_id or 'archive-continuous'
-                if automatic:
-                    run_id=memory.automatic_run_id(run_id,now)
+        if not a or …514 tokens truncated…now)
                 stage='compare_archive'
                 report=memory.first_test(run_id,now,autonomous=automatic)
                 if report['status']=='waiting_for_price_memory':
