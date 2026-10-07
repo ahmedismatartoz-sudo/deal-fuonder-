@@ -11,7 +11,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'variant-and-damage-screening-v2'
+SCREENING_VERSION = 'source-facts-and-variant-screening-v3'
 
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
@@ -112,17 +112,33 @@ class PriceMemory:
                 filters += ' AND p.'+key+'=?'
                 args.append(value)
         while True:
-            rows = self.db.execute('''SELECT p.source,p.source_id,p.observed_at,p.payload
+            page_sql = ('''SELECT p.source,p.source_id,p.observed_at,p.payload
                 FROM price_observations p WHERE p.active=? AND p.observed_at BETWEEN ? AND ?
                 AND NOT EXISTS (SELECT 1 FROM price_observations n WHERE n.source=p.source
                     AND n.source_id=p.source_id AND n.observed_at>p.observed_at AND n.observed_at<=?)'''
                 +filters+''' AND (p.source,p.source_id,p.observed_at)>(?,?,?)
-                ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''',
-                (True,*args,*cursor)).fetchall()
-            for s,i,t,p in rows:
+                ORDER BY p.source,p.source_id,p.observed_at LIMIT 100''')
+            fields = ("e.payload#>>'{original,seller,type}',e.payload#>'{original,vehicle,rawPowerInHp}',e.payload#>'{original,vehicle,rawCylinderCapacity}'"
+                      if self.db.dialect == 'postgres' else
+                      "json_extract(e.payload,'$.original.seller.type'),json_extract(e.payload,'$.original.vehicle.rawPowerInHp'),json_extract(e.payload,'$.original.vehicle.rawCylinderCapacity')")
+            materialized = 'MATERIALIZED ' if self.db.dialect == 'postgres' else ''
+            rows = self.db.execute('WITH source_page AS '+materialized+'('+page_sql+') SELECT p.source,p.source_id,p.observed_at,p.payload,'+fields+'''
+                FROM source_page p LEFT JOIN listing_events e ON p.source='autoscout24'
+                AND e.source=p.source AND e.source_id=p.source_id AND e.observed_at=p.observed_at
+                ORDER BY p.source,p.source_id,p.observed_at''',(True,*args,*cursor)).fetchall()
+            for s,i,t,p,*facts in rows:
                 cursor = (s,i,t)
                 value=self.db.json_decode(p)
                 value.update(source=s,source_id=i,observed_at=t)
+                # Old projections omitted facts that are still retained in the
+                # original detail. Read only specific scalar paths for this
+                # bounded page; never transfer/reparse the full original blob.
+                if s == 'autoscout24':
+                    if facts:
+                        seller={'PrivateSeller':'private','Private':'private','Dealer':'dealer'}.get(facts[0])
+                        if seller: value['seller_type']=seller
+                        for key,fact in zip(('power_hp','displacement_cc'),facts[1:]):
+                            if type(fact) is int and fact>0: value[key]=fact
                 yield value
             if len(rows)<100:
                 break
@@ -262,7 +278,26 @@ def same_variant(p, q):
             return False
     a, b = normalized(p.get('version_text')), normalized(q.get('version_text'))
     if a or b:
-        return bool(a and b and a == b)
+        if a and b and a == b:
+            return True
+        if not all(type(p.get(key)) is int and p[key] == q.get(key)
+                   for key in ('power_hp','displacement_cc')):
+            return False
+        # Headline prefixes may repeat the model/generation/year. Only remove
+        # these editorial prefixes once matching published engine facts exist;
+        # retain trim, engine names, drive type, doors and sport labels.
+        def signature(row):
+            value=normalized(row.get('version_text'))
+            if not value:return None
+            model=normalized(row.get('model'))
+            if model:
+                value=re.sub(r'^(?:'+re.escape(model)+r'\s+)+','',value)
+            value=re.sub(r'^(?:i|ii|iii|iv|v|vi|vii|viii)\b(?:\s+(?:19|20)\d{2})?\s*','',value)
+            if type(row.get('year')) is int:
+                value=re.sub(r'\s+'+str(row['year'])+r'$','',value)
+            return value.strip()
+        a,b=signature(p),signature(q)
+        return bool(a and b and a==b)
     return all(normalized(p.get(key)) and normalized(p.get(key)) == normalized(q.get(key))
                for key in ('generation', 'trim'))
 
