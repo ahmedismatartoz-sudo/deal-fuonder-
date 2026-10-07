@@ -28,7 +28,7 @@ cap famiglia10% morbido. Redistribuire carenze in ordine qualità, senza cambiar
 economia o includere gravi esclusi; ritornare meno300 se non disponibili.
 Mix può deviare per preservare priorità forti o carenze. Esporre target,
 disponibile/selezionato, carenze, redistribuzione e cap rilassato.
-Fasce di presentazione diverse dal confine6000 della policy netta. La lista
+Il confine della policy netta è 5.000 euro (soglie v2: 2k/3k/4k/5k). La lista
 è materiale prioritario da verificare, non300 acquisti approvati.
 
 Per il worker512MB, la discovery mantiene valori normalizzati/conflitti e

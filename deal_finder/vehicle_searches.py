@@ -53,6 +53,13 @@ def title_identity(title):
             if series:
                 return dict(make=make, model='Serie ' + (series.group(1) or series.group(2)),
                             model_year_from_title=int(match.group(1)))
+        if make == 'Fiat':
+            # Provider titles can split the suffix. 500 L/X are separate
+            # families, never the small 500's market-price cohort.
+            spaced = re.match(r'500\s+([LX])\b', body, re.IGNORECASE)
+            if spaced:
+                return dict(make=make, model='500'+spaced.group(1).upper(),
+                            model_year_from_title=int(match.group(1)))
         if make == 'Mercedes-Benz':
             series = re.match(r'(?:Classe\s+)?([ABCES])(?:\s+\d{3}|\b)', body, re.IGNORECASE)
             if series:

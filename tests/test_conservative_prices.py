@@ -59,9 +59,10 @@ class ConservativePricesTests(unittest.TestCase):
         self.assertIsNone(result['conservative_exit_scenario_eur'])
 
     def test_exact_band_and_reserve_boundary(self):
-        # 10,000 * .85 - 750 - 5,750 = exactly 2,000 before unknown costs.
-        self.assertTrue(screen(car(price=5750), self.peers())['price_priority_passed'])
-        self.assertFalse(screen(car(price=5751), self.peers())['price_priority_passed'])
+        # New 5,000 boundary: 10,000 * .85 - 750 - 4,999 > 2,000,
+        # but at 5,000 the requirement increases to 3,000.
+        self.assertTrue(screen(car(price=4999), self.peers())['price_priority_passed'])
+        self.assertFalse(screen(car(price=5000), self.peers())['price_priority_passed'])
         result = screen(car(price=6000), self.peers())
         self.assertEqual(result['minimum_required_net_margin_eur'], 3000)
         self.assertFalse(result['price_priority_passed'])

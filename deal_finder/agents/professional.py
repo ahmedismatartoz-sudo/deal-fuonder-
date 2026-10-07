@@ -492,8 +492,19 @@ def conservative_economics(raw, target, market, repair, opportunity, risk, as_of
         costs = base_costs+repair_shock
         margin,investment = worst['margin_cents'],worst['investment_cents']
         exit_low = worst['exit_cents']
-        maximum = min(exit_low-required_margin-costs,
-                      exit_low*10000//(10000+rate)-costs, POLICY['maximum_purchase_cents'])
+        # An offer can cross a price band: recompute its own required margin
+        # instead of reusing the current advertised purchase's lower tier.
+        lower,upper=0,POLICY['maximum_purchase_cents']//100
+        while lower < upper:
+            offer=(lower+upper+1)//2
+            invested=offer*100+costs
+            residual=exit_low-invested
+            if (residual >= minimum_net_margin_eur(offer)*100
+                    and residual*10000 >= invested*rate):
+                lower=offer
+            else:
+                upper=offer-1
+        maximum=lower*100
         value.update(reference_cents=reference, conservative_exit_cents=exit_low,
                      fast_sale_scenario_cents=exit_low,
                      sale_stress_cents=sale_stress, repair_stress_cents=repair_stress,

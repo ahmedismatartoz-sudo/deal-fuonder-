@@ -4,7 +4,7 @@ import os
 from ..models import Listing
 from .photo_identity import plan
 
-VERSION = 'archive-enrichment-photo-opportunities-v4'
+VERSION = 'archive-enrichment-facebook-evidence-v5'
 
 
 def listing_input(source, source_id, observed_at, url, payload):
@@ -39,6 +39,11 @@ def execute(raw, db, as_of):
                 original_title=payload.get('title'))['payload']
             listing = listing_input(listing['source'],listing['source_id'],listing['observed_at'],latest[2],
                                     dict(payload, **recovered))
+        elif listing['source'] == 'facebook_marketplace':
+            from ..facebook_evidence import recover
+            recovered = recover(payload, source_url=latest[2])
+            listing = listing_input(listing['source'],listing['source_id'],listing['observed_at'],latest[2],recovered)
+            value['facebook_evidence'] = recovered['facebook_evidence']
         if not listing.get('province') and listing.get('city'):
             from ..collection_geography import published_location
             try:

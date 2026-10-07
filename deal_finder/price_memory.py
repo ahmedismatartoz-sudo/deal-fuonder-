@@ -13,7 +13,7 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'evidence-balanced-compact-v18'
+SCREENING_VERSION = 'evidence-balanced-compact-v19'
 
 
 def autonomous_enabled():

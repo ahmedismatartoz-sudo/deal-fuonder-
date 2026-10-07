@@ -76,7 +76,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_price_discount_tiers_include_exact_boundaries(self):
         from deal_finder.opportunity_discovery import signal
-        for price,required in [(2000,2000),(5999,2000),(6000,3000),(9999,3000),
+        for price,required in [(2000,2000),(4999,2000),(5000,3000),(5999,3000),(6000,3000),(9999,3000),
                                (10000,4000),(14999,4000),(15000,5000),(20000,5000)]:
             for gap,expected in [(required-1,False),(required,True)]:
                 with self.subTest(price=price,gap=gap):

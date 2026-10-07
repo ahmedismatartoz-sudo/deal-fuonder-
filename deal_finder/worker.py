@@ -243,7 +243,8 @@ def main():
                 parser.error('poll-seconds must be 0.5–30 and max-jobs nonnegative')
             processed = 0
             from .bootstrap import Bootstrap, bootstrap_config
-            spec = bootstrap_config()
+            archive_review_only = os.getenv('DEAL_FINDER_ARCHIVE_REVIEW_ONLY') == '1'
+            spec = None if archive_review_only else bootstrap_config()
             bootstrap = Bootstrap(args.db, spec) if spec else None
             from .bootstrap import OpportunityCollection
             from .collection_price_agent import enabled as price_collection_enabled
@@ -254,6 +255,9 @@ def main():
                          if os.getenv('DEAL_FINDER_AGENT_SCHEDULER_ENABLED') == '1' else None)
             from .price_memory import BackgroundPriceMemory
             price_memory = BackgroundPriceMemory(args.db)
+            from .facebook_opportunities import FacebookScreening, PREFIX as facebook_prefix
+            facebook_screening = (FacebookScreening(args.db)
+                if os.getenv('DEAL_FINDER_FACEBOOK_SCREENING_ENABLED') == '1' else None)
             from .photo_archive import BackgroundPhotoArchive
             photo_archive = BackgroundPhotoArchive(args.db)
             first_test_id = os.getenv('DEAL_FINDER_FIRST_ARCHIVE_TEST')
@@ -261,7 +265,7 @@ def main():
             from .brightdata import BackgroundArchiveRevalidation
             archive_revalidation = BackgroundArchiveRevalidation(args.db)
             campaign_raw = os.getenv('DEAL_FINDER_BRIGHTDATA_CAMPAIGN')
-            if campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG'):
+            if not archive_review_only and (campaign_raw or os.getenv('DEAL_FINDER_BRIGHTDATA_CONFIG')):
                 from .brightdata import BackgroundCollection
                 try:
                     if campaign_raw:
@@ -278,7 +282,10 @@ def main():
             def analyze_archive():
                 while not analysis_stop.is_set():
                     try:
-                        progress = price_memory.step(first_test_id)
+                        progress = (facebook_screening.step() if facebook_screening
+                                    else price_memory.step(first_test_id))
+                        if facebook_screening:
+                            price_memory.ready = bool(progress and progress.get('facebook_screening') in ('completed','already_completed')) or price_memory.ready
                         if progress:
                             print(json.dumps(progress), flush=True)
                         if analysis_stop.is_set():
@@ -310,7 +317,10 @@ def main():
                         if stopping:
                             break
                     if analysis_thread is None:
-                        memory_progress = price_memory.step(first_test_id)
+                        memory_progress = (facebook_screening.step() if facebook_screening
+                                           else price_memory.step(first_test_id))
+                        if facebook_screening:
+                            price_memory.ready = bool(memory_progress and memory_progress.get('facebook_screening') in ('completed','already_completed')) or price_memory.ready
                         if memory_progress:
                             print(json.dumps(memory_progress), flush=True)
                         photo_progress = (photo_archive.step(first_test_id)
@@ -343,7 +353,9 @@ def main():
                         if args.max_jobs and processed >= args.max_jobs:
                             break
                         from .price_memory import priority_batch_id, priority_batch_prefix, autonomous_enabled
-                        if autonomous_enabled():
+                        if facebook_screening:
+                            result=queue.work_one(batch_prefix=facebook_prefix)
+                        elif autonomous_enabled():
                             result=queue.work_one(batch_prefix=priority_batch_prefix())
                         else:
                             result = (queue.work_one(batch_id=priority_batch_id(first_test_id))

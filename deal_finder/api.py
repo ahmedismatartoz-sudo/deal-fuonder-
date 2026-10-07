@@ -254,6 +254,25 @@ def latest_price_test(price_band: int | None = None,damage_category: str | None 
         archive.close()
 
 
+@app.get('/facebook/opportunities/latest')
+def facebook_opportunity_report():
+    from .archive import Archive
+    from .price_memory import PriceMemory
+    from .facebook_opportunities import VERSION
+    archive=Archive(database_target())
+    try:
+        PriceMemory(archive.db)
+        # Sort only small keys, then detoast the one selected payload.
+        row=archive.db.execute('SELECT run_id FROM price_test_reports WHERE run_id LIKE ? ORDER BY as_of DESC,run_id DESC LIMIT 1',
+                               (VERSION+'-%',)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404,detail='Facebook screening not completed')
+        result=archive.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(row[0],)).fetchone()
+        return archive.db.json_decode(result[0])
+    finally:
+        archive.close()
+
+
 @app.get('/price-tests/{run_id}')
 def price_test_report(run_id: str):
     from .archive import Archive

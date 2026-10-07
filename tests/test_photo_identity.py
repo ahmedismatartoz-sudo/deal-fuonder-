@@ -17,6 +17,13 @@ def raw(): return dict(listing=row(99,image_urls=['https://example.com/front.jpg
 
 
 class PhotoTests(unittest.TestCase):
+    def test_mileage_web_and_non_numeric_claims_are_rejected(self):
+        out=execute(raw(),NOW,lambda _:response([
+            finding('mileage_km','50000',origin='web',urls=['https://fiat.com/panda']),
+            finding('mileage_km','50k',origin='photo')]))
+        self.assertEqual(len(out['rejected_claims']),2)
+        self.assertFalse(out['identity_attestation'])
+
     def test_photo_ad_web_still_provisional(self):
         out=execute(raw(),NOW,lambda _:response([finding('make','fiat'),finding('model','panda')]))
         self.assertEqual(out['status'],'provisional_identification')

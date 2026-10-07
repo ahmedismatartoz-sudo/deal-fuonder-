@@ -162,7 +162,7 @@ per il ruolo applicativo.
 Il profilo `discovery` considera marca/modello, anno ±3 e km ±60.000.
 Almeno due riferimenti distinti e uno scarto dalla media degli annunci di
 almeno 2.000 € sotto la media generano una segnalazione preliminare sotto
-6.000 € di acquisto; da 6.000 € servono 3.000 €, da 10.000 € 4.000 € e
+5.000 € di acquisto; da 5.000 € servono 3.000 €, da 10.000 € 4.000 € e
 da 15.000 € fino a 20.000 € servono 5.000 €. Motore/allestimento
 incerti, conflitti e condizioni sconosciute restano da verificare. Danni
 gravi espliciti e prezzi non totali restano esclusi. Il confronto è indicativo
@@ -179,3 +179,6 @@ I riferimenti discovery appartengono allo stesso gruppo di condizioni:
 sane, danni minimi, danni non gravi, danni non precisati o condizioni
 sconosciute. Non si ricava uno sconto diretto da un'auto incidentata
 confrontandola con una sana. L'entità e i costi dei danni restano da verificare.
+
+Per analizzare tutti gli annunci Facebook con soglie nette v2 e risultati
+separati dalla coda di ricerca: [docs/facebook-opportunities.md](docs/facebook-opportunities.md).
