@@ -15,7 +15,7 @@ def listing_input(source, source_id, observed_at, url, payload):
 
 def execute(raw, db, as_of):
     listing = raw['listing']
-    latest = db.execute('SELECT observed_at, active FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',
+    latest = db.execute('SELECT observed_at, active, url, payload FROM listing_events WHERE source=? AND source_id=? ORDER BY observed_at DESC LIMIT 1',
                         (listing['source'], listing['source_id'])).fetchone()
     state = 'needs_evidence'
     if not latest or latest[0] != listing['observed_at'] or not latest[1]:
@@ -28,6 +28,23 @@ def execute(raw, db, as_of):
     if state == 'superseded':
         value['reason'] = 'A newer source observation supersedes this enrichment task.'
     else:
+        # Reinterpret retained originals with the corrected adapter. This does
+        # not fetch a new page, spend credits, or overwrite source history.
+        payload = db.json_decode(latest[3])
+        if listing['source'] == 'autoscout24' and isinstance(payload.get('original'), dict):
+            from ..autoscout24 import record_event
+            recovered = record_event(payload['original'], url=latest[2],
+                observed_at=listing['observed_at'], detailed=payload.get('detail_fetched') is True,
+                original_title=payload.get('title'))['payload']
+            listing = listing_input(listing['source'],listing['source_id'],listing['observed_at'],latest[2],
+                                    dict(payload, **recovered))
+        if not listing.get('province') and listing.get('city'):
+            from ..collection_geography import published_location
+            try:
+                listing['province'] = published_location(listing['city'])['province']
+            except ValueError:
+                pass
+        value['resolved_listing'] = listing
         from .market_triage import review
         value['market_triage'] = review(listing, db, as_of)
         value['priority'] = 'price_signal' if value['market_triage']['priority_enrichment'] else 'data_completion'
