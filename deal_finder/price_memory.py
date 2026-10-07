@@ -4,6 +4,7 @@ An immutable compact projection learns each new archive event once. Neither
 seller descriptions nor family asking prices establish repair scope or profit.
 """
 import re
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from statistics import median
@@ -11,7 +12,20 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
-SCREENING_VERSION = 'source-facts-and-variant-screening-v4'
+SCREENING_VERSION = 'research-profiles-v5'
+
+
+def research_policy(profile=None):
+    profile = profile or os.getenv('DEAL_FINDER_FIRST_TEST_PROFILE', 'strict')
+    if profile == 'exploratory':
+        return dict(profile=profile, minimum_comparables=3, year_tolerance=2,
+                    mileage_tolerance_km=40000, minimum_headroom_eur=500,
+                    minimum_discount_percent=10, asking_stress_percent=0)
+    if profile != 'strict':
+        raise ValueError('Unknown research screening profile')
+    return dict(profile=profile, minimum_comparables=8, year_tolerance=1,
+                mileage_tolerance_km=20000, minimum_headroom_eur=2000,
+                minimum_discount_percent=25, asking_stress_percent=15)
 
 
 def priority_batch_id(run_id):
@@ -22,7 +36,7 @@ def priority_batch_id(run_id):
     """
     from .agent_runtime import connections
     state = 'identity-ready' if connections()['photo_web_provider_configured'] else 'identity-blocked'
-    return 'first-test-'+run_id+'-'+SCREENING_VERSION+'-'+state
+    return 'first-test-'+run_id+'-'+SCREENING_VERSION+'-'+research_policy()['profile']+'-'+state
 
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
@@ -154,8 +168,9 @@ class PriceMemory:
             if len(rows)<100:
                 break
 
-    def first_test(self, run_id, as_of, limit=20):
-        storage_run_id = run_id+'-'+SCREENING_VERSION
+    def first_test(self, run_id, as_of, limit=20, *, profile=None):
+        policy = research_policy(profile)
+        storage_run_id = run_id+'-'+SCREENING_VERSION+'-'+policy['profile']
         old = self.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(storage_run_id,)).fetchone()
         if old:
             cached = self.db.json_decode(old[0])
@@ -194,7 +209,8 @@ class PriceMemory:
                    if (q['source'],q['source_id'])!=(p['source'],p['source_id'])
                    and q.get('seller_type')==p.get('seller_type')
                    and same_variant(p,q)
-                   and abs(q['year']-p['year'])<=1 and abs(q['mileage_km']-p['mileage_km'])<=20000]
+                   and abs(q['year']-p['year'])<=policy['year_tolerance']
+                   and abs(q['mileage_km']-p['mileage_km'])<=policy['mileage_tolerance_km']]
             # Mixed sources/reposts could be the same vehicle. Collapse identical
             # seller asking specifications/amounts before counting analogies.
             unique={}
@@ -202,15 +218,16 @@ class PriceMemory:
                 identity=(q['year'],q['mileage_km'],q.get('version_text') or q.get('trim'),q['price_eur'],q.get('city'))
                 unique.setdefault(identity,q)
             peers=list(unique.values())
-            if len(peers)<8:
-                exclusions['fewer_than_8_provisional_analogies']+=1
+            if len(peers)<policy['minimum_comparables']:
+                exclusions['fewer_than_'+str(policy['minimum_comparables'])+'_provisional_analogies']+=1
                 continue
             prices=sorted(q['price_eur'] for q in peers)
             p25=prices[(len(prices)-1)//4]
-            # Discount the lower quartile by 15% before even prioritizing checks.
-            stressed=p25*85//100
+            # Exploratory research ranks published asking prices without
+            # imposing the strict profile's resale stress. Neither is net profit.
+            stressed=p25*(100-policy['asking_stress_percent'])//100
             gap=stressed-p['price_eur']
-            if gap<2000 or gap*100<p['price_eur']*25:
+            if gap<policy['minimum_headroom_eur'] or gap*100<p['price_eur']*policy['minimum_discount_percent']:
                 exclusions['insufficient_gross_headroom']+=1
                 continue
             band=min(3,p['price_eur']//5000)
@@ -245,6 +262,7 @@ class PriceMemory:
                     selected.append(p); added=True
             if not added: break
         report=dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=SCREENING_VERSION,status='completed_research_test',
+                    screening_policy=policy,
                     active_recent_observations=len(all_rows),projected_events=self.db.execute(
                         'SELECT count(*) FROM price_observations WHERE observed_at<=?',(as_of.isoformat(),)).fetchone()[0],
                     exclusions=dict(exclusions),candidates=selected,approved_buys=0,

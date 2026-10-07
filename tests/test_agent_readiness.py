@@ -133,6 +133,17 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(len(output['sources']), 6)
         self.assertFalse(output['calibrated'])
 
+    def test_exploratory_triage_uses_same_gap_and_sample_as_shortlist(self):
+        from deal_finder.agents.market_triage import review
+        records=[complete(i,price_eur=5500+i*100,version_text='1.2 Easy',year=2020,mileage_km=110000+i)
+                 for i in range(3)]
+        cheap=complete('cheap',price_eur=5000,version_text='1.2 Easy',year=2018,mileage_km=80000)
+        self.market.archive.ingest(page(records+[cheap]),as_of=NOW)
+        with patch.dict(os.environ,{'DEAL_FINDER_FIRST_TEST_PROFILE':'exploratory'}):
+            output=review(dict(cheap['payload'],source='export',source_id='cheap'),self.market.db,NOW)
+        self.assertTrue(output['priority_enrichment'])
+        self.assertFalse(output['candidate_for_verification'])
+
     def test_triage_does_not_mix_manual_and_automatic_gearboxes(self):
         from deal_finder.agents.market_triage import review
         records = [complete(i, price_eur=10000, version_text='1.2 Easy', transmission='automatic') for i in range(6)]

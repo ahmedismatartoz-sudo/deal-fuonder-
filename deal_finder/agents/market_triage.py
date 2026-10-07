@@ -15,7 +15,8 @@ def review(listing, db, as_of):
     price = listing.get('price_eur')
     if type(price) is not int or price <= 0:
         return dict(output, reason='Published acquisition amount unresolved')
-    from ..price_memory import PriceMemory, amount_usable, risky, same_variant
+    from ..price_memory import PriceMemory, amount_usable, risky, same_variant, research_policy
+    policy = research_policy()
     memory = PriceMemory(db)
     # Development callers may ingest directly; deployed worker builds memory
     # before consuming jobs. Read only new raw observations, never whole families.
@@ -35,7 +36,8 @@ def review(listing, db, as_of):
             continue
         if any(type(p.get(key)) is not int or type(listing.get(key)) is not int
                or abs(p[key]-listing[key]) > tolerance
-               for key,tolerance in (('year',1), ('mileage_km',20000))):
+               for key,tolerance in (('year',policy['year_tolerance']),
+                                     ('mileage_km',policy['mileage_tolerance_km']))):
             continue
         fuel, condition = p.get('fuel'), p.get('condition')
         if (isinstance(listing.get('fuel'), str) and isinstance(fuel, str)
@@ -52,7 +54,12 @@ def review(listing, db, as_of):
         return dict(output, reason='No matching source amounts; collect sourced analogies')
     ordered = sorted(amounts)
     p25 = ordered[(len(ordered)-1)//4]
-    priority = len(amounts) >= 5 and (p25-price)*10 >= p25
+    minimum = policy['minimum_comparables'] if policy['profile']=='exploratory' else 5
+    if policy['profile']=='exploratory':
+        priority = (len(amounts) >= minimum and p25-price >= policy['minimum_headroom_eur']
+                    and (p25-price)*100 >= price*policy['minimum_discount_percent'])
+    else:
+        priority = len(amounts) >= minimum and (p25-price)*10 >= p25
     return dict(output, status='provisional_family_context', priority_enrichment=priority,
                 observed_envelope_eur=dict(low=min(amounts), typical=round(median(amounts)), high=max(amounts)),
                 potential_before_repairs_eur=dict(low=min(amounts)-price, high=max(amounts)-price),
