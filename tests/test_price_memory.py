@@ -98,6 +98,11 @@ class PriceMemoryTests(unittest.TestCase):
         self.assertFalse(same_variant(dict(version_text='1.2 Easy',power_hp=69),dict(version_text='1.2 Easy',power_hp=85)))
         self.assertFalse(same_variant({},{}))
         self.assertTrue(same_variant(dict(version_text='1.2 Easy'),dict(version_text=' 1.2 EASY ')))
+        base=dict(model='panda',power_hp=69,displacement_cc=1242,year=2020)
+        self.assertTrue(same_variant(dict(base,version_text='1.2 Easy 69cv'),
+                                     dict(base,version_text='Panda III 2016 1.2 Easy 69cv')))
+        self.assertFalse(same_variant(dict(base,version_text='1.2 Easy 69cv'),
+                                      dict(base,version_text='Panda 1.2 Lounge 69cv')))
 
     def test_yaris_active_does_not_become_deal_against_gr_prices(self):
         records=[complete('active',model='yaris',price_eur=13600,mileage_km=36910,
@@ -114,6 +119,19 @@ class PriceMemoryTests(unittest.TestCase):
         self.assertEqual(listing['version_text'],'1.3 mjt Pop 85cv')
         self.assertEqual(listing['power_hp'],84)
         self.assertEqual(listing['displacement_cc'],1248)
+
+    def test_existing_compact_memory_recovers_only_retained_scalar_source_facts(self):
+        record=complete('retained')
+        record['payload'].pop('seller_type')
+        record['payload']['original']=dict(seller=dict(type='PrivateSeller'),
+            vehicle=dict(rawPowerInHp=69,rawCylinderCapacity=1242),unused_large='x'*100000)
+        self.archive.ingest(page([record],source='autoscout24'),as_of=NOW)
+        self.memory.sync(NOW)
+        value=next(self.memory.current(NOW))
+        self.assertEqual(value['seller_type'],'private')
+        self.assertEqual(value['power_hp'],69)
+        self.assertEqual(value['displacement_cc'],1242)
+        self.assertNotIn('unused_large',str(value))
 
     def test_old_report_is_recomputed_instead_of_returning_invalid_candidates(self):
         from deal_finder.archive import canonical
