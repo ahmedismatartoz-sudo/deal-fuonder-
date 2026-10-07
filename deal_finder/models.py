@@ -43,12 +43,15 @@ class Listing:
     version_text: str | None = None
     power_hp: int | None = None
     displacement_cc: int | None = None
+    declared_specs: dict | None = None
 
     @classmethod
     def parse(cls, row):
         if not isinstance(row, dict):
             raise ValueError('Listing must be an object')
         data = dict(row)
+        if data.get('declared_specs') is not None and not isinstance(data['declared_specs'], dict):
+            raise ValueError('declared_specs must be a source object')
         if data.get('version_text') is not None and not isinstance(data['version_text'], str):
             raise ValueError('version_text must be text')
         for key, maximum in (('power_hp', 3000), ('displacement_cc', 20000)):
