@@ -11,11 +11,14 @@ from .archive import canonical
 from .models import normalize
 from .collection_geography import published_location
 
+SCREENING_VERSION = 'variant-and-damage-screening-v2'
+
 FIELDS = ('url','price_eur','price_kind','title','description','fuel','transmission',
           'generation','trim','version_text','year','mileage_km','condition','city',
-          'province','seller_type','damage_severity','damage_indicators','active')
+          'province','seller_type','damage_severity','damage_indicators','active',
+          'power_hp','displacement_cc')
 PAYMENT = re.compile(r'\b(?:anticipo|acconto|rata|rate mensili)\b|(?:€|eur)\s*/\s*mese', re.I)
-DAMAGE = re.compile(r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*|airbag.{0,15}(?:scoppi|esplos)|alluvionat\w*|incendiat\w*|uso ricambi|non marciante)\b',re.I)
+DAMAGE = re.compile(r'\b(?:incidentat\w*|sinistrat\w*|danneggiat\w*|grandin\w*|airbag.{0,15}(?:scoppi|esplos)|alluvionat\w*|incendiat\w*|uso ricambi|non marciante|motore\s+(?:da\s+(?:cambiare|sostituire|rifare)|rotto|fuso)|(?:problemi|guasto|guasti)\s+(?:al\s+)?(?:motore|cambio)|carrozzeria\s+scolorita|crepa\s+sul\s+parafango)\b',re.I)
 
 
 def postgres_projection_sql():
@@ -127,7 +130,9 @@ class PriceMemory:
     def first_test(self, run_id, as_of, limit=20):
         old = self.db.execute('SELECT payload FROM price_test_reports WHERE run_id=?',(run_id,)).fetchone()
         if old:
-            return self.db.json_decode(old[0])
+            cached = self.db.json_decode(old[0])
+            if cached.get('screening_version') == SCREENING_VERSION:
+                return cached
         if self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
         all_rows = list(self.current(as_of))
@@ -160,6 +165,7 @@ class PriceMemory:
             peers=[q for q in groups[(p['make'],p['model'],normalized(p.get('fuel')),normalized(p.get('transmission'))) ]
                    if (q['source'],q['source_id'])!=(p['source'],p['source_id'])
                    and q.get('seller_type')==p.get('seller_type')
+                   and same_variant(p,q)
                    and abs(q['year']-p['year'])<=1 and abs(q['mileage_km']-p['mileage_km'])<=20000]
             # Mixed sources/reposts could be the same vehicle. Collapse identical
             # seller asking specifications/amounts before counting analogies.
@@ -210,7 +216,7 @@ class PriceMemory:
                     families[(p['make'],p['model'])]+=1
                     selected.append(p); added=True
             if not added: break
-        report=dict(run_id=run_id,as_of=as_of.isoformat(),status='completed_research_test',
+        report=dict(run_id=run_id,as_of=as_of.isoformat(),screening_version=SCREENING_VERSION,status='completed_research_test',
                     active_recent_observations=len(all_rows),projected_events=self.db.execute(
                         'SELECT count(*) FROM price_observations WHERE observed_at<=?',(as_of.isoformat(),)).fetchone()[0],
                     exclusions=dict(exclusions),candidates=selected,approved_buys=0,
@@ -221,7 +227,7 @@ class PriceMemory:
         if self.pending(as_of):
             return dict(status='waiting_for_price_memory',run_id=run_id)
         with self.db:
-            self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO NOTHING',
+            self.db.execute('INSERT INTO price_test_reports VALUES (?,?,?) ON CONFLICT(run_id) DO UPDATE SET as_of=excluded.as_of,payload=excluded.payload',
                             (run_id,as_of.isoformat(),self.db.json_param(canonical(report))))
         return report
 
@@ -241,6 +247,23 @@ def risky(p):
             signals.append(match.group())
     return (p.get('condition')=='damaged' or p.get('damage_severity')=='severe'
             or bool(p.get('damage_indicators')) or bool(signals))
+
+
+def same_variant(p, q):
+    """Strict research analogies; missing identity never proves equivalence.
+
+    Equal published version text is provisional, not an identity attestation.
+    Prefer losing an analogy to mixing GR/ST/4x4 or different engines.
+    """
+    for key in ('generation', 'trim', 'power_hp', 'displacement_cc'):
+        a, b = p.get(key), q.get(key)
+        if a is not None and b is not None and normalized(str(a)) != normalized(str(b)):
+            return False
+    a, b = normalized(p.get('version_text')), normalized(q.get('version_text'))
+    if a or b:
+        return bool(a and b and a == b)
+    return all(normalized(p.get(key)) and normalized(p.get(key)) == normalized(q.get(key))
+               for key in ('generation', 'trim'))
 
 
 
@@ -292,7 +315,7 @@ class BackgroundPriceMemory:
                     from .agents.enrichment import listing_input
                     queue=Queue(self.path)
                     try:
-                        batch='first-test-'+run_id
+                        batch='first-test-'+run_id+'-'+SCREENING_VERSION
                         if not queue.db.execute('SELECT 1 FROM batches WHERE batch_id=?',(batch,)).fetchone():
                             records=[]
                             for p in report['candidates']:
